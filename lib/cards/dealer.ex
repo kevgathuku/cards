@@ -97,13 +97,18 @@ defmodule Cards.Dealer do
   end
 
   @impl true
-  def handle_cast({:add_player, name}, state) do
+  def handle_cast({:add_player, name}, %{remaining: deck, players: players} = state) do
+    player = Enum.find(players, fn player -> player.name == name end)
+    if player do
+      {:noreply, state}
+    else
     # {:ok, player} = Cards.Player.start_link([])
     # Deal 4 cards to the player
-    {player_cards, new_remaining} = Enum.split(state.remaining, 4)
+    {player_cards, remaining_deck} = Enum.split(deck, 4)
 
     player = %Player{name: name, cards: player_cards}
 
-    {:noreply, %{state | players: [player | state.players], remaining: new_remaining}}
+    {:noreply, %{state | players: [player | players], remaining: remaining_deck}}
+  end
   end
 end

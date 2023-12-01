@@ -27,4 +27,15 @@ defmodule Cards.DealerTest do
     %{remaining: deck} = Cards.Dealer.report(registry)
     assert length(deck) == 48
   end
+
+  test "does not add duplicate players", %{registry: registry} do
+    name = "iniesta"
+
+    Cards.Dealer.add_player(registry, name)
+    Cards.Dealer.add_player(registry, name)
+
+    %{remaining: deck, players: players} = Cards.Dealer.report(registry)
+    assert length(players) == 1
+    assert length(deck) == 48
+  end
 end
