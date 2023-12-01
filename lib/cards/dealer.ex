@@ -102,11 +102,7 @@ defmodule Cards.Dealer do
     # Deal 4 cards to the player
     {player_cards, new_remaining} = Enum.split(state.remaining, 4)
 
-    # TODO: Define the Player module
-    player = %{
-      name: name,
-      cards: player_cards
-    }
+    player = %Player{name: name, cards: player_cards}
 
     {:noreply, %{state | players: [player | state.players], remaining: new_remaining}}
   end
