@@ -1,4 +1,4 @@
-defmodule Cards.Dealer do
+defmodule Games.Kadi.Dealer do
   @moduledoc """
   Card dealer module
   """
