@@ -36,12 +36,6 @@ defmodule Games.Kadi.Dealer do
     GenServer.cast(server, {:add_player, name})
   end
 
-  def generate_permutations(list1, list2) do
-    Enum.flat_map(list1, fn item1 ->
-      for item2 <- list2, do: {item1, item2}
-    end)
-  end
-
   def create_deck do
     numbers = [
       :ace,
