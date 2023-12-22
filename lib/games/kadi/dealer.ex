@@ -112,8 +112,9 @@ defmodule Games.Kadi.Dealer do
     {:noreply, new_state, new_state}
   end
 
+  # TODO: this does not need to be async
   @impl true
-  def handle_cast({:add_player, name}, %{remaining: deck, players: players} = state) do
+  def handle_cast({:add_player, name}, %{deck: deck, players: players} = state) do
     player = Enum.find(players, fn player -> player.name == name end)
 
     if player do
@@ -125,7 +126,7 @@ defmodule Games.Kadi.Dealer do
 
       player = %Games.Kadi.Player{name: name, cards: player_cards}
 
-      {:noreply, %{state | players: [player | players], remaining: remaining_deck}}
+      {:noreply, %{state | players: [player | players], deck: remaining_deck}}
     end
   end
 
@@ -133,7 +134,6 @@ defmodule Games.Kadi.Dealer do
     %{num_players: 2, direction: :clockwise}
   end
 
-  # player must exist at this point
   defp deal(%{deck: deck, players: players} = state, player) do
     {player_cards, remaining_deck} = Enum.split(deck, 4)
 
