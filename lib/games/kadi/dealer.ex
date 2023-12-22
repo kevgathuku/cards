@@ -4,8 +4,12 @@ defmodule Games.Kadi.Dealer do
   """
   use GenServer
 
-  ## Client API
+  @default_state %{
+    players: [],
+    deck: []
+  }
 
+  ## Client API
   @doc """
   Starts the registry.
   """
@@ -60,12 +64,28 @@ defmodule Games.Kadi.Dealer do
 
   # GenServer Callbacks
   @impl true
-  def init(:ok) do
-    {:ok,
-     %{
-       remaining: create_deck() |> Enum.shuffle(),
-       players: []
-     }}
+  def init(:ok, options) do
+    deck = create_deck() |> Enum.shuffle()
+    init_state = %{@default_state | deck: deck}
+
+    # Check the options if there are custom configs
+    %{num_players: num_players, direction: direction} =
+      Map.merge(options, default_config()) |> Map.take([:num_players, :direction])
+
+    state =
+      Enum.reduce(1..num_players, init_state, fn num_player, state ->
+        add_player_and_deal(state, num_player)
+      end)
+
+    {
+      :ok,
+      #  %{
+      #    players: [],
+      #    deck: remaining_deck,
+      #    direction: direction
+      #  }
+      state
+    }
   end
 
   @impl true
@@ -82,15 +102,20 @@ defmodule Games.Kadi.Dealer do
 
   @impl true
   def handle_cast(:shuffle, state) do
-    new_state = Map.put(
-      state, "remaining", Enum.shuffle(state.remaining)
+    new_state =
+      Map.put(
+        state,
+        "remaining",
+        Enum.shuffle(state.remaining)
     )
+
     {:noreply, new_state, new_state}
   end
 
   @impl true
   def handle_cast({:add_player, name}, %{remaining: deck, players: players} = state) do
     player = Enum.find(players, fn player -> player.name == name end)
+
     if player do
       {:noreply, state}
     else
@@ -98,9 +123,25 @@ defmodule Games.Kadi.Dealer do
     # Deal 4 cards to the player
     {player_cards, remaining_deck} = Enum.split(deck, 4)
 
-    player = %Player{name: name, cards: player_cards}
+      player = %Games.Kadi.Player{name: name, cards: player_cards}
 
     {:noreply, %{state | players: [player | players], remaining: remaining_deck}}
   end
+  end
+
+  defp default_config() do
+    %{num_players: 2, direction: :clockwise}
+  end
+
+  # player must exist at this point
+  defp deal(%{deck: deck} = state, player) do
+    {player_cards, remaining_deck} = Enum.split(deck, 4)
+
+    %{state | deck: remaining_deck, player: %{player | cards: player_cards}}
+  end
+
+  defp add_player_and_deal(%{players: players} = state, num) do
+    player = %Games.Kadi.Player{name: "P:#{num}", cards: []}
+    deal(%{state | players: [player | players]}, player)
   end
 end
