@@ -29,14 +29,14 @@ defmodule Games.Kadi.DealerTest do
     assert length(deck) == 40
   end
 
-  # test "does not add duplicate players", %{registry: registry} do
-  #   name = "iniesta"
+  test "does not add duplicate players", %{registry: registry} do
+    name = "iniesta"
 
-  #   Dealer.add_player(registry, name)
-  #   Dealer.add_player(registry, name)
+    Dealer.add_player(registry, name)
+    Dealer.add_player(registry, name)
 
-  #   %{remaining: deck, players: players} = Dealer.report(registry)
-  #   assert length(players) == 1
-  #   assert length(deck) == 48
-  # end
+    %{deck: deck, players: players} = Dealer.report(registry)
+    assert length(players) == 3
+    assert length(deck) == 40
+  end
 end
