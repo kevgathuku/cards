@@ -14,7 +14,7 @@ defmodule Games.Kadi.Dealer do
   Starts the registry.
   """
   def start_link(opts) do
-    GenServer.start_link(__MODULE__, :ok, opts)
+    GenServer.start_link(__MODULE__, default_config(), opts)
   end
 
   @doc """
@@ -64,17 +64,17 @@ defmodule Games.Kadi.Dealer do
 
   # GenServer Callbacks
   @impl true
-  def init(:ok, options) do
+  def init(options) do
     deck = create_deck() |> Enum.shuffle()
     init_state = %{@default_state | deck: deck}
 
     # Check the options if there are custom configs
-    %{num_players: num_players, direction: direction} =
+    %{num_players: num_players} =
       Map.merge(options, default_config()) |> Map.take([:num_players, :direction])
 
     state =
-      Enum.reduce(1..num_players, init_state, fn num_player, state ->
-        add_player_and_deal(state, num_player)
+      Enum.reduce(1..num_players, init_state, fn num, state ->
+        add_player_and_deal(state, "P:#{num}")
       end)
 
     {
@@ -107,7 +107,7 @@ defmodule Games.Kadi.Dealer do
         state,
         "remaining",
         Enum.shuffle(state.remaining)
-    )
+      )
 
     {:noreply, new_state, new_state}
   end
@@ -119,14 +119,14 @@ defmodule Games.Kadi.Dealer do
     if player do
       {:noreply, state}
     else
-    # {:ok, player} = Cards.Player.start_link([])
-    # Deal 4 cards to the player
-    {player_cards, remaining_deck} = Enum.split(deck, 4)
+      # {:ok, player} = Cards.Player.start_link([])
+      # Deal 4 cards to the player
+      {player_cards, remaining_deck} = Enum.split(deck, 4)
 
       player = %Games.Kadi.Player{name: name, cards: player_cards}
 
-    {:noreply, %{state | players: [player | players], remaining: remaining_deck}}
-  end
+      {:noreply, %{state | players: [player | players], remaining: remaining_deck}}
+    end
   end
 
   defp default_config() do
@@ -134,14 +134,17 @@ defmodule Games.Kadi.Dealer do
   end
 
   # player must exist at this point
-  defp deal(%{deck: deck} = state, player) do
+  defp deal(%{deck: deck, players: players} = state, player) do
     {player_cards, remaining_deck} = Enum.split(deck, 4)
 
-    %{state | deck: remaining_deck, player: %{player | cards: player_cards}}
+    updated_player = %{player | cards: player_cards}
+
+    %{state | deck: remaining_deck, players: [updated_player | players]}
   end
 
-  defp add_player_and_deal(%{players: players} = state, num) do
-    player = %Games.Kadi.Player{name: "P:#{num}", cards: []}
-    deal(%{state | players: [player | players]}, player)
+  defp add_player_and_deal(state, name) do
+    # TODO: Handle an existing player name better
+    player = %Games.Kadi.Player{name: name, cards: []}
+    deal(state, player)
   end
 end
