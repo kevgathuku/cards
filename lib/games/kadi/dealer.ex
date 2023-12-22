@@ -55,9 +55,7 @@ defmodule Games.Kadi.Dealer do
 
     suits = [:flowers, :diamonds, :hearts, :spades]
 
-    Enum.flat_map(numbers, fn number ->
-      for suit <- suits, do: {number, suit}
-    end)
+    for num <- numbers, suit <- suits, do: {num, suit}
   end
 
   # GenServer Callbacks
