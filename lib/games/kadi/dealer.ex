@@ -6,7 +6,8 @@ defmodule Games.Kadi.Dealer do
 
   @default_state %{
     players: [],
-    deck: []
+    deck: [],
+    direction: :clockwise
   }
 
   ## Client API
@@ -65,12 +66,11 @@ defmodule Games.Kadi.Dealer do
   # GenServer Callbacks
   @impl true
   def init(options) do
+    # Merge default and custom config options
+    %{num_players: num_players} = Map.merge(options, default_config())
+
     deck = create_deck() |> Enum.shuffle()
     init_state = %{@default_state | deck: deck}
-
-    # Check the options if there are custom configs
-    %{num_players: num_players} =
-      Map.merge(options, default_config()) |> Map.take([:num_players, :direction])
 
     state =
       Enum.reduce(1..num_players, init_state, fn num, state ->
@@ -131,7 +131,7 @@ defmodule Games.Kadi.Dealer do
   end
 
   defp default_config() do
-    %{num_players: 2, direction: :clockwise}
+    %{num_players: 2}
   end
 
   defp deal(%{deck: deck, players: players} = state, player) do

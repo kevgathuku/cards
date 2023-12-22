@@ -8,10 +8,11 @@ defmodule Games.Kadi.DealerTest do
   end
 
   test "generates valid state on init", %{registry: registry} do
-    %{deck: deck, players: players} = Dealer.report(registry)
+    %{deck: deck, players: players, direction: direction} = Dealer.report(registry)
 
     assert length(deck) == 44
     assert length(players) == 2
+    assert direction == :clockwise
   end
 
   test "adds players to the game", %{registry: registry} do
