@@ -15,8 +15,7 @@ defmodule Games.Kadi.Dealer do
   Starts the registry.
   """
   def start_link(opts) do
-    options_map = opts |> Enum.into(%{})
-    GenServer.start_link(__MODULE__, options_map, name: __MODULE__)
+    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
   @doc """
@@ -68,7 +67,7 @@ defmodule Games.Kadi.Dealer do
   @impl true
   def init(options) do
     # Merge default and provided config options
-    %{num_players: num_players} = Map.merge(default_config(), options)
+    %{num_players: num_players} = Map.merge(default_config(), Enum.into(options, %{}))
 
     deck = create_deck() |> Enum.shuffle()
     init_state = %{@default_state | deck: deck}
