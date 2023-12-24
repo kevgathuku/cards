@@ -18,12 +18,13 @@ defmodule Games.Kadi.DealerTest do
   test "generates valid deck on init", %{registry: registry} do
     %{deck: deck, direction: direction} = Dealer.report(registry)
 
+    suits = ~w(Hearts Flowers Diamonds Spades)
+    num_twos = for suit <- suits, do: {2, suit}
+
     assert direction == :clockwise
     assert length(deck) == 44
-    assert Enum.member?(deck, {2, "Hearts"}) == true
-    assert Enum.member?(deck, {2, "Diamonds"}) == true
-    assert Enum.member?(deck, {2, "Spades"}) == true
-    assert Enum.member?(deck, {2, "Flowers"}) == true
+    assert Enum.all?(num_twos, fn card -> Enum.member?(deck, card) end)
+    assert Enum.all?(deck, fn {_, suit} -> Enum.member?(suits, suit) end)
   end
 
   test "deals 4 cards to each player on init", %{registry: registry} do
