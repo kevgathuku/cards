@@ -16,13 +16,27 @@ defmodule Games.Kadi.DealerTest do
   end
 
   test "create_deck" do
-    deck = Games.Kadi.Dealer.create_deck()
+    deck = Dealer.create_deck()
 
     suits = ~w(Hearts Flowers Diamonds Spades)
     num_twos = for suit <- suits, do: {2, suit}
 
     assert Enum.all?(num_twos, fn card -> Enum.member?(deck, card) end)
     assert Enum.all?(deck, fn {_, suit} -> Enum.member?(suits, suit) end)
+  end
+
+  test "shuffle", %{registry: registry} do
+    # :random.seed(:erlang.now)
+    state = Dealer.report(registry)
+
+    %{deck: shuffled_deck} = Dealer.shuffle(registry)
+
+    assert shuffled_deck != state.deck
+    assert length(shuffled_deck) == 44
+
+    suits = ~w(Hearts Flowers Diamonds Spades)
+
+    assert Enum.all?(shuffled_deck, fn {_, suit} -> Enum.member?(suits, suit) end)
   end
 
   test "generates valid deck on init", %{registry: registry} do

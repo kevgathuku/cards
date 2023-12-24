@@ -36,6 +36,13 @@ defmodule Games.Kadi.Dealer do
   end
 
   @doc """
+  Shuffle the cards
+  """
+  def shuffle(server) do
+    GenServer.call(server, :shuffle)
+  end
+
+  @doc """
   Ensures there is a player associated with the given `name` in `server`.
   """
   def add_player(server, name) do
@@ -97,15 +104,10 @@ defmodule Games.Kadi.Dealer do
   end
 
   @impl true
-  def handle_cast(:shuffle, state) do
-    new_state =
-      Map.put(
-        state,
-        "remaining",
-        Enum.shuffle(state.remaining)
-      )
-
-    {:noreply, new_state, new_state}
+  def handle_call(:shuffle, _from, %{deck: deck} = state) do
+    # {:reply, reply, state}
+    new_state = %{state | deck: Enum.shuffle(deck)}
+    {:reply, new_state, new_state}
   end
 
   # TODO: this does not need to be async
