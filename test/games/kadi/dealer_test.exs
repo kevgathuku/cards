@@ -15,15 +15,23 @@ defmodule Games.Kadi.DealerTest do
     end
   end
 
-  test "generates valid deck on init", %{registry: registry} do
-    %{deck: deck, direction: direction} = Dealer.report(registry)
+  test "create_deck" do
+    deck = Games.Kadi.Dealer.create_deck()
 
     suits = ~w(Hearts Flowers Diamonds Spades)
     num_twos = for suit <- suits, do: {2, suit}
 
+    assert Enum.all?(num_twos, fn card -> Enum.member?(deck, card) end)
+    assert Enum.all?(deck, fn {_, suit} -> Enum.member?(suits, suit) end)
+  end
+
+  test "generates valid deck on init", %{registry: registry} do
+    %{deck: deck, direction: direction} = Dealer.report(registry)
+
+    suits = ~w(Hearts Flowers Diamonds Spades)
+
     assert direction == :clockwise
     assert length(deck) == 44
-    assert Enum.all?(num_twos, fn card -> Enum.member?(deck, card) end)
     assert Enum.all?(deck, fn {_, suit} -> Enum.member?(suits, suit) end)
   end
 
@@ -32,6 +40,15 @@ defmodule Games.Kadi.DealerTest do
 
     assert length(players) == 2
     assert Enum.all?(players, fn player -> length(player.cards) == 4 end) == true
+  end
+
+  test "assigns correct first card on start", %{registry: registry} do
+    %{played: played} = Dealer.report(registry)
+
+    {num, _} = hd(played)
+
+    assert length(played) == 1
+    refute num in ['A', 'K', 'J', 'Q']
   end
 
   @tag num_players: 3

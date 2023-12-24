@@ -7,7 +7,8 @@ defmodule Games.Kadi.Dealer do
   @default_state %{
     players: [],
     deck: [],
-    direction: :clockwise
+    direction: :clockwise,
+    played: []
   }
 
   ## Client API
@@ -77,6 +78,9 @@ defmodule Games.Kadi.Dealer do
         add_player_and_deal(state, "P:#{num}")
       end)
 
+    # Assign start card
+    state = assign_start_card(state)
+
     {:ok, state}
   end
 
@@ -123,7 +127,7 @@ defmodule Games.Kadi.Dealer do
   end
 
   defp default_config() do
-    %{num_players: 2}
+    %{num_players: 2, start_cards_blocklist: ["A"]}
   end
 
   defp deal(%{deck: deck, players: players} = state, player) do
@@ -138,5 +142,18 @@ defmodule Games.Kadi.Dealer do
     # TODO: Handle an existing player name better
     player = %Games.Kadi.Player{name: name, cards: []}
     deal(state, player)
+  end
+
+  defp allow_start_card?({num, _}) when num in [~c"A", ~c"K", ~c"J", ~c"Q"], do: false
+  defp allow_start_card?(_), do: true
+
+  defp assign_start_card(%{deck: deck} = state) do
+    [first | _] = deck
+
+    if allow_start_card?(first) do
+      %{state | played: [first]}
+    else
+      assign_start_card(%{state | deck: Enum.shuffle(deck)})
+    end
   end
 end
