@@ -74,17 +74,17 @@ defmodule Games.Kadi.DealerTest do
     assert direction == :clockwise
   end
 
-  test "adds players to the game", %{registry: registry} do
+  test "add player by name", %{registry: registry} do
     name = "iniesta"
     assert Dealer.lookup(registry, name) == :error
 
-    Dealer.add_player(registry, name)
+    %{deck: deck, players: players} = Dealer.add_player(registry, name)
     player = Dealer.lookup(registry, name)
 
+    assert player in players
     assert player.name == name
     assert length(player.cards) == 4
 
-    %{deck: deck, players: players} = Dealer.report(registry)
     assert length(players) == 3
     assert length(deck) == 40
   end

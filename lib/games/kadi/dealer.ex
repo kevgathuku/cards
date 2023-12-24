@@ -46,7 +46,7 @@ defmodule Games.Kadi.Dealer do
   Ensures there is a player associated with the given `name` in `server`.
   """
   def add_player(server, name) do
-    GenServer.cast(server, {:add_player, name})
+    GenServer.call(server, {:add_player, name})
   end
 
   def create_deck do
@@ -110,9 +110,8 @@ defmodule Games.Kadi.Dealer do
     {:reply, new_state, new_state}
   end
 
-  # TODO: this does not need to be async
   @impl true
-  def handle_cast({:add_player, name}, %{deck: deck, players: players} = state) do
+  def handle_call({:add_player, name}, _from, %{deck: deck, players: players} = state) do
     case Enum.find(players, fn player -> player.name == name end) do
       nil ->
         # Player does not exist
@@ -121,10 +120,12 @@ defmodule Games.Kadi.Dealer do
         # Deal 4 cards to the player
         player = %Games.Kadi.Player{name: name, cards: player_cards}
 
-        {:noreply, %{state | players: [player | players], deck: remaining_deck}}
+        new_state = %{state | players: [player | players], deck: remaining_deck}
+
+        {:reply, new_state, new_state}
 
       _ ->
-        {:noreply, state}
+        {:reply, state, state}
     end
   end
 
