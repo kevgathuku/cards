@@ -130,7 +130,7 @@ defmodule Games.Kadi.Dealer do
   end
 
   defp default_config() do
-    %{num_players: 2, start_cards_blocklist: ["A"]}
+    %{num_players: 2, start_cards_blocklist: [~c"A", ~c"K", ~c"J", ~c"Q", 2, 3]}
   end
 
   defp deal(%{deck: deck, players: players} = state, player) do
@@ -147,8 +147,13 @@ defmodule Games.Kadi.Dealer do
     deal(state, player)
   end
 
-  defp allow_start_card?({num, _}) when num in [~c"A", ~c"K", ~c"J", ~c"Q"], do: false
-  defp allow_start_card?(_), do: true
+  defp allow_start_card?({num, _}) do
+    if num in default_config().start_cards_blocklist do
+      false
+    else
+      true
+    end
+  end
 
   defp assign_start_card(%{deck: deck} = state) do
     [first | _] = deck
