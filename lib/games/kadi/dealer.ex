@@ -107,18 +107,18 @@ defmodule Games.Kadi.Dealer do
   # TODO: this does not need to be async
   @impl true
   def handle_cast({:add_player, name}, %{deck: deck, players: players} = state) do
-    player = Enum.find(players, fn player -> player.name == name end)
+    case Enum.find(players, fn player -> player.name == name end) do
+      nil ->
+        # Player does not exist
+        {player_cards, remaining_deck} = Enum.split(deck, 4)
 
-    if player do
-      {:noreply, state}
-    else
-      # {:ok, player} = Cards.Player.start_link([])
-      # Deal 4 cards to the player
-      {player_cards, remaining_deck} = Enum.split(deck, 4)
+        # Deal 4 cards to the player
+        player = %Games.Kadi.Player{name: name, cards: player_cards}
 
-      player = %Games.Kadi.Player{name: name, cards: player_cards}
+        {:noreply, %{state | players: [player | players], deck: remaining_deck}}
 
-      {:noreply, %{state | players: [player | players], deck: remaining_deck}}
+      _ ->
+        {:noreply, state}
     end
   end
 
