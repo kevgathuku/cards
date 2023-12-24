@@ -43,22 +43,22 @@ defmodule Games.Kadi.Dealer do
 
   def create_deck do
     numbers = [
-      :ace,
-      :two,
-      :three,
-      :four,
-      :five,
-      :six,
-      :seven,
-      :eight,
-      :nine,
-      :ten,
-      :king,
-      :queen,
-      :j
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      "K",
+      "Q",
+      "J",
+      "A"
     ]
 
-    suits = [:flowers, :diamonds, :hearts, :spades]
+    suits = ~w(Hearts Flowers Diamonds Spades)
 
     for num <- numbers, suit <- suits, do: {num, suit}
   end

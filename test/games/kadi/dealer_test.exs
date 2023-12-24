@@ -8,18 +8,29 @@ defmodule Games.Kadi.DealerTest do
       %{num_players: num_players} ->
         registry = start_supervised!({Dealer, [num_players: num_players]})
         %{registry: registry}
+
       _ ->
         registry = start_supervised!(Dealer)
         %{registry: registry}
     end
   end
 
-  test "generates valid state on init", %{registry: registry} do
-    %{deck: deck, players: players, direction: direction} = Dealer.report(registry)
+  test "generates valid deck on init", %{registry: registry} do
+    %{deck: deck, direction: direction} = Dealer.report(registry)
 
-    assert length(deck) == 44
-    assert length(players) == 2
     assert direction == :clockwise
+    assert length(deck) == 44
+    assert Enum.member?(deck, {2, "Hearts"}) == true
+    assert Enum.member?(deck, {2, "Diamonds"}) == true
+    assert Enum.member?(deck, {2, "Spades"}) == true
+    assert Enum.member?(deck, {2, "Flowers"}) == true
+  end
+
+  test "deals 4 cards to each player on init", %{registry: registry} do
+    %{players: players} = Dealer.report(registry)
+
+    assert length(players) == 2
+    assert Enum.all?(players, fn player -> length(player.cards) == 4 end) == true
   end
 
   @tag num_players: 3
