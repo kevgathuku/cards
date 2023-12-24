@@ -62,7 +62,7 @@ defmodule Games.Kadi.DealerTest do
     {num, _} = hd(played)
 
     assert length(played) == 1
-    refute num in ['A', 'K', 'J', 'Q', 2, 3]
+    refute num in [?A, ?K, ?J, ?Q, 2, 3, 8]
   end
 
   @tag num_players: 3

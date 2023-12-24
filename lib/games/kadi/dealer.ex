@@ -60,10 +60,10 @@ defmodule Games.Kadi.Dealer do
       8,
       9,
       10,
-      "K",
-      "Q",
-      "J",
-      "A"
+      ?K,
+      ?Q,
+      ?J,
+      ?A
     ]
 
     suits = ~w(Hearts Flowers Diamonds Spades)
@@ -130,7 +130,7 @@ defmodule Games.Kadi.Dealer do
   end
 
   defp default_config() do
-    %{num_players: 2, start_cards_blocklist: [~c"A", ~c"K", ~c"J", ~c"Q", 2, 3]}
+    %{num_players: 2, start_cards_blocklist: [?K, ?Q, ?J, ?A, 2, 3, 8]}
   end
 
   defp deal(%{deck: deck, players: players} = state, player) do
