@@ -3,12 +3,18 @@ defmodule Games.Kadi.Dealer do
   Card dealer module
   """
   use GenServer
+  require Logger
+
+  @default_config %{
+    start_cards_blocklist: [?K, ?Q, ?J, ?A, 2, 3, 8],
+    num_players: 2,
+  }
 
   @default_state %{
     players: [],
     deck: [],
     direction: :clockwise,
-    played: []
+    played: [],
   }
 
   ## Client API
@@ -75,32 +81,15 @@ defmodule Games.Kadi.Dealer do
   @impl true
   def init(options) do
     # Merge default and provided config options
-    %{num_players: num_players} = Map.merge(default_config(), Enum.into(options, %{}))
+    final_options = Map.merge(@default_config, Enum.into(options, %{}))
 
     deck = create_deck() |> Enum.shuffle()
-    init_state = %{@default_state | deck: deck}
+    state = %{@default_state | deck: deck}
 
-    state =
-      Enum.reduce(1..num_players, init_state, fn num, state ->
-        add_player_and_deal(state, "P:#{num}")
-      end)
-
-    # Assign start card
-    state = assign_start_card(state)
+    # TODO: Do this when starting the game
+    # state = assign_start_card(state)
 
     {:ok, state}
-  end
-
-  @impl true
-  def handle_call({:lookup, name}, _from, state) do
-    player = Enum.find(state.players, :error, fn player -> player.name == name end)
-    # should return a tuple: {:reply, response, state}
-    {:reply, player, state}
-  end
-
-  @impl true
-  def handle_call(:report, _from, state) do
-    {:reply, state, state}
   end
 
   @impl true
@@ -112,47 +101,32 @@ defmodule Games.Kadi.Dealer do
 
   @impl true
   def handle_call({:add_player, name}, _from, %{deck: deck, players: players} = state) do
-    case Enum.find(players, fn player -> player.name == name end) do
-      nil ->
+    case Enum.any?(players, fn player -> player.name == name end) do
+      false ->
         # Player does not exist
-        {player_cards, remaining_deck} = Enum.split(deck, 4)
+        player = %Games.Kadi.Player{name: name, cards: []}
 
-        # Deal 4 cards to the player
-        player = %Games.Kadi.Player{name: name, cards: player_cards}
-
-        new_state = %{state | players: [player | players], deck: remaining_deck}
+        new_state = %{state | players: [player | players]}
 
         {:reply, new_state, new_state}
 
       _ ->
+        Logger.log("Player #{name} already exists")
         {:reply, state, state}
     end
   end
 
-  defp default_config() do
-    %{num_players: 2, start_cards_blocklist: [?K, ?Q, ?J, ?A, 2, 3, 8]}
-  end
+  defp deal(%{deck: deck, players: players} = state, player, num_cards) do
+    {player_cards, remaining_deck} = Enum.split(deck, num_cards)
 
-  defp deal(%{deck: deck, players: players} = state, player) do
-    {player_cards, remaining_deck} = Enum.split(deck, 4)
-
+    # Should add to the existing cards, not replace them
     updated_player = %{player | cards: player_cards}
-
+    # This is not correct. Can add the player multiple times
     %{state | deck: remaining_deck, players: [updated_player | players]}
   end
 
-  defp add_player_and_deal(state, name) do
-    # TODO: Handle an existing player name better
-    player = %Games.Kadi.Player{name: name, cards: []}
-    deal(state, player)
-  end
-
   defp allow_start_card?({num, _}) do
-    if num in default_config().start_cards_blocklist do
-      false
-    else
-      true
-    end
+    num not in @default_config[:start_cards_blocklist]
   end
 
   defp assign_start_card(%{deck: deck} = state) do
