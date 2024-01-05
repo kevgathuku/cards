@@ -7,14 +7,14 @@ defmodule Games.Kadi.Dealer do
 
   @default_config %{
     start_cards_blocklist: [?K, ?Q, ?J, ?A, 2, 3, 8],
-    num_players: 2,
+    num_players: 2
   }
 
   @default_state %{
     players: [],
     deck: [],
     direction: :clockwise,
-    played: [],
+    played: []
   }
 
   ## Client API
@@ -55,6 +55,10 @@ defmodule Games.Kadi.Dealer do
     GenServer.call(server, {:add_player, name})
   end
 
+  def start_game(server) do
+    GenServer.call(server, :start_game)
+  end
+
   def create_deck do
     numbers = [
       2,
@@ -84,10 +88,9 @@ defmodule Games.Kadi.Dealer do
     final_options = Map.merge(@default_config, Enum.into(options, %{}))
 
     deck = create_deck() |> Enum.shuffle()
-    state = %{@default_state | deck: deck}
-
-    # TODO: Do this when starting the game
-    # state = assign_start_card(state)
+    state = @default_state
+    |> Map.put(:deck, deck)
+    |> Map.put(:options, final_options)
 
     {:ok, state}
   end
@@ -100,7 +103,7 @@ defmodule Games.Kadi.Dealer do
   end
 
   @impl true
-  def handle_call({:add_player, name}, _from, %{deck: deck, players: players} = state) do
+  def handle_call({:add_player, name}, _from, %{players: players} = state) do
     case Enum.any?(players, fn player -> player.name == name end) do
       false ->
         # Player does not exist
@@ -111,18 +114,25 @@ defmodule Games.Kadi.Dealer do
         {:reply, new_state, new_state}
 
       _ ->
-        Logger.log("Player #{name} already exists")
+        Logger.info("Player #{name} already exists")
         {:reply, state, state}
     end
   end
 
+  @impl true
+  def handle_call(:start_game, _from, %{players: players} = state) do
+  new_state = Enum.reduce(players, state, fn x, acc -> deal(acc, x, 4)   end )
+|>  assign_start_card()
+    
+    {:reply, new_state, new_state}
+  end
+
   defp deal(%{deck: deck, players: players} = state, player, num_cards) do
     {player_cards, remaining_deck} = Enum.split(deck, num_cards)
+    {_, remaining} = Enum.split_with(players, fn x -> x.name == player.name end)
 
-    # Should add to the existing cards, not replace them
-    updated_player = %{player | cards: player_cards}
-    # This is not correct. Can add the player multiple times
-    %{state | deck: remaining_deck, players: [updated_player | players]}
+    updated_player = %{player | cards: player_cards ++ player.cards}
+    %{state | deck: remaining_deck, players: [updated_player | remaining] }
   end
 
   defp allow_start_card?({num, _}) do

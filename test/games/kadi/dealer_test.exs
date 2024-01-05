@@ -27,12 +27,12 @@ defmodule Games.Kadi.DealerTest do
 
   test "shuffle", %{registry: registry} do
     # :random.seed(:erlang.now)
-    state = Dealer.report(registry)
+    state = :sys.get_state(registry)
 
     %{deck: shuffled_deck} = Dealer.shuffle(registry)
 
     assert shuffled_deck != state.deck
-    assert length(shuffled_deck) == 44
+    assert length(shuffled_deck) == 52
 
     suits = ~w(Hearts Flowers Diamonds Spades)
 
@@ -40,24 +40,33 @@ defmodule Games.Kadi.DealerTest do
   end
 
   test "generates valid deck on init", %{registry: registry} do
-    %{deck: deck, direction: direction} = Dealer.report(registry)
+    %{deck: deck, direction: direction} = :sys.get_state(registry)
 
     suits = ~w(Hearts Flowers Diamonds Spades)
 
     assert direction == :clockwise
-    assert length(deck) == 44
+    assert length(deck) == 52
     assert Enum.all?(deck, fn {_, suit} -> Enum.member?(suits, suit) end)
   end
 
-  test "deals 4 cards to each player on init", %{registry: registry} do
-    %{players: players} = Dealer.report(registry)
+  test "deals 4 cards to each player on start game", %{registry: registry} do
+    Dealer.add_player(registry, "Kevin")
+    Dealer.add_player(registry, "King")
+    Dealer.start_game(registry)
+
+    %{players: players, deck: deck} = :sys.get_state(registry) 
 
     assert length(players) == 2
     assert Enum.all?(players, fn player -> length(player.cards) == 4 end) == true
+    assert length(deck) == 44
   end
 
   test "assigns correct first card on start", %{registry: registry} do
-    %{played: played} = Dealer.report(registry)
+    Dealer.add_player(registry, "Kevin")
+    Dealer.add_player(registry, "King")
+    Dealer.start_game(registry)
+
+    %{played: played} = :sys.get_state(registry)
 
     {num, _} = hd(played)
 
@@ -65,28 +74,19 @@ defmodule Games.Kadi.DealerTest do
     refute num in [?A, ?K, ?J, ?Q, 2, 3, 8]
   end
 
-  @tag num_players: 3
-  test "adds specified number of players to the game", %{registry: registry} do
-    %{deck: deck, players: players, direction: direction} = Dealer.report(registry)
-
-    assert length(players) == 3
-    assert length(deck) == 40
-    assert direction == :clockwise
-  end
-
   test "add player by name", %{registry: registry} do
     name = "iniesta"
-    assert Dealer.lookup(registry, name) == :error
 
     %{deck: deck, players: players} = Dealer.add_player(registry, name)
-    player = Dealer.lookup(registry, name)
+    player = Enum.find(players, fn player -> player.name == name end) 
 
     assert player in players
     assert player.name == name
-    assert length(player.cards) == 4
+    # No cards assigned at this point yet
+    assert length(player.cards) == 0
 
-    assert length(players) == 3
-    assert length(deck) == 40
+    assert length(players) == 1
+    assert length(deck) == 52
   end
 
   test "does not add duplicate players", %{registry: registry} do
@@ -95,8 +95,8 @@ defmodule Games.Kadi.DealerTest do
     Dealer.add_player(registry, name)
     Dealer.add_player(registry, name)
 
-    %{deck: deck, players: players} = Dealer.report(registry)
-    assert length(players) == 3
-    assert length(deck) == 40
+    %{deck: deck, players: players} = :sys.get_state(registry)
+    assert length(players) == 1
+    assert length(deck) == 52
   end
 end
