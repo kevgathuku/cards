@@ -40,11 +40,10 @@ defmodule Games.Kadi.DealerTest do
   end
 
   test "generates valid deck on init", %{registry: registry} do
-    %{deck: deck, direction: direction} = :sys.get_state(registry)
+    %{deck: deck} = :sys.get_state(registry)
 
     suits = ~w(Hearts Flowers Diamonds Spades)
 
-    assert direction == :clockwise
     assert length(deck) == 52
     assert Enum.all?(deck, fn {_, suit} -> Enum.member?(suits, suit) end)
   end
@@ -98,5 +97,25 @@ defmodule Games.Kadi.DealerTest do
     %{deck: deck, players: players} = :sys.get_state(registry)
     assert length(players) == 1
     assert length(deck) == 52
+  end
+
+  test "accepts a play from the next player", %{registry: registry} do
+    Dealer.add_player(registry, "Boo") 
+    Dealer.add_player(registry, "Doo") 
+  
+    # TODO: Figure out a way to mock the cards to assign 
+    Dealer.play_hand(registry, "Boo", [])
+  end
+
+  test "does not accept a play from other players", %{registry: registry} do
+    Dealer.add_player(registry, "Boo") 
+    Dealer.add_player(registry, "Doo") 
+
+    state_before = :sys.get_state(registry)
+  
+    # TODO: Figure out a way to mock the cards to assign 
+    Dealer.play_hand(registry, "Doo", [])
+    state_after = :sys.get_state(registry)
+    assert state_before == state_after
   end
 end

@@ -13,7 +13,6 @@ defmodule Games.Kadi.Dealer do
   @default_state %{
     players: [],
     deck: [],
-    direction: :clockwise,
     played: []
   }
 
@@ -35,13 +34,6 @@ defmodule Games.Kadi.Dealer do
   end
 
   @doc """
-  Report the state of the game, mainly who has which cards.
-  """
-  def report(server) do
-    GenServer.call(server, :report)
-  end
-
-  @doc """
   Shuffle the cards
   """
   def shuffle(server) do
@@ -57,6 +49,10 @@ defmodule Games.Kadi.Dealer do
 
   def start_game(server) do
     GenServer.call(server, :start_game)
+  end
+
+  def play_hand(server, player, cards) do
+    GenServer.call(server, {:play_hand, player, cards})
   end
 
   def create_deck do
@@ -125,6 +121,28 @@ defmodule Games.Kadi.Dealer do
 |>  assign_start_card()
     
     {:reply, new_state, new_state}
+  end
+
+  @impl true
+  def handle_call({:play_hand, player_name, cards}, _from, %{players: players,
+played: played} =
+state) do
+    player = Enum.find(players, fn x -> x.name == player_name end)
+
+    cond do
+      player.name == hd(players).name ->
+        check_cards(hd(played), cards)
+        new_players = tl(players) ++ [player]
+        new_state = %{state | players: new_players}
+        {:reply, new_state, new_state}
+      true ->
+        Logger.info("Wrong player: #{player.name}")
+        {:reply, state, state}
+    end 
+  end
+
+  defp check_cards(last_played, cards) do
+
   end
 
   defp deal(%{deck: deck, players: players} = state, player, num_cards) do
