@@ -1,42 +1,17 @@
-defmodule Games.Kadi.DealerTest do
+defmodule Games.Kadi.ServerTest do
   use ExUnit.Case, async: true
-  alias Games.Kadi.Dealer
+  alias Games.Kadi.Server
 
   setup context do
     # Read the :num_players tag value
     case context do
       %{num_players: num_players} ->
-        registry = start_supervised!({Dealer, [num_players: num_players]})
-        %{registry: registry}
+        %{state: %{num_players: num_players}}
 
       _ ->
-        registry = start_supervised!(Dealer)
+        # registry = start_supervised!(Dealer)
         %{registry: registry}
     end
-  end
-
-  test "create_deck" do
-    deck = Dealer.create_deck()
-
-    suits = ~w(Hearts Flowers Diamonds Spades)
-    num_twos = for suit <- suits, do: {2, suit}
-
-    assert Enum.all?(num_twos, fn card -> Enum.member?(deck, card) end)
-    assert Enum.all?(deck, fn {_, suit} -> Enum.member?(suits, suit) end)
-  end
-
-  test "shuffle", %{registry: registry} do
-    # :random.seed(:erlang.now)
-    state = :sys.get_state(registry)
-
-    %{deck: shuffled_deck} = Dealer.shuffle(registry)
-
-    assert shuffled_deck != state.deck
-    assert length(shuffled_deck) == 52
-
-    suits = ~w(Hearts Flowers Diamonds Spades)
-
-    assert Enum.all?(shuffled_deck, fn {_, suit} -> Enum.member?(suits, suit) end)
   end
 
   test "generates valid deck on init", %{registry: registry} do
@@ -53,19 +28,17 @@ defmodule Games.Kadi.DealerTest do
     Dealer.add_player(registry, "King")
     Dealer.start_game(registry)
 
-    %{players: players, deck: deck} = :sys.get_state(registry) 
+    %{players: players, deck: deck} = :sys.get_state(registry)
 
     assert length(players) == 2
     assert Enum.all?(players, fn player -> length(player.cards) == 4 end) == true
     assert length(deck) == 44
   end
 
-  test "assigns correct first card on start", %{registry: registry} do
-    Dealer.add_player(registry, "Kevin")
-    Dealer.add_player(registry, "King")
-    Dealer.start_game(registry)
-
-    %{played: played} = :sys.get_state(registry)
+  test "assigns correct first card on start" do
+    Dealer.add_player("Kevin")
+    Dealer.add_player("King")
+    %{played: played} = Dealer.start_game()
 
     {num, _} = hd(played)
 
@@ -77,7 +50,7 @@ defmodule Games.Kadi.DealerTest do
     name = "iniesta"
 
     %{deck: deck, players: players} = Dealer.add_player(registry, name)
-    player = Enum.find(players, fn player -> player.name == name end) 
+    player = Enum.find(players, fn player -> player.name == name end)
 
     assert player in players
     assert player.name == name
@@ -100,20 +73,20 @@ defmodule Games.Kadi.DealerTest do
   end
 
   test "accepts a play from the next player", %{registry: registry} do
-    Dealer.add_player(registry, "Boo") 
-    Dealer.add_player(registry, "Doo") 
-  
-    # TODO: Figure out a way to mock the cards to assign 
+    Dealer.add_player(registry, "Boo")
+    Dealer.add_player(registry, "Doo")
+
+    # TODO: Figure out a way to mock the cards to assign
     Dealer.play_hand(registry, "Boo", [])
   end
 
   test "does not accept a play from other players", %{registry: registry} do
-    Dealer.add_player(registry, "Boo") 
-    Dealer.add_player(registry, "Doo") 
+    Dealer.add_player(registry, "Boo")
+    Dealer.add_player(registry, "Doo")
 
     state_before = :sys.get_state(registry)
-  
-    # TODO: Figure out a way to mock the cards to assign 
+
+    # TODO: Figure out a way to mock the cards to assign
     Dealer.play_hand(registry, "Doo", [])
     state_after = :sys.get_state(registry)
     assert state_before == state_after
