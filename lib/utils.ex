@@ -2,27 +2,24 @@ defmodule Utils do
   alias Games.Kadi.Card
 
   def create_deck() do
-    # TODO: Refactor to use our custom Card struct
     numbers = [
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-      9,
-      10,
-      ?K,
-      ?Q,
-      ?J,
-      ?A
+      :two,
+      :three,
+      :four,
+      :five,
+      :six,
+      :seven,
+      :eight,
+      :nine,
+      :ten,
+      :k,
+      :q,
+      :j,
+      :a
     ]
 
-    suits = ~w(Hearts Flowers Diamonds Spades)
-
-    # Are there some cards that you don't want? Do it here
-    for num <- numbers, suit <- suits, do: {num, suit}
+    suits = ~w|hearts flowers diamonds spades|a
+    for num <- numbers, suit <- suits, do: Card.new(num, suit)
   end
 
   @spec is_same_suit_or_number?(Card.t(), Card.t()) :: boolean()
