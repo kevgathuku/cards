@@ -37,7 +37,7 @@ defmodule Games.Kadi.Card do
   def new(number, suit) when is_integer(number),
     do: %__MODULE__{suit: suit, number: from_number(number)}
 
-  def new(suit, number) do
+  def new(number, suit) do
     %__MODULE__{
       suit: suit,
       number: number
@@ -67,9 +67,18 @@ defmodule Games.Kadi.Card do
   """
   @spec score(t()) :: non_neg_integer()
   def score(card)
-  def score(%{number: :k}), do: 13
-  def score(%{number: :q}), do: 12
+  def score(%{number: :two}), do: 50
+  def score(%{number: :three}), do: 75
+  def score(%{number: :four}), do: 4
+  def score(%{number: :five}), do: 5
+  def score(%{number: :six}), do: 6
+  def score(%{number: :seven}), do: 7
+  def score(%{number: :eight}), do: 12
+  def score(%{number: :nine}), do: 9
+  def score(%{number: :ten}), do: 10
   def score(%{number: :j}), do: 11
+  def score(%{number: :q}), do: 12
+  def score(%{number: :k}), do: 13
   def score(%{suit: :spades, number: :a}), do: 500
   def score(%{number: :a}), do: 100
 
