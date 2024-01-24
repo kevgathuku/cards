@@ -1,25 +1,14 @@
 defmodule Games.Kadi.ServerTest do
   use ExUnit.Case, async: true
   alias Games.Kadi.Server
-
-  # setup context do
-  #   # Read the :num_players tag value
-  #   case context do
-  #     %{num_players: num_players} ->
-  #       %{config: %{num_players: num_players}}
-
-  #     _ ->
-  #       # registry = start_supervised!(Dealer)
-  #       %{config: %{}}
-  #   end
-  # end
+  doctest Games.Kadi.Server, import: true
 
   test "generates valid deck on init with no options" do
-    suits = ~w(Hearts Flowers Diamonds Spades)
+    suits = ~w|hearts flowers diamonds spades|a
     {:ok, %{deck: deck}} = Server.init()
 
     assert length(deck) == 52
-    assert Enum.all?(deck, fn {_, suit} -> Enum.member?(suits, suit) end)
+    assert Enum.all?(deck, fn card -> Enum.member?(suits, card.suit) end)
   end
 
   test "add player by name" do
@@ -44,7 +33,6 @@ defmodule Games.Kadi.ServerTest do
     {:ok, with_player_1} = Server.add_player(init_state, name)
     {:ok, %{players: players, deck: deck}} = Server.add_player(with_player_1, name)
 
-    # %{deck: deck, players: players} = :sys.get_state(registry)
     assert length(players) == 1
     assert length(deck) == 52
   end
@@ -53,12 +41,12 @@ defmodule Games.Kadi.ServerTest do
     {:ok, state} = Server.init()
     {:ok, with_player_1} = Server.add_player(state, "Kevin")
     {:ok, with_player_2} = Server.add_player(with_player_1, "King")
-    {:ok, %{played: played}} = Server.start_game(with_player_2)
+    {:ok, %{played: played, options: options}} = Server.start_game(with_player_2)
 
-    {num, _} = hd(played)
+    card = hd(played)
 
     assert length(played) == 1
-    refute num in [?A, ?K, ?J, ?Q, 2, 3, 8]
+    refute card.number in options.start_cards_blocklist
   end
 
   test "deals 4 cards to each player on start game" do

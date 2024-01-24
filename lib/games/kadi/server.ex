@@ -3,9 +3,11 @@ defmodule Games.Kadi.Server do
   Kadi Game Server
   """
   require Logger
+  alias Games.Kadi.{Card, Player}
 
   @default_config %{
-    start_cards_blocklist: [?K, ?Q, ?J, ?A, 2, 3, 8],
+    start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
+    finishing_cards: [:a, :two, :three, :four, :five, :six, :seven, :nine, :ten],
     num_players: 2
   }
 
@@ -30,23 +32,27 @@ defmodule Games.Kadi.Server do
   end
 
   @doc """
-  Add a player associated with the given `name` in `server`.
+  Add a player associated with the given `name` to the game
+
+  ## Examples
+
+      iex> add_player(%{players: []}, "lucho")
+      {:ok, %{players: [%Games.Kadi.Player{name: "lucho", cards: []}]}}
   """
   def add_player(%{players: players} = state, name) do
-    case Enum.any?(players, fn player -> player.name == name end) do
-      false ->
-        # Player does not exist
-        Logger.info("Adding Player: #{name}")
-        player = %Games.Kadi.Player{name: name, cards: []}
+    if player_exists?(state, name) do
+      Logger.info("Player #{name} already exists")
+      {:ok, state}
+    else
+      Logger.info("Adding Player: #{name}")
+      player = %Player{name: name, cards: []}
 
-        new_state = %{state | players: [player | players]}
-
-        {:ok, new_state}
-
-      _ ->
-        Logger.info("Player #{name} already exists")
-        {:ok, state}
+      {:ok, %{state | players: [player | players]}}
     end
+  end
+
+  def player_exists?(%{players: players} = _state, name) do
+    Enum.any?(players, fn player -> player.name == name end)
   end
 
   @doc """
@@ -56,44 +62,57 @@ defmodule Games.Kadi.Server do
     # TODO: Do any initial setup here
     # Deal x cards to the players
     # Play the starting card
-    state = Enum.reduce(players, state, fn x, acc -> deal(acc, x, 4) end)
-    |> assign_start_card()
+    state =
+      Enum.reduce(players, state, fn x, acc -> deal(acc, x, 4) end)
+      |> assign_start_card()
 
     {:ok, state}
   end
 
-  @doc """
-  Looks up the player with `name` stored in `server`.
+  def handle_hand(%{players: players, played: played} = state, player_name, cards) do
+    # TODO: Just get the player at the head
+    next_player = hd(players)
+    starting_card = hd(played)
 
-  Returns `{:ok, player}` if the player exists, `:error` otherwise.
-  """
-  def get_player(state, name) do
-    # GenServer.call(server, {:lookup, name})
-  end
+    if next_player.name != player_name do
+      Logger.info("Invalid player passed to handle_hand")
+      {:ok, state}
+    else
+      Logger.info("Evaluating cards: #{} from player: #{player_name}")
 
-  @doc """
-  Shuffle the cards
-  """
-  def shuffle(state) do
-    # GenServer.call(server, :shuffle)
-  end
+      if is_valid_hand?(starting_card, cards) do
+        # Compute the next state based on the new hand
+        # Remove the played cards from the player's cards
+        # Add the played cards to the played deck
+        new_played = played ++ cards
 
-  def handle_hand(%{players: players} = state, player, cards) do
-    player = Enum.find(players, fn x -> x.name == player end)
-    # Is it the player's turn?
-    # Is the hand valid?
-    is_valid = is_valid_hand?(cards)
-    # Compute the next state based on the new hand
+        # Move the player to the back of the queue
+        updated_players = tl(players) ++ [next_player]
+
+        {:ok, %{state | players: updated_players, played: new_played}}
+      end
+    end
   end
 
   @doc """
   Determine if the provided combination of cards is valid in this game
-  """
-  def is_valid_hand?(cards) do
-    # TODO
-  end
 
-  defp check_cards(last_played, cards) do
+  ## Examples
+
+      iex> is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [Games.Kadi.Card.new(:eight, :diamonds), Games.Kadi.Card.new(:nine, :diamonds)])
+      true
+
+      iex> is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [Games.Kadi.Card.new(:q, :diamonds), Games.Kadi.Card.new(:nine, :diamonds)])
+      true
+  """
+  def is_valid_hand?(starting_card, cards) do
+    # First check
+    Utils.is_same_suit_or_number?(starting_card, hd(cards))
+    # Is valid single card
+    # Is valid multi-card combo (same suit)
+    # Is valid multi-card combo (same numbers)
+    # Is valid Q and A combo
+    # Do some pattern matching to check if it starts with '8' or 'Q'
   end
 
   defp deal(%{deck: deck, players: players} = state, player, num_cards) do
@@ -104,8 +123,9 @@ defmodule Games.Kadi.Server do
     %{state | deck: remaining_deck, players: [updated_player | remaining]}
   end
 
-  defp allow_start_card?({num, _}) do
-    num not in @default_config[:start_cards_blocklist]
+  @spec allow_start_card?(Card.t()) :: boolean()
+  defp allow_start_card?(card) do
+    card.number not in @default_config[:start_cards_blocklist]
   end
 
   defp assign_start_card(%{deck: deck} = state) do
