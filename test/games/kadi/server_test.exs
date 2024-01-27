@@ -3,64 +3,85 @@ defmodule Games.Kadi.ServerTest do
   alias Games.Kadi.Server
   doctest Games.Kadi.Server, import: true
 
-  test "generates valid deck on init with no options" do
-    suits = ~w|hearts flowers diamonds spades|a
-    {:ok, %{deck: deck}} = Server.init()
+  describe "init" do
+    test "starts server on init with no options" do
+      {:ok, state} = Server.init()
 
-    assert length(deck) == 52
-    assert Enum.all?(deck, fn card -> Enum.member?(suits, card.suit) end)
+      assert state == %{players: [], deck: [], played: []}
+    end
   end
 
-  test "add player by name" do
-    name = "iniesta"
+  describe "add_players" do
+    test "add player by name" do
+      name = "iniesta"
 
-    {:ok, init_state} = Server.init()
-    {:ok, %{deck: deck, players: players}} = Server.add_player(init_state, name)
-    player = Enum.find(players, fn player -> player.name == name end)
+      {:ok, init_state} = Server.init()
+      {:ok, %{deck: deck, players: players}} = Server.add_player(init_state, name)
+      player = Enum.find(players, fn player -> player.name == name end)
 
-    assert player in players
-    # No cards assigned at this point yet
-    assert length(player.cards) == 0
+      assert player in players
+      # No cards assigned at this point yet
+      assert length(player.cards) == 0
 
-    assert length(players) == 1
-    assert length(deck) == 52
+      assert length(players) == 1
+      assert length(deck) == 52
+    end
+
+    test "does not add duplicate players" do
+      name = "iniesta"
+
+      {:ok, init_state} = Server.init()
+      {:ok, with_player_1} = Server.add_player(init_state, name)
+      {:ok, %{players: players, deck: deck}} = Server.add_player(with_player_1, name)
+
+      assert length(players) == 1
+      assert length(deck) == 52
+    end
   end
 
-  test "does not add duplicate players" do
-    name = "iniesta"
+  describe "deal_start_cards_to_players" do
+    test "assigns the right number of cards to each player" do
+      state = %{
+        deck: [1, 2, 3, 4, 5, 6, 7, 8],
+        players: [
+          %Games.Kadi.Player{name: "1", cards: []},
+          %Games.Kadi.Player{name: "2", cards: []}
+        ]
+      }
 
-    {:ok, init_state} = Server.init()
-    {:ok, with_player_1} = Server.add_player(init_state, name)
-    {:ok, %{players: players, deck: deck}} = Server.add_player(with_player_1, name)
-
-    assert length(players) == 1
-    assert length(deck) == 52
+      %{players: players, deck: deck} = Server.deal_start_cards_to_players(state)
+      assert Enum.all?(players, fn player -> length(player.cards) == 4 end) == true
+      assert length(deck) == 0
+    end
   end
 
-  test "assigns correct first card on start game" do
-    {:ok, state} = Server.init()
-    {:ok, with_player_1} = Server.add_player(state, "Kevin")
-    {:ok, with_player_2} = Server.add_player(with_player_1, "King")
-    {:ok, %{played: played, options: options}} = Server.start_game(with_player_2)
+  describe "start_game" do
+    test "assigns correct first card on start game" do
+      {:ok, state} = Server.init()
+      {:ok, with_player_1} = Server.add_player(state, "Kevin")
+      {:ok, with_player_2} = Server.add_player(with_player_1, "King")
 
-    card = hd(played)
+      {:ok, %{played: played, options: options}} = Server.start_game(with_player_2)
 
-    assert length(played) == 1
-    refute card.number in options.start_cards_blocklist
-  end
+      card = hd(played)
 
-  test "deals 4 cards to each player on start game" do
-    {:ok, state} = Server.init()
-    {:ok, with_player_1} = Server.add_player(state, "Kevin")
-    {:ok, with_player_2} = Server.add_player(with_player_1, "King")
-    # {:ok, final_state} = Server.start_game(with_player_2)
-    {:ok, %{players: players, deck: deck}} = Server.start_game(with_player_2)
+      assert length(played) == 1
+      refute card.number in options.start_cards_blocklist
+    end
 
-    # %{players: players, deck: deck} = final_state
+    test "deals 4 cards to each player on start game" do
+      {:ok, state} = Server.init()
+      {:ok, with_player_1} = Server.add_player(state, "Kevin")
+      {:ok, with_player_2} = Server.add_player(with_player_1, "King")
+      # {:ok, final_state} = Server.start_game(with_player_2)
+      {:ok, %{players: players, deck: deck}} = Server.start_game(with_player_2)
 
-    assert length(players) == 2
-    assert Enum.all?(players, fn player -> length(player.cards) == 4 end) == true
-    assert length(deck) == 44
+      # %{players: players, deck: deck} = final_state
+
+      assert length(players) == 2
+      assert Enum.all?(players, fn player -> length(player.cards) == 4 end) == true
+      assert length(deck) == 44
+    end
   end
 
   # test "accepts a play from the next player", %{registry: registry} do
