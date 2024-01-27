@@ -39,3 +39,6 @@ You can provide a few config options when calling `init`. For now they are:
 - `finishing_cards` - Cards that can be allowed to finish the game
 - `min_players` - Minimum number of players required for a valid game
 - `cards_to_deal` - Number of cards to deal to each player when starting the game
+
+Prior art:
+- [Level10](https://level10.games/) - https://github.com/dnsbty/level10
