@@ -7,7 +7,31 @@ defmodule Games.Kadi.ServerTest do
     test "starts server on init with no options" do
       {:ok, state} = Server.init()
 
-      assert state == %{players: [], deck: [], played: []}
+      assert state == %{players: [], deck: [], played: [], rules: Server.default_rules()}
+    end
+
+    test "starts server on init with valid options" do
+      {:ok, state} =
+        Server.init(%{
+          cards_to_deal: 5
+        })
+
+      other_state = Map.take(state, [:players, :deck, :played])
+
+      assert other_state == %{players: [], deck: [], played: []}
+      assert state.rules.cards_to_deal == 5
+    end
+
+    test "discards invalid rules and starts server on init" do
+      {:ok, state} =
+        Server.init(%{
+          obviously_this_is_invalid: ~c"wowww"
+        })
+
+      other_state = Map.take(state, [:players, :deck, :played])
+
+      assert other_state == %{players: [], deck: [], played: []}
+      assert state.rules == Server.default_rules()
     end
   end
 
@@ -16,7 +40,7 @@ defmodule Games.Kadi.ServerTest do
       name = "iniesta"
 
       {:ok, init_state} = Server.init()
-      {:ok, %{deck: deck, players: players}} = Server.add_player(init_state, name)
+      {:ok, %{players: players}} = Server.add_player(init_state, name)
       player = Enum.find(players, fn player -> player.name == name end)
 
       assert player in players
@@ -58,12 +82,12 @@ defmodule Games.Kadi.ServerTest do
       {:ok, with_player_1} = Server.add_player(state, "Kevin")
       {:ok, with_player_2} = Server.add_player(with_player_1, "King")
 
-      {:ok, %{played: played, options: options}} = Server.start_game(with_player_2)
+      {:ok, %{played: played, rules: rules}} = Server.start_game(with_player_2)
 
       card = hd(played)
 
       assert length(played) == 1
-      refute card.number in options.start_cards_blocklist
+      refute card.number in rules.start_cards_blocklist
     end
 
     test "deals 4 cards to each player on start game" do
