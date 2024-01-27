@@ -67,7 +67,8 @@ defmodule Games.Kadi.ServerTest do
         players: [
           %Games.Kadi.Player{name: "1", cards: []},
           %Games.Kadi.Player{name: "2", cards: []}
-        ]
+        ],
+        rules: Server.default_rules()
       }
 
       %{players: players, deck: deck} = Server.deal_start_cards_to_players(state)
@@ -90,18 +91,30 @@ defmodule Games.Kadi.ServerTest do
       refute card.number in rules.start_cards_blocklist
     end
 
-    test "deals 4 cards to each player on start game" do
+    test "deals 4 cards to each player by default on start game" do
       {:ok, state} = Server.init()
       {:ok, with_player_1} = Server.add_player(state, "Kevin")
       {:ok, with_player_2} = Server.add_player(with_player_1, "King")
-      # {:ok, final_state} = Server.start_game(with_player_2)
       {:ok, %{players: players, deck: deck}} = Server.start_game(with_player_2)
-
-      # %{players: players, deck: deck} = final_state
 
       assert length(players) == 2
       assert Enum.all?(players, fn player -> length(player.cards) == 4 end) == true
       assert length(deck) == 44
+    end
+
+    test "deals configured number of cards to each player on start game" do
+      {:ok, state} =
+        Server.init(%{
+          cards_to_deal: 5
+        })
+
+      {:ok, with_player_1} = Server.add_player(state, "Kevin")
+      {:ok, with_player_2} = Server.add_player(with_player_1, "King")
+      {:ok, %{players: players, deck: deck}} = Server.start_game(with_player_2)
+
+      assert length(players) == 2
+      assert Enum.all?(players, fn player -> length(player.cards) == 5 end) == true
+      assert length(deck) == 42
     end
   end
 

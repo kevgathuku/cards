@@ -156,15 +156,15 @@ defmodule Games.Kadi.Server do
 
   # Deal the required number of cards to each player
   # Pass in the initial state, and returns the state with the right values
-  def deal_start_cards_to_players(%{players: players} = init_state) do
+  def deal_start_cards_to_players(%{players: players, rules: rules} = init_state) do
     # The acc is the state itself
     {updated_players, final_state} =
       Enum.map_reduce(players, init_state, fn player, state ->
-        {player_cards, remaining_deck} = Enum.split(state.deck, default_rules().cards_to_deal)
+        {player_cards, remaining_deck} = Enum.split(state.deck, rules.cards_to_deal)
         # Update the player, and the deck
         updated_player = %{player | cards: player_cards}
         updated_state = %{state | deck: remaining_deck}
-        # {result, accumulator}.
+        # {result, accumulator}
         {updated_player, updated_state}
       end)
 
