@@ -89,20 +89,21 @@ defmodule Games.Kadi.Server do
 
   @doc """
   Starts the game.
-  """
-  def start_game(%{players: players} = state) do
-    # Deal x cards to the players
-    if Enum.count(players) < default_rules().min_players do
-      {:error, players: "Not enough players"}
-    end
 
+  Generate a deck
+  Assign the right number of cards to the players
+  Play the start card
+  """
+  def start_game(%{players: players, rules: rules}) when length(players) < rules.min_players,
+    do: {:error, players: "Not enough players"}
+
+  def start_game(state) do
     deck = Utils.create_deck() |> Enum.shuffle()
 
     new_state =
       state
       |> Map.put(:deck, deck)
       |> deal_start_cards_to_players()
-      # Play the starting card
       |> assign_start_card()
 
     {:ok, new_state}
