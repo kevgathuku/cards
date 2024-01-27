@@ -116,6 +116,15 @@ defmodule Games.Kadi.ServerTest do
       assert Enum.all?(players, fn player -> length(player.cards) == 5 end) == true
       assert length(deck) == 42
     end
+
+    test "does not start game without minimum players" do
+      {:ok, state} = Server.init()
+      {:ok, with_player_1} = Server.add_player(state, "Kevin")
+
+      {:error, errors} = Server.start_game(with_player_1)
+      errors_map = errors |> Enum.into(%{})
+      assert errors_map.players == "Not enough players"
+    end
   end
 
   # test "accepts a play from the next player", %{registry: registry} do
