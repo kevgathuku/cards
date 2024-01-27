@@ -8,27 +8,27 @@ defmodule Games.Kadi.Server do
   @default_config %{
     start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
     finishing_cards: [:a, :two, :three, :four, :five, :six, :seven, :nine, :ten],
-    num_players: 2
+    min_players: 2,
+    cards_to_deal: 4
   }
 
-  @default_state %{
+  @initial_state %{
     players: [],
     deck: [],
     played: []
   }
 
-  def init(options \\ %{}) do
-    # Merge default and provided config options
-    final_options = Map.merge(@default_config, Enum.into(options, %{}))
+  @doc """
+  Initiate the server.
+  It does not accept external options for now.
 
-    deck = Utils.create_deck() |> Enum.shuffle()
+  ## Examples
 
-    state =
-      @default_state
-      |> Map.put(:deck, deck)
-      |> Map.put(:options, final_options)
-
-    {:ok, state}
+      iex> init()
+      {:ok, %{players: [], deck: [], played: []}}
+  """
+  def init() do
+    {:ok, @initial_state}
   end
 
   @doc """
@@ -59,14 +59,21 @@ defmodule Games.Kadi.Server do
   Starts the game.
   """
   def start_game(%{players: players} = state) do
-    # TODO: Do any initial setup here
     # Deal x cards to the players
+    if Enum.count(players) < @default_config.min_players do
+      {:error, players: "Not enough players"}
+    end
+
+    deck = Utils.create_deck() |> Enum.shuffle()
+
+    new_state =
+      state
+      |> Map.put(:deck, deck)
+      |> deal_start_cards_to_players()
     # Play the starting card
-    state =
-      Enum.reduce(players, state, fn x, acc -> deal(acc, x, 4) end)
       |> assign_start_card()
 
-    {:ok, state}
+    {:ok, new_state}
   end
 
   def handle_hand(%{players: players, played: played} = state, player_name, cards) do
@@ -115,12 +122,25 @@ defmodule Games.Kadi.Server do
     # Do some pattern matching to check if it starts with '8' or 'Q'
   end
 
-  defp deal(%{deck: deck, players: players} = state, player, num_cards) do
-    {player_cards, remaining_deck} = Enum.split(deck, num_cards)
-    {_, remaining} = Enum.split_with(players, fn x -> x.name == player.name end)
+  # Deal the required number of cards to each player
+  # Pass in the initial state, and returns the state with the right values
+  def deal_start_cards_to_players(%{players: players} = init_state) do
+    {updated_players, final_state} =
+      # The acc is the state itself
+      Enum.map_reduce(players, init_state, fn player, state ->
+        # Get the correct no. of cards from the deck
+        # Returns the cards to deal to the player, and the updated deck
+        Logger.info("Deck before split: #{inspect(state.deck)}")
+        {player_cards, remaining_deck} = Enum.split(state.deck, @default_config.cards_to_deal)
+        Logger.info("Remaining deck: #{inspect(remaining_deck)}")
+        # Update the player, and the deck
+        updated_player = %{player | cards: player_cards}
+        updated_state = %{state | deck: remaining_deck}
+        # {result, accumulator}.
+        {updated_player, updated_state}
+      end)
 
-    updated_player = %{player | cards: player_cards ++ player.cards}
-    %{state | deck: remaining_deck, players: [updated_player | remaining]}
+    %{final_state | players: updated_players}
   end
 
   @spec allow_start_card?(Card.t()) :: boolean()
