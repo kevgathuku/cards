@@ -5,13 +5,6 @@ defmodule Games.Kadi.Server do
   require Logger
   alias Games.Kadi.{Card, Player}
 
-  @default_config %{
-    start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
-    finishing_cards: [:a, :two, :three, :four, :five, :six, :seven, :nine, :ten],
-    min_players: 2,
-    cards_to_deal: 4
-  }
-
   @initial_state %{
     players: [],
     deck: [],
@@ -20,15 +13,54 @@ defmodule Games.Kadi.Server do
 
   @doc """
   Initiate the server.
-  It does not accept external options for now.
+  Accept any custom rules you want to apply
 
   ## Examples
 
       iex> init()
-      {:ok, %{players: [], deck: [], played: []}}
+      {:ok, %{
+        players: [],
+        deck: [],
+        played: [],
+        rules: %{
+          start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
+          finishing_cards: [:a, :two, :three, :four, :five, :six, :seven, :nine, :ten],
+          min_players: 2,
+          cards_to_deal: 4
+        }
+      }}
+
+      iex> init(%{cards_to_deal: 5})
+      {:ok, %{
+        players: [],
+        deck: [],
+        played: [],
+        rules: %{
+          start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
+          finishing_cards: [:a, :two, :three, :four, :five, :six, :seven, :nine, :ten],
+          min_players: 2,
+          cards_to_deal: 5
+        }
+      }}
   """
-  def init() do
-    {:ok, @initial_state}
+  def init(options \\ %{}) do
+    # Merge default and provided rules options
+    valid_rules =
+      default_rules()
+      |> Map.merge(Enum.into(options, %{}))
+      # Take only the valid keys
+      |> Map.take(Map.keys(default_rules()))
+
+    {:ok, Map.put(@initial_state, :rules, valid_rules)}
+  end
+
+  def default_rules() do
+    %{
+      start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
+      finishing_cards: [:a, :two, :three, :four, :five, :six, :seven, :nine, :ten],
+      min_players: 2,
+      cards_to_deal: 4
+    }
   end
 
   @doc """
@@ -40,7 +72,7 @@ defmodule Games.Kadi.Server do
       {:ok, %{players: [%Games.Kadi.Player{name: "lucho", cards: []}]}}
   """
   def add_player(%{players: players} = state, name) do
-    if player_exists?(state, name) do
+    if player_exists?(state.players, name) do
       Logger.info("Player #{name} already exists")
       {:ok, state}
     else
@@ -51,7 +83,7 @@ defmodule Games.Kadi.Server do
     end
   end
 
-  def player_exists?(%{players: players} = _state, name) do
+  defp player_exists?(players, name) do
     Enum.any?(players, fn player -> player.name == name end)
   end
 
@@ -60,7 +92,7 @@ defmodule Games.Kadi.Server do
   """
   def start_game(%{players: players} = state) do
     # Deal x cards to the players
-    if Enum.count(players) < @default_config.min_players do
+    if Enum.count(players) < default_rules().min_players do
       {:error, players: "Not enough players"}
     end
 
@@ -70,7 +102,7 @@ defmodule Games.Kadi.Server do
       state
       |> Map.put(:deck, deck)
       |> deal_start_cards_to_players()
-    # Play the starting card
+      # Play the starting card
       |> assign_start_card()
 
     {:ok, new_state}
@@ -125,14 +157,10 @@ defmodule Games.Kadi.Server do
   # Deal the required number of cards to each player
   # Pass in the initial state, and returns the state with the right values
   def deal_start_cards_to_players(%{players: players} = init_state) do
+    # The acc is the state itself
     {updated_players, final_state} =
-      # The acc is the state itself
       Enum.map_reduce(players, init_state, fn player, state ->
-        # Get the correct no. of cards from the deck
-        # Returns the cards to deal to the player, and the updated deck
-        Logger.info("Deck before split: #{inspect(state.deck)}")
-        {player_cards, remaining_deck} = Enum.split(state.deck, @default_config.cards_to_deal)
-        Logger.info("Remaining deck: #{inspect(remaining_deck)}")
+        {player_cards, remaining_deck} = Enum.split(state.deck, default_rules().cards_to_deal)
         # Update the player, and the deck
         updated_player = %{player | cards: player_cards}
         updated_state = %{state | deck: remaining_deck}
@@ -145,7 +173,7 @@ defmodule Games.Kadi.Server do
 
   @spec allow_start_card?(Card.t()) :: boolean()
   defp allow_start_card?(card) do
-    card.number not in @default_config[:start_cards_blocklist]
+    card.number not in default_rules()[:start_cards_blocklist]
   end
 
   defp assign_start_card(%{deck: deck} = state) do
