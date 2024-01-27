@@ -70,9 +70,14 @@ defmodule Games.Kadi.Server do
 
       iex> add_player(%{players: []}, "lucho")
       {:ok, %{players: [%Games.Kadi.Player{name: "lucho", cards: []}]}}
+
+      iex> add_player(%{players: [%Games.Kadi.Player{name: "lucho", cards: []}]}, "lucho")
+      {:ok, %{players: [%Games.Kadi.Player{name: "lucho", cards: []}]}}
   """
   def add_player(%{players: players} = state, name) do
-    if player_exists?(state.players, name) do
+    player_exists? = fn player -> player.name == name end
+
+    if Enum.any?(players, player_exists?) do
       Logger.info("Player #{name} already exists")
       {:ok, state}
     else
@@ -81,10 +86,6 @@ defmodule Games.Kadi.Server do
 
       {:ok, %{state | players: [player | players]}}
     end
-  end
-
-  defp player_exists?(players, name) do
-    Enum.any?(players, fn player -> player.name == name end)
   end
 
   @doc """
