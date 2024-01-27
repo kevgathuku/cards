@@ -3,7 +3,7 @@ defmodule Games.Kadi.Server do
   Kadi Game Server
   """
   require Logger
-  alias Games.Kadi.{Card, Player}
+  alias Games.Kadi.Player
 
   @initial_state %{
     players: [],
@@ -172,18 +172,12 @@ defmodule Games.Kadi.Server do
     %{final_state | players: updated_players}
   end
 
-  @spec allow_start_card?(Card.t()) :: boolean()
-  defp allow_start_card?(card) do
-    card.number not in default_rules()[:start_cards_blocklist]
-  end
+  defp assign_start_card(%{deck: deck, rules: rules} = state) do
+    first_card =
+      Enum.find(deck, fn card -> card.number not in rules[:start_cards_blocklist] end)
 
-  defp assign_start_card(%{deck: deck} = state) do
-    [first | _] = deck
+    remaining = Enum.filter(deck, fn card -> card != first_card end)
 
-    if allow_start_card?(first) do
-      %{state | played: [first]}
-    else
-      assign_start_card(%{state | deck: Enum.shuffle(deck)})
-    end
+    %{state | deck: remaining, played: [first_card]}
   end
 end

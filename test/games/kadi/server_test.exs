@@ -83,38 +83,44 @@ defmodule Games.Kadi.ServerTest do
       {:ok, with_player_1} = Server.add_player(state, "Kevin")
       {:ok, with_player_2} = Server.add_player(with_player_1, "King")
 
-      {:ok, %{played: played, rules: rules}} = Server.start_game(with_player_2)
+      {:ok, %{played: played, rules: rules, deck: deck}} = Server.start_game(with_player_2)
 
       card = hd(played)
 
       assert length(played) == 1
+      assert card not in deck
       refute card.number in rules.start_cards_blocklist
     end
 
     test "deals 4 cards to each player by default on start game" do
-      {:ok, state} = Server.init()
+      {:ok, %{rules: %{cards_to_deal: cards_to_deal}} = state} = Server.init()
       {:ok, with_player_1} = Server.add_player(state, "Kevin")
       {:ok, with_player_2} = Server.add_player(with_player_1, "King")
       {:ok, %{players: players, deck: deck}} = Server.start_game(with_player_2)
 
-      assert length(players) == 2
+      # cards assigned to each player + starting card
+      assigned_cards = length(players) * cards_to_deal + 1
+
       assert Enum.all?(players, fn player -> length(player.cards) == 4 end) == true
-      assert length(deck) == 44
+
+      assert length(deck) == 52 - assigned_cards
     end
 
     test "deals configured number of cards to each player on start game" do
+      cards_to_deal = 5
       {:ok, state} =
         Server.init(%{
-          cards_to_deal: 5
+          cards_to_deal: cards_to_deal
         })
 
       {:ok, with_player_1} = Server.add_player(state, "Kevin")
       {:ok, with_player_2} = Server.add_player(with_player_1, "King")
       {:ok, %{players: players, deck: deck}} = Server.start_game(with_player_2)
 
-      assert length(players) == 2
+      assigned_cards = length(players) * cards_to_deal + 1
+
       assert Enum.all?(players, fn player -> length(player.cards) == 5 end) == true
-      assert length(deck) == 42
+      assert length(deck) == 52 - assigned_cards
     end
 
     test "does not start game without minimum players" do
