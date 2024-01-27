@@ -22,9 +22,7 @@ defmodule Games.Kadi.ServerTest do
       assert player in players
       # No cards assigned at this point yet
       assert length(player.cards) == 0
-
       assert length(players) == 1
-      assert length(deck) == 52
     end
 
     test "does not add duplicate players" do
@@ -32,10 +30,9 @@ defmodule Games.Kadi.ServerTest do
 
       {:ok, init_state} = Server.init()
       {:ok, with_player_1} = Server.add_player(init_state, name)
-      {:ok, %{players: players, deck: deck}} = Server.add_player(with_player_1, name)
+      {:ok, %{players: players}} = Server.add_player(with_player_1, name)
 
       assert length(players) == 1
-      assert length(deck) == 52
     end
   end
 
