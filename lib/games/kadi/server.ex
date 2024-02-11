@@ -140,17 +140,27 @@ defmodule Games.Kadi.Server do
 
   ## Examples
 
-      iex> is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [Games.Kadi.Card.new(:eight, :diamonds), Games.Kadi.Card.new(:nine, :diamonds)])
+      iex> is_valid_hand?(
+      ...> Games.Kadi.Card.new(:ten, :diamonds),
+      ...> [Games.Kadi.Card.new(:eight, :diamonds), Games.Kadi.Card.new(:nine, :diamonds)])
       true
 
       iex> is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [Games.Kadi.Card.new(:q, :diamonds), Games.Kadi.Card.new(:nine, :diamonds)])
       true
+
+      iex> is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [Games.Kadi.Card.new(:nine, :diamonds)])
+      true
+
+      iex> is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [Games.Kadi.Card.new(:nine, :hearts)])
+      false
   """
-  def is_valid_hand?(starting_card, cards) do
+  def is_valid_hand?(_, cards) when hd(cards).number == :a, do: true
+  def is_valid_hand?(_, cards) when hd(cards).number == :eight and length(cards) == 1, do: false
+  def is_valid_hand?(_, cards) when hd(cards).number == :q and length(cards) == 1, do: false
+  def is_valid_hand?(last_card, cards) do
     # First check
-    Utils.is_same_suit_or_number?(starting_card, hd(cards))
-    # Is valid single card
-    # Is valid multi-card combo (same suit)
+    # Is valid single card of the same suit or number
+    Utils.is_same_suit_or_number?(last_card, hd(cards))
     # Is valid multi-card combo (same numbers)
     # Is valid Q and A combo
     # Do some pattern matching to check if it starts with '8' or 'Q'

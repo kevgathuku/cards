@@ -108,6 +108,7 @@ defmodule Games.Kadi.ServerTest do
 
     test "deals configured number of cards to each player on start game" do
       cards_to_deal = 5
+
       {:ok, state} =
         Server.init(%{
           cards_to_deal: cards_to_deal
@@ -130,6 +131,45 @@ defmodule Games.Kadi.ServerTest do
       {:error, errors} = Server.start_game(with_player_1)
       errors_map = errors |> Enum.into(%{})
       assert errors_map.players == "Not enough players"
+    end
+  end
+
+  describe "is_valid_hand?" do
+    test "single card of the same suit is valid" do
+      assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
+        Games.Kadi.Card.new(:q, :diamonds),
+        Games.Kadi.Card.new(:nine, :diamonds)
+      ]) == true
+    end
+
+    test "single card of a different suit is not valid" do
+      assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
+        Games.Kadi.Card.new(:nine, :spades)
+      ]) == false
+    end
+
+    test "single card of Q or 8 of the same suit is not valid" do
+      assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
+        Games.Kadi.Card.new(:q, :diamonds)
+      ]) == false
+      assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
+        Games.Kadi.Card.new(:eight, :diamonds)
+      ]) == false
+    end
+
+    test "single card of A of any suit is valid" do
+      assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
+        Games.Kadi.Card.new(:a, :diamonds)
+      ]) == true
+      assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
+        Games.Kadi.Card.new(:a, :spades)
+      ]) == true
+      assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
+        Games.Kadi.Card.new(:a, :flowers)
+      ]) == true
+      assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
+        Games.Kadi.Card.new(:a, :hearts)
+      ]) == true
     end
   end
 
