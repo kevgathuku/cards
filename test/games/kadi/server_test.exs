@@ -137,7 +137,6 @@ defmodule Games.Kadi.ServerTest do
   describe "is_valid_hand?" do
     test "single card of the same suit is valid" do
       assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-        Games.Kadi.Card.new(:q, :diamonds),
         Games.Kadi.Card.new(:nine, :diamonds)
       ]) == true
     end
@@ -169,6 +168,17 @@ defmodule Games.Kadi.ServerTest do
       ]) == true
       assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
         Games.Kadi.Card.new(:a, :hearts)
+      ]) == true
+    end
+
+    test "multiple cards of the same number are valid" do
+      assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
+        Games.Kadi.Card.new(:ten, :spades),
+        Games.Kadi.Card.new(:ten, :hearts)
+      ]) == true
+      assert Server.is_valid_hand?(Games.Kadi.Card.new(:eight, :spades), [
+        Games.Kadi.Card.new(:ten, :spades),
+        Games.Kadi.Card.new(:ten, :hearts)
       ]) == true
     end
   end

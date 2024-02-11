@@ -15,10 +15,19 @@ defmodule UtilsTest do
 
   test "is_same_suit_or_number" do
     two_spades = Card.new(:two, :spades)
-    two_hearts = Card.new(:two, :spades)
+    two_hearts = Card.new(:two, :hearts)
     four_spades = Card.new(:four, :spades)
 
-    assert Utils.is_same_suit_or_number?(two_spades, two_hearts)
-    assert Utils.is_same_suit_or_number?(two_spades, four_spades)
+    assert Utils.is_same_suit_or_number?(two_spades, two_hearts) == true
+    assert Utils.is_same_suit_or_number?(two_spades, four_spades) == true
+    assert Utils.is_same_suit_or_number?(two_hearts, four_spades) == false
+  end
+
+  test "is_same_number" do
+    two_cards = [Card.new(:two, :spades), Card.new(:two, :hearts)]
+    diff_number_cards = [Card.new(:two, :spades), Card.new(:three, :spades)]
+
+    assert Utils.is_same_number?(two_cards) == true
+    assert Utils.is_same_number?(diff_number_cards) == false
   end
 end
