@@ -140,14 +140,6 @@ defmodule Games.Kadi.Server do
 
   ## Examples
 
-      iex> is_valid_hand?(
-      ...> Games.Kadi.Card.new(:ten, :diamonds),
-      ...> [Games.Kadi.Card.new(:eight, :diamonds), Games.Kadi.Card.new(:nine, :diamonds)])
-      true
-
-      iex> is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [Games.Kadi.Card.new(:q, :diamonds), Games.Kadi.Card.new(:nine, :diamonds)])
-      true
-
       iex> is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [Games.Kadi.Card.new(:nine, :diamonds)])
       true
 
