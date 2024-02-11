@@ -176,6 +176,10 @@ defmodule Games.Kadi.ServerTest do
         Games.Kadi.Card.new(:ten, :spades),
         Games.Kadi.Card.new(:ten, :hearts)
       ]) == true
+      assert Server.is_valid_hand?(Games.Kadi.Card.new(:eight, :spades), [
+        Games.Kadi.Card.new(:ten, :spades),
+        Games.Kadi.Card.new(:ten, :hearts)
+      ]) == true
     end
   end
 
