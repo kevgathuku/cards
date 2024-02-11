@@ -26,4 +26,11 @@ defmodule Utils do
   def is_same_suit_or_number?(first, second) do
     first.number == second.number || first.suit == second.suit
   end
+
+  @spec is_same_number?(nonempty_list(Card.t())) :: boolean()
+  def is_same_number?(cards) when length(cards) == 1, do: true
+  def is_same_number?(cards) do
+    first_card = hd(cards)
+    Enum.all?(tl(cards), fn card -> card.number == first_card.number end)
+  end
 end
