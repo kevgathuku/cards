@@ -170,6 +170,13 @@ defmodule Games.Kadi.ServerTest do
         Games.Kadi.Card.new(:a, :hearts)
       ]) == true
     end
+
+    test "multiple cards of the same number are valid" do
+      assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
+        Games.Kadi.Card.new(:ten, :spades),
+        Games.Kadi.Card.new(:ten, :hearts)
+      ]) == true
+    end
   end
 
   # test "accepts a play from the next player", %{registry: registry} do

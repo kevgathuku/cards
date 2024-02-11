@@ -25,7 +25,9 @@ defmodule UtilsTest do
 
   test "is_same_number" do
     two_cards = [Card.new(:two, :spades), Card.new(:two, :hearts)]
+    diff_number_cards = [Card.new(:two, :spades), Card.new(:three, :spades)]
 
     assert Utils.is_same_number?(two_cards) == true
+    assert Utils.is_same_number?(diff_number_cards) == false
   end
 end
