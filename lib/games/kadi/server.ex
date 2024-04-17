@@ -5,10 +5,13 @@ defmodule Games.Kadi.Server do
   require Logger
   alias Games.Kadi.Player
 
+  @type stage :: :lobby | :playing | :finish
+
   @initial_state %{
     players: [],
     deck: [],
-    played: []
+    played: [],
+    stage: :lobby
   }
 
   @doc """
@@ -22,6 +25,7 @@ defmodule Games.Kadi.Server do
         players: [],
         deck: [],
         played: [],
+        stage: :lobby,
         rules: %{
           start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
           finishing_cards: [:a, :two, :three, :four, :five, :six, :seven, :nine, :ten],
@@ -35,6 +39,7 @@ defmodule Games.Kadi.Server do
         players: [],
         deck: [],
         played: [],
+        stage: :lobby,
         rules: %{
           start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
           finishing_cards: [:a, :two, :three, :four, :five, :six, :seven, :nine, :ten],
@@ -74,10 +79,11 @@ defmodule Games.Kadi.Server do
       iex> add_player(%{players: [%Games.Kadi.Player{name: "lucho", cards: []}]}, "lucho")
       {:ok, %{players: [%Games.Kadi.Player{name: "lucho", cards: []}]}}
   """
-  def add_player(%{players: players} = state, name) do
-    player_exists? = fn player -> player.name == name end
+  def add_player(%{stage: current_stage}, _name) when current_stage != :lobby,
+    do: {:error, stage: "Invalid game state: #{current_stage}"}
 
-    if Enum.any?(players, player_exists?) do
+  def add_player(%{players: players} = state, name) do
+    if Enum.any?(players, fn player -> player.name == name end) do
       Logger.info("Player #{name} already exists")
       {:ok, state}
     else
@@ -104,6 +110,7 @@ defmodule Games.Kadi.Server do
     new_state =
       state
       |> Map.put(:deck, deck)
+      |> Map.put(:stage, :playing)
       |> deal_start_cards_to_players()
       |> assign_start_card()
 
