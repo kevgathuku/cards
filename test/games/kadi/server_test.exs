@@ -1,6 +1,7 @@
 defmodule Games.Kadi.ServerTest do
   use ExUnit.Case, async: true
   alias Games.Kadi.Server
+  alias Games.Kadi.Card
   doctest Games.Kadi.Server, import: true
 
   describe "init" do
@@ -159,19 +160,20 @@ defmodule Games.Kadi.ServerTest do
       {:ok, with_player_2} = Server.add_player(with_player_1, "King")
 
       deck = [
-        %Games.Kadi.Card{suit: :hearts, number: :two},
-        %Games.Kadi.Card{suit: :hearts, number: :eight},
-        %Games.Kadi.Card{suit: :flowers, number: :eight},
-        %Games.Kadi.Card{suit: :flowers, number: :seven},
-        %Games.Kadi.Card{suit: :diamonds, number: :eight},
-        %Games.Kadi.Card{suit: :diamonds, number: :six}
+        %Card{suit: :hearts, number: :two},
+        %Card{suit: :hearts, number: :eight},
+        %Card{suit: :flowers, number: :eight},
+        %Card{suit: :flowers, number: :seven},
+        %Card{suit: :diamonds, number: :eight},
+        %Card{suit: :diamonds, number: :six}
       ]
 
-      {:ok, %{players: players, deck: game_deck}} = Server.start_game(with_player_2, deck)
+      {:ok, %{players: players, deck: game_deck, played: played}} =
+        Server.start_game(with_player_2, deck)
 
       player_cards = Enum.flat_map(players, fn player -> player.cards end)
 
-      assert Enum.count(player_cards ++ game_deck) == Enum.count(deck)
+      assert Enum.count(player_cards ++ game_deck ++ played) == Enum.count(deck)
     end
   end
 

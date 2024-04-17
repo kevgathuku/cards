@@ -108,10 +108,18 @@ defmodule Games.Kadi.Server do
   def start_game(%{players: players, rules: rules}) when length(players) < rules.min_players,
     do: {:error, players: "Not enough players"}
 
-  def start_game(state, deck \\ Utils.create_deck()) do
+  def start_game(state, deck \\ []) do
+    start_deck =
+      if Enum.empty?(deck) do
+        # If deck is not provided, create a new one and shuffle it
+        Utils.create_deck() |> Enum.shuffle()
+      else
+        deck
+      end
+
     new_state =
       state
-      |> Map.put(:deck, Enum.shuffle(deck))
+      |> Map.put(:deck, start_deck)
       |> Map.put(:stage, :playing)
       |> deal_start_cards_to_players()
       |> assign_start_card()
@@ -188,12 +196,12 @@ defmodule Games.Kadi.Server do
 
   def is_valid_hand?(last_card, cards) do
     cond do
-      Utils.is_same_suit_or_number?(last_card, hd(cards)) and length(cards) == 1 ->
         # Validate single card of the same suit or number
+      Utils.is_same_suit_or_number?(last_card, hd(cards)) and length(cards) == 1 ->
         true
 
-      Utils.is_same_suit_or_number?(last_card, hd(cards)) and Utils.is_same_number?(cards) ->
         # Is valid multi-card combo (same numbers)
+      Utils.is_same_suit_or_number?(last_card, hd(cards)) and Utils.is_same_number?(cards) ->
         true
 
       true ->
@@ -211,6 +219,7 @@ defmodule Games.Kadi.Server do
       Enum.map_reduce(players, init_state, fn player, state ->
         {player_cards, remaining_deck} = Enum.split(state.deck, rules.cards_to_deal)
         # Update the player, and the deck
+        Logger.info("Assigning cards: #{inspect(player_cards)} Player: #{player.name}")
         updated_player = %{player | cards: player_cards}
         updated_state = %{state | deck: remaining_deck}
         # {result, accumulator}
