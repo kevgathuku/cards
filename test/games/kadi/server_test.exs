@@ -7,7 +7,14 @@ defmodule Games.Kadi.ServerTest do
     test "starts server on init with no options" do
       {:ok, state} = Server.init()
 
-      assert state == %{players: [], deck: [], played: [], stage: :lobby, rules: Server.default_rules()}
+      assert state == %{
+               players: [],
+               deck: [],
+               played: [],
+               stage: :lobby,
+               player_turn: 0,
+               rules: Server.default_rules()
+             }
     end
 
     test "starts server on init with valid options" do

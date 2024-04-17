@@ -11,6 +11,7 @@ defmodule Games.Kadi.Server do
     players: [],
     deck: [],
     played: [],
+    player_turn: 0,
     stage: :lobby
   }
 
@@ -26,6 +27,7 @@ defmodule Games.Kadi.Server do
         deck: [],
         played: [],
         stage: :lobby,
+        player_turn: 0,
         rules: %{
           start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
           finishing_cards: [:a, :two, :three, :four, :five, :six, :seven, :nine, :ten],
@@ -40,6 +42,7 @@ defmodule Games.Kadi.Server do
         deck: [],
         played: [],
         stage: :lobby,
+        player_turn: 0,
         rules: %{
           start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
           finishing_cards: [:a, :two, :three, :four, :five, :six, :seven, :nine, :ten],
