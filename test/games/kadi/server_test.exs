@@ -7,7 +7,7 @@ defmodule Games.Kadi.ServerTest do
     test "starts server on init with no options" do
       {:ok, state} = Server.init()
 
-      assert state == %{players: [], deck: [], played: [], rules: Server.default_rules()}
+      assert state == %{players: [], deck: [], played: [], stage: :lobby, rules: Server.default_rules()}
     end
 
     test "starts server on init with valid options" do
@@ -16,9 +16,9 @@ defmodule Games.Kadi.ServerTest do
           cards_to_deal: 5
         })
 
-      other_state = Map.take(state, [:players, :deck, :played])
+      other_state = Map.take(state, [:players, :deck, :played, :stage])
 
-      assert other_state == %{players: [], deck: [], played: []}
+      assert other_state == %{players: [], deck: [], played: [], stage: :lobby}
       assert state.rules.cards_to_deal == 5
     end
 
@@ -132,54 +132,72 @@ defmodule Games.Kadi.ServerTest do
       errors_map = errors |> Enum.into(%{})
       assert errors_map.players == "Not enough players"
     end
+
+    test "does not allow adding players after game starts" do
+      {:ok, state} = Server.init()
+      {:ok, with_player_1} = Server.add_player(state, "Kevin")
+      {:ok, with_player_2} = Server.add_player(with_player_1, "King")
+
+      {:ok, game_state} = Server.start_game(with_player_2)
+
+      # Try to add a player after game is in progress
+      result = Server.add_player(game_state, "Kevin")
+
+      assert match?({:error, _}, result)
+    end
   end
 
   describe "is_valid_hand?" do
     test "single card of the same suit is valid" do
       assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-        Games.Kadi.Card.new(:nine, :diamonds)
-      ]) == true
+               Games.Kadi.Card.new(:nine, :diamonds)
+             ]) == true
     end
 
     test "single card of a different suit is not valid" do
       assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-        Games.Kadi.Card.new(:nine, :spades)
-      ]) == false
+               Games.Kadi.Card.new(:nine, :spades)
+             ]) == false
     end
 
     test "single card of Q or 8 of the same suit is not valid" do
       assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-        Games.Kadi.Card.new(:q, :diamonds)
-      ]) == false
+               Games.Kadi.Card.new(:q, :diamonds)
+             ]) == false
+
       assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-        Games.Kadi.Card.new(:eight, :diamonds)
-      ]) == false
+               Games.Kadi.Card.new(:eight, :diamonds)
+             ]) == false
     end
 
     test "single card of A of any suit is valid" do
       assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-        Games.Kadi.Card.new(:a, :diamonds)
-      ]) == true
+               Games.Kadi.Card.new(:a, :diamonds)
+             ]) == true
+
       assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-        Games.Kadi.Card.new(:a, :spades)
-      ]) == true
+               Games.Kadi.Card.new(:a, :spades)
+             ]) == true
+
       assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-        Games.Kadi.Card.new(:a, :flowers)
-      ]) == true
+               Games.Kadi.Card.new(:a, :flowers)
+             ]) == true
+
       assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-        Games.Kadi.Card.new(:a, :hearts)
-      ]) == true
+               Games.Kadi.Card.new(:a, :hearts)
+             ]) == true
     end
 
     test "multiple cards of the same number are valid" do
       assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-        Games.Kadi.Card.new(:ten, :spades),
-        Games.Kadi.Card.new(:ten, :hearts)
-      ]) == true
+               Games.Kadi.Card.new(:ten, :spades),
+               Games.Kadi.Card.new(:ten, :hearts)
+             ]) == true
+
       assert Server.is_valid_hand?(Games.Kadi.Card.new(:eight, :spades), [
-        Games.Kadi.Card.new(:ten, :spades),
-        Games.Kadi.Card.new(:ten, :hearts)
-      ]) == true
+               Games.Kadi.Card.new(:ten, :spades),
+               Games.Kadi.Card.new(:ten, :hearts)
+             ]) == true
     end
   end
 
