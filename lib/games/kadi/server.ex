@@ -139,14 +139,13 @@ defmodule Games.Kadi.Server do
     )
 
     cond do
+      # TODO: This needs to be extracted into a function
       Enum.member?(current_player.cards, hd(hand)) ->
         starting_card = hd(played)
 
         if is_valid_hand?(starting_card, hand) do
           Logger.info("Is valid hand. Next checks...")
           # Compute the next state based on the new hand:
-          # player cards -> [2H, 2F, 5H, 8H]
-          # played -> [8H, 5H]
           remaining_player_cards = current_player.cards -- hand
 
           # Update the player's cards
@@ -161,9 +160,11 @@ defmodule Games.Kadi.Server do
           end)
 
           # TODO: Verify the stack of played cards is updated correctly
+          # player cards -> [2H, 2F, 5H, 8H]
+          # hand -> [8H, 5H]
           # e.g. in this case the 5H should be the one on the top of the deck
           # Add the played cards to the played deck
-          new_played = played ++ Enum.reverse(hand)
+          new_played = Enum.reverse(hand) ++ played
 
           # Update the player turn to the next player
           next_player_turn = rem(player_turn + 1, Enum.count(players))
