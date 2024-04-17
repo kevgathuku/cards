@@ -134,48 +134,56 @@ defmodule Games.Kadi.Server do
     # Get the player who should be playing the current turn
     current_player = Enum.at(players, player_turn)
 
-    Logger.info(
-      "Evaluating hand: #{inspect(hand)} Current Player: #{current_player.name} \nTurn: #{player_turn}"
-    )
-
     cond do
-      # TODO: This needs to be extracted into a function
       Enum.member?(current_player.cards, hd(hand)) ->
-        starting_card = hd(played)
+        # Last played card before the current turn
+        last_card = hd(played)
 
-        if is_valid_hand?(starting_card, hand) do
-          Logger.info("Is valid hand. Next checks...")
-          # Compute the next state based on the new hand:
-          remaining_player_cards = current_player.cards -- hand
-
-          # Update the player's cards
-          updated_player = %{current_player | cards: remaining_player_cards}
-
-          # Update the player in the players array
-          players
-          |> Enum.with_index()
-          |> Enum.map(fn
-            {_player, index} when index == player_turn -> updated_player
-            {value, _index} -> value
-          end)
-
-          # TODO: Verify the stack of played cards is updated correctly
-          # player cards -> [2H, 2F, 5H, 8H]
-          # hand -> [8H, 5H]
-          # e.g. in this case the 5H should be the one on the top of the deck
-          # Add the played cards to the played deck
-          new_played = Enum.reverse(hand) ++ played
-
-          # Update the player turn to the next player
-          next_player_turn = rem(player_turn + 1, Enum.count(players))
-
-          {:ok, %{state | played: new_played, player_turn: next_player_turn}}
+        if is_valid_hand?(last_card, hand) do
+          process_played_hand(state, current_player, hand)
+        else
+          {:error, message: "Invalid cards played"}
         end
 
       true ->
-        # Played card includes cards not in the player's set of card
+        # Played card includes cards not in the player's set of cards
         {:error, message: "Wrong player. Cannot parse cards"}
     end
+  end
+
+  defp process_played_hand(
+         %{
+           players: players,
+           played: played,
+           player_turn: player_turn
+         } = state,
+         current_player,
+         hand
+       ) do
+    # Compute the next state based on the new hand:
+    # Update the player's cards
+    remaining_player_cards = current_player.cards -- hand
+    updated_player = %{current_player | cards: remaining_player_cards}
+
+    # Update the player in the players array
+    players
+    |> Enum.with_index()
+    |> Enum.map(fn
+      {_player, index} when index == player_turn -> updated_player
+      {value, _index} -> value
+    end)
+
+    # TODO: Verify the stack of played cards is updated correctly
+    # player cards -> [2H, 2F, 5H, 8H]
+    # hand -> [8H, 5H]
+    # e.g. in this case the 5H should be the one on the top of the deck
+    # Add the played cards to the played deck
+    new_played = Enum.reverse(hand) ++ played
+
+    # Update the player turn to the next player
+    next_player_turn = rem(player_turn + 1, Enum.count(players))
+
+    {:ok, %{state | played: new_played, player_turn: next_player_turn}}
   end
 
   @doc """
