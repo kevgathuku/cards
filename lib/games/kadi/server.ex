@@ -129,47 +129,59 @@ defmodule Games.Kadi.Server do
 
   def handle_hand(
         %{players: players, played: played, player_turn: player_turn} = state,
-        cards
+        hand
       ) do
-    # Get the player who should be playing the cards
+    # Get the player who should be playing the current turn
     current_player = Enum.at(players, player_turn)
 
-    # Ensure we're dealing with the correct player
-    unless Enum.member?(current_player.cards, hd(cards)) do
-      Logger.info("Wrong player. Cannot parse cards")
-      {:ok, state}
+    Logger.info(
+      "Evaluating hand: #{inspect(hand)} Current Player: #{current_player.name} \nTurn: #{player_turn}"
+    )
+
+    IO.inspect(current_player.cards, label: "current_player_cards")
+    IO.inspect(hand, label: "played_hand")
+
+    # # Ensure we're dealing with the correct player
+    if Enum.member?(current_player.cards, hd(hand)) do
+      {:error, message: "Wrong player. Cannot parse cards"}
     end
 
-    Logger.info("Evaluating cards: #{cards} from player: #{current_player.name}")
+    cond do
+      Enum.member?(current_player.cards, hd(hand)) ->
+        starting_card = hd(played)
 
-    starting_card = hd(played)
+        if is_valid_hand?(starting_card, hand) do
+          Logger.info("Is valid hand. Next checks...")
+          # Compute the next state based on the new hand:
+          # player cards -> [2H, 2F, 5H, 8H]
+          # played -> [8H, 5H]
+          remaining_player_cards = current_player.cards -- hand
 
-    if is_valid_hand?(starting_card, cards) do
-      # Compute the next state based on the new hand:
-      # player cards -> [2H, 2F, 5H, 8H]
-      # played -> [8H, 5H]
-      remaining_player_cards = current_player.cards -- cards
+          # Update the player's cards
+          updated_player = %{current_player | cards: remaining_player_cards}
 
-      # Update the player's cards
-      updated_player = %{current_player | cards: remaining_player_cards}
+          # Update the player in the players array
+          players
+          |> Enum.with_index()
+          |> Enum.map(fn
+            {_player, index} when index == player_turn -> updated_player
+            {value, _index} -> value
+          end)
 
-      # Update the player in the players array
-      players
-      |> Enum.with_index()
-      |> Enum.map(fn
-        {_player, index} when index == player_turn -> updated_player
-        {value, _index} -> value
-      end)
+          # TODO: Verify the stack of played cards is updated correctly
+          # e.g. in this case the 5H should be the one on the top of the deck
+          # Add the played cards to the played deck
+          new_played = played ++ Enum.reverse(hand)
 
-      # TODO: Verify the stack of played cards is updated correctly
-      # e.g. in this case the 5H should be the one on the top of the deck
-      # Add the played cards to the played deck
-      new_played = played ++ Enum.reverse(cards)
+          # Update the player turn to the next player
+          next_player_turn = rem(player_turn + 1, Enum.count(players))
 
-      # Update the player turn to the next player
-      next_player_turn = rem(player_turn + 1, Enum.count(players))
+          {:ok, %{state | played: new_played, player_turn: next_player_turn}}
+        end
 
-      {:ok, %{state | played: new_played, player_turn: next_player_turn}}
+      true ->
+        # Played card includes cards not in the player's set of card
+        {:error, message: "Wrong player. Cannot parse cards"}
     end
   end
 
@@ -196,11 +208,11 @@ defmodule Games.Kadi.Server do
 
   def is_valid_hand?(last_card, cards) do
     cond do
-        # Validate single card of the same suit or number
+      # Validate single card of the same suit or number
       Utils.is_same_suit_or_number?(last_card, hd(cards)) and length(cards) == 1 ->
         true
 
-        # Is valid multi-card combo (same numbers)
+      # Is valid multi-card combo (same numbers)
       Utils.is_same_suit_or_number?(last_card, hd(cards)) and Utils.is_same_number?(cards) ->
         true
 

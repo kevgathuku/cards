@@ -231,24 +231,81 @@ defmodule Games.Kadi.ServerTest do
     end
   end
 
-  # test "accepts a play from the next player", %{registry: registry} do
-  #   {:ok, state} = Server.init()
-  #   {:ok, with_player_1} = Server.add_player(state, "Boo")
-  #   {:ok, with_player_2} = Server.add_player(with_player_1, "Doo")
+  describe "handle_hand" do
+    test "accepts a play from the next player" do
+      {:ok, state} = Server.init(%{cards_to_deal: 3})
+      {:ok, state_1} = Server.add_player(state, "Boo")
+      {:ok, state_2} = Server.add_player(state_1, "Doo")
 
-  #   # TODO: Figure out a way to mock the cards to assign
-  #   Server.play_hand(registry, "Boo", [])
-  # end
+      deck = [
+        # Player 1
+        %Card{suit: :hearts, number: :five},
+        %Card{suit: :hearts, number: :eight},
+        %Card{suit: :hearts, number: :six},
+        # Player 2
+        %Card{suit: :flowers, number: :eight},
+        %Card{suit: :flowers, number: :seven},
+        %Card{suit: :flowers, number: :six},
+        # Start card
+        %Card{suit: :diamonds, number: :six},
+        # Remaining stack
+        %Card{suit: :diamonds, number: :eight}
+      ]
 
-  # test "does not accept a play from other players", %{registry: registry} do
-  #   Server.add_player(registry, "Boo")
-  #   Server.add_player(registry, "Doo")
+      {:ok, %{played: played} = started_game} = Server.start_game(state_2, deck)
 
-  #   state_before = :sys.get_state(registry)
+      hand = [
+        %Card{suit: :hearts, number: :six}
+      ]
 
-  #   # TODO: Figure out a way to mock the cards to assign
-  #   Server.play_hand(registry, "Doo", [])
-  #   state_after = :sys.get_state(registry)
-  #   assert state_before == state_after
-  # end
+      assert Server.is_valid_hand?(hd(played), hand)
+
+      result =
+        Server.handle_hand(started_game, hand)
+
+      assert match?({:ok, _}, result)
+    end
+
+    test "does not accept a play from other players" do
+      {:ok, state} = Server.init(%{cards_to_deal: 3})
+      {:ok, state_1} = Server.add_player(state, "Boo")
+      {:ok, state_2} = Server.add_player(state_1, "Doo")
+
+      deck = [
+        # Player 1
+        %Card{suit: :hearts, number: :five},
+        %Card{suit: :hearts, number: :eight},
+        %Card{suit: :hearts, number: :six},
+        # Player 2
+        %Card{suit: :flowers, number: :eight},
+        %Card{suit: :flowers, number: :seven},
+        %Card{suit: :flowers, number: :six},
+        # Start card
+        %Card{suit: :diamonds, number: :six},
+        # Remaining stack
+        %Card{suit: :diamonds, number: :eight}
+      ]
+
+      {:ok, %{played: played} = started_game} = Server.start_game(state_2, deck)
+
+      # Card from player 2. Invalid - it is not their turn.
+      hand = [
+        %Card{suit: :flowers, number: :six}
+      ]
+
+      # The card is valid
+      assert Server.is_valid_hand?(hd(played), hand)
+
+      result =
+        Server.handle_hand(started_game, hand)
+
+      assert match?({:error, _}, result)
+    end
+
+    # test "does not accept an invalid hand from the correct player" do
+    #   {:ok, state} = Server.init()
+    #   {:ok, state_1} = Server.add_player(state, "Boo")
+    #   {:ok, state_2} = Server.add_player(state_1, "Doo")
+    # end
+  end
 end
