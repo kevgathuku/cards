@@ -138,14 +138,6 @@ defmodule Games.Kadi.Server do
       "Evaluating hand: #{inspect(hand)} Current Player: #{current_player.name} \nTurn: #{player_turn}"
     )
 
-    IO.inspect(current_player.cards, label: "current_player_cards")
-    IO.inspect(hand, label: "played_hand")
-
-    # # Ensure we're dealing with the correct player
-    if Enum.member?(current_player.cards, hd(hand)) do
-      {:error, message: "Wrong player. Cannot parse cards"}
-    end
-
     cond do
       Enum.member?(current_player.cards, hd(hand)) ->
         starting_card = hd(played)
