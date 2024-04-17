@@ -94,7 +94,7 @@ defmodule Games.Kadi.Server do
       Logger.info("Adding Player: #{name}")
       player = %Player{name: name, cards: []}
 
-      {:ok, %{state | players: [player | players]}}
+      {:ok, %{state | players: Enum.reverse([player | players])}}
     end
   end
 
