@@ -152,6 +152,27 @@ defmodule Games.Kadi.ServerTest do
 
       assert match?({:error, _}, result)
     end
+
+    test "can accept a custom deck" do
+      {:ok, state} = Server.init(%{cards_to_deal: 2})
+      {:ok, with_player_1} = Server.add_player(state, "Kevin")
+      {:ok, with_player_2} = Server.add_player(with_player_1, "King")
+
+      deck = [
+        %Games.Kadi.Card{suit: :hearts, number: :two},
+        %Games.Kadi.Card{suit: :hearts, number: :eight},
+        %Games.Kadi.Card{suit: :flowers, number: :eight},
+        %Games.Kadi.Card{suit: :flowers, number: :seven},
+        %Games.Kadi.Card{suit: :diamonds, number: :eight},
+        %Games.Kadi.Card{suit: :diamonds, number: :six}
+      ]
+
+      {:ok, %{players: players, deck: game_deck}} = Server.start_game(with_player_2, deck)
+
+      player_cards = Enum.flat_map(players, fn player -> player.cards end)
+
+      assert Enum.count(player_cards ++ game_deck) == Enum.count(deck)
+    end
   end
 
   describe "is_valid_hand?" do

@@ -65,6 +65,7 @@ defmodule Games.Kadi.Server do
   def default_rules() do
     %{
       start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
+      # TODO: this should be a blocklist too
       finishing_cards: [:a, :two, :three, :four, :five, :six, :seven, :nine, :ten],
       min_players: 2,
       cards_to_deal: 4
@@ -107,12 +108,10 @@ defmodule Games.Kadi.Server do
   def start_game(%{players: players, rules: rules}) when length(players) < rules.min_players,
     do: {:error, players: "Not enough players"}
 
-  def start_game(state) do
-    deck = Utils.create_deck() |> Enum.shuffle()
-
+  def start_game(state, deck \\ Utils.create_deck()) do
     new_state =
       state
-      |> Map.put(:deck, deck)
+      |> Map.put(:deck, Enum.shuffle(deck))
       |> Map.put(:stage, :playing)
       |> deal_start_cards_to_players()
       |> assign_start_card()
@@ -120,28 +119,49 @@ defmodule Games.Kadi.Server do
     {:ok, new_state}
   end
 
-  def handle_hand(%{players: players, played: played} = state, player_name, cards) do
-    # TODO: Just get the player at the head
-    next_player = hd(players)
+  def handle_hand(
+        %{players: players, played: played, player_turn: player_turn} = state,
+        cards
+      ) do
+    # Get the player who should be playing the cards
+    current_player = Enum.at(players, player_turn)
+
+    # Ensure we're dealing with the correct player
+    unless Enum.member?(current_player.cards, hd(cards)) do
+      Logger.info("Wrong player. Cannot parse cards")
+      {:ok, state}
+    end
+
+    Logger.info("Evaluating cards: #{cards} from player: #{current_player.name}")
+
     starting_card = hd(played)
 
-    if next_player.name != player_name do
-      Logger.info("Invalid player passed to handle_hand")
-      {:ok, state}
-    else
-      Logger.info("Evaluating cards: #{} from player: #{player_name}")
+    if is_valid_hand?(starting_card, cards) do
+      # Compute the next state based on the new hand:
+      # player cards -> [2H, 2F, 5H, 8H]
+      # played -> [8H, 5H]
+      remaining_player_cards = current_player.cards -- cards
 
-      if is_valid_hand?(starting_card, cards) do
-        # Compute the next state based on the new hand
-        # Remove the played cards from the player's cards
-        # Add the played cards to the played deck
-        new_played = played ++ cards
+      # Update the player's cards
+      updated_player = %{current_player | cards: remaining_player_cards}
 
-        # Move the player to the back of the queue
-        updated_players = tl(players) ++ [next_player]
+      # Update the player in the players array
+      players
+      |> Enum.with_index()
+      |> Enum.map(fn
+        {_player, index} when index == player_turn -> updated_player
+        {value, _index} -> value
+      end)
 
-        {:ok, %{state | players: updated_players, played: new_played}}
-      end
+      # TODO: Verify the stack of played cards is updated correctly
+      # e.g. in this case the 5H should be the one on the top of the deck
+      # Add the played cards to the played deck
+      new_played = played ++ Enum.reverse(cards)
+
+      # Update the player turn to the next player
+      next_player_turn = rem(player_turn + 1, Enum.count(players))
+
+      {:ok, %{state | played: new_played, player_turn: next_player_turn}}
     end
   end
 
