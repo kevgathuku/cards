@@ -31,6 +31,16 @@ Finitomata.state "KadiServer"
 Finitomata.transition "KadiServer", {:add_player, "Kevin"}
 Finitomata.transition "KadiServer", {:add_player, "Devin"}
 
+# Add deck
+Finitomata.transition "KadiServer", {:add_deck, %{deck: Utils.create_deck()}}
+
+# Deal cards to the players
+Finitomata.transition "KadiServer", {:deal_player_cards, nil}
+
+# Deal the start card
+Finitomata.transition "KadiServer", {:deal_start_card, nil}
+
+# Game now in play
 # More coming soon
 ```
 
