@@ -72,4 +72,8 @@ defmodule Utils do
         false
     end
   end
+
+  def intersection(larger, smaller) do
+    Enum.filter(larger, fn x -> Enum.member?(smaller, x) end)
+  end
 end
