@@ -73,6 +73,7 @@ defmodule Utils do
     end
   end
 
+  # Find the intersection of two lists, providing the larger one first
   def intersection(larger, smaller) do
     Enum.filter(larger, fn x -> Enum.member?(smaller, x) end)
   end

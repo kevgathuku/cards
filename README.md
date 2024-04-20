@@ -31,13 +31,12 @@ Finitomata.state "KadiServer"
 Finitomata.transition "KadiServer", {:add_player, "Kevin"}
 Finitomata.transition "KadiServer", {:add_player, "Devin"}
 
+alias Games.Kadi.Card
 deck = [
     # Player 1
     %Card{suit: :hearts, number: :five},
     %Card{suit: :hearts, number: :eight},
-    %Card{suit: :hearts, number: :six},
     # Player 2
-    %Card{suit: :flowers, number: :eight},
     %Card{suit: :flowers, number: :seven},
     %Card{suit: :flowers, number: :six},
     # Start card

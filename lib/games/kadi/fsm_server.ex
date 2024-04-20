@@ -76,19 +76,17 @@ defmodule FsmServer do
         :awaiting_player_cards,
         :deal_player_cards,
         _event_payload,
-        %{players: players, rules: rules, deck: deck} = init_state
+        %{players: players, rules: rules} = init_state
       ) do
-    # TODO: Fix bug with assigning the same cards to players
-    # Enough players to start. Deal the cards
     {updated_players, final_state} =
-      Enum.map_reduce(players, init_state, fn player, state ->
-        {player_cards, remaining_deck} = Enum.split(deck, rules.cards_to_deal)
-        # Update the player, and the deck
+      Enum.map_reduce(players, init_state, fn player, acc_state ->
+        {player_cards, remaining_deck} = Enum.split(acc_state.deck, rules.cards_to_deal)
         Logger.info("Assigning cards: #{inspect(player_cards)} to Player: #{player.name}")
+        # Return the updated player, and update the deck in the state
         updated_player = %{player | cards: player_cards}
-        updated_state = %{state | deck: remaining_deck}
+        updated_state = %{acc_state | deck: remaining_deck}
+
         # {result, accumulator}
-        # TODO: Check if updated state is enough here
         {updated_player, updated_state}
       end)
 
@@ -120,8 +118,8 @@ defmodule FsmServer do
     current_player = Enum.at(players, player_turn)
 
     unless Utils.intersection(current_player.cards, played_hand) == played_hand do
-      # TODO: Confirm this works
-      # Invalid cards played. Current player cards should contain all the played cards
+      # TODO: Confirm this works - add tests
+      # Invalid cards played. Played hand should come from the player's cards
       # Go back to live. Same player should play again
 
       {:ok, :live, state}
