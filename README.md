@@ -31,8 +31,23 @@ Finitomata.state "KadiServer"
 Finitomata.transition "KadiServer", {:add_player, "Kevin"}
 Finitomata.transition "KadiServer", {:add_player, "Devin"}
 
+deck = [
+    # Player 1
+    %Card{suit: :hearts, number: :five},
+    %Card{suit: :hearts, number: :eight},
+    %Card{suit: :hearts, number: :six},
+    # Player 2
+    %Card{suit: :flowers, number: :eight},
+    %Card{suit: :flowers, number: :seven},
+    %Card{suit: :flowers, number: :six},
+    # Start card
+    %Card{suit: :diamonds, number: :six},
+    # Remaining stack
+    %Card{suit: :diamonds, number: :eight}
+]
+
 # Add deck
-Finitomata.transition "KadiServer", {:add_deck, %{deck: Utils.create_deck()}}
+Finitomata.transition "KadiServer", {:add_deck, %{deck: deck}}
 
 # Deal cards to the players
 Finitomata.transition "KadiServer", {:deal_player_cards, nil}

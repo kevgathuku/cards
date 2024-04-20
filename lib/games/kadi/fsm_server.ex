@@ -6,6 +6,9 @@ defmodule FsmServer do
   awaiting_deck --> |add_deck| awaiting_player_cards
   awaiting_player_cards --> |deal_player_cards| awaiting_start_card
   awaiting_start_card --> |deal_start_card| live
+  live --> |play_hand| live
+  live --> |play_hand| kadi
+  kadi --> |play_finish_card| end_game
   """
   use Finitomata, fsm: @fsm, syntax: :flowchart
 
@@ -75,6 +78,7 @@ defmodule FsmServer do
         _event_payload,
         %{players: players, rules: rules, deck: deck} = init_state
       ) do
+    # TODO: Fix bug with assigning the same cards to players
     # Enough players to start. Deal the cards
     {updated_players, final_state} =
       Enum.map_reduce(players, init_state, fn player, state ->
@@ -104,5 +108,57 @@ defmodule FsmServer do
     remaining = Enum.filter(deck, fn card -> card != first_card end)
 
     {:ok, :live, %{state | deck: remaining, played: [first_card]}}
+  end
+
+  def on_transition(
+        :live,
+        :play_hand,
+        played_hand,
+        %{player_turn: player_turn, players: players, played: played} =
+          state
+      ) do
+    current_player = Enum.at(players, player_turn)
+
+    unless Utils.intersection(current_player.cards, played_hand) == played_hand do
+      # TODO: Confirm this works
+      # Invalid cards played. Current player cards should contain all the played cards
+      # Go back to live. Same player should play again
+
+      {:ok, :live, state}
+    end
+
+    unless Utils.is_valid_hand?(hd(played), played_hand) do
+      # Invalid hand. Go back to live
+      # TODO: Introduce the concept of a 'fine'
+      # Skip the current player. Go to the next player
+      next_player_turn = rem(player_turn + 1, Enum.count(players))
+      {:ok, :live, %{state | player_turn: next_player_turn}}
+    end
+
+    # process_played_hand(state, current_player, played_hand)
+    # Compute the next state based on the new hand:
+    # Update the player's cards
+    remaining_player_cards = current_player.cards -- played_hand
+    updated_player = %{current_player | cards: remaining_player_cards}
+
+    # Update the player in the players array
+    players
+    |> Enum.with_index()
+    |> Enum.map(fn
+      {_player, index} when index == player_turn -> updated_player
+      {value, _index} -> value
+    end)
+
+    # TODO: Verify the stack of played cards is updated correctly
+    # player cards -> [2H, 2F, 5H, 8H]
+    # hand -> [8H, 5H]
+    # e.g. in this case the 5H should be the one on the top of the deck
+    # Add the played cards to the played deck
+    new_played = Enum.reverse(played_hand) ++ played
+
+    # Update the player turn to the next player
+    next_player_turn = rem(player_turn + 1, Enum.count(players))
+
+    {:ok, %{state | played: new_played, player_turn: next_player_turn}}
   end
 end
