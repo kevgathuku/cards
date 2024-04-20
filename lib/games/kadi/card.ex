@@ -37,6 +37,7 @@ defmodule Games.Kadi.Card do
   def new(number, suit) when is_integer(number),
     do: %__MODULE__{suit: suit, number: from_number(number)}
 
+  # TODO: Prevent passing in invalid values
   def new(number, suit) do
     %__MODULE__{
       suit: suit,

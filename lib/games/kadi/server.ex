@@ -11,6 +11,7 @@ defmodule Games.Kadi.Server do
     players: [],
     deck: [],
     played: [],
+    player_turn: 0,
     stage: :lobby
   }
 
@@ -26,6 +27,7 @@ defmodule Games.Kadi.Server do
         deck: [],
         played: [],
         stage: :lobby,
+        player_turn: 0,
         rules: %{
           start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
           finishing_cards: [:a, :two, :three, :four, :five, :six, :seven, :nine, :ten],
@@ -40,6 +42,7 @@ defmodule Games.Kadi.Server do
         deck: [],
         played: [],
         stage: :lobby,
+        player_turn: 0,
         rules: %{
           start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
           finishing_cards: [:a, :two, :three, :four, :five, :six, :seven, :nine, :ten],
@@ -62,6 +65,7 @@ defmodule Games.Kadi.Server do
   def default_rules() do
     %{
       start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
+      # TODO: this should be a blocklist too
       finishing_cards: [:a, :two, :three, :four, :five, :six, :seven, :nine, :ten],
       min_players: 2,
       cards_to_deal: 4
@@ -90,7 +94,7 @@ defmodule Games.Kadi.Server do
       Logger.info("Adding Player: #{name}")
       player = %Player{name: name, cards: []}
 
-      {:ok, %{state | players: [player | players]}}
+      {:ok, %{state | players: Enum.reverse([player | players])}}
     end
   end
 
@@ -104,12 +108,18 @@ defmodule Games.Kadi.Server do
   def start_game(%{players: players, rules: rules}) when length(players) < rules.min_players,
     do: {:error, players: "Not enough players"}
 
-  def start_game(state) do
-    deck = Utils.create_deck() |> Enum.shuffle()
+  def start_game(state, deck \\ []) do
+    start_deck =
+      if Enum.empty?(deck) do
+        # If deck is not provided, create a new one and shuffle it
+        Utils.create_deck() |> Enum.shuffle()
+      else
+        deck
+      end
 
     new_state =
       state
-      |> Map.put(:deck, deck)
+      |> Map.put(:deck, start_deck)
       |> Map.put(:stage, :playing)
       |> deal_start_cards_to_players()
       |> assign_start_card()
@@ -117,29 +127,63 @@ defmodule Games.Kadi.Server do
     {:ok, new_state}
   end
 
-  def handle_hand(%{players: players, played: played} = state, player_name, cards) do
-    # TODO: Just get the player at the head
-    next_player = hd(players)
-    starting_card = hd(played)
+  def handle_hand(
+        %{players: players, played: played, player_turn: player_turn} = state,
+        hand
+      ) do
+    # Get the player who should be playing the current turn
+    current_player = Enum.at(players, player_turn)
 
-    if next_player.name != player_name do
-      Logger.info("Invalid player passed to handle_hand")
-      {:ok, state}
-    else
-      Logger.info("Evaluating cards: #{} from player: #{player_name}")
+    cond do
+      Enum.member?(current_player.cards, hd(hand)) ->
+        # Last played card before the current turn
+        last_card = hd(played)
 
-      if is_valid_hand?(starting_card, cards) do
-        # Compute the next state based on the new hand
-        # Remove the played cards from the player's cards
-        # Add the played cards to the played deck
-        new_played = played ++ cards
+        if is_valid_hand?(last_card, hand) do
+          process_played_hand(state, current_player, hand)
+        else
+          {:error, message: "Invalid cards played"}
+        end
 
-        # Move the player to the back of the queue
-        updated_players = tl(players) ++ [next_player]
-
-        {:ok, %{state | players: updated_players, played: new_played}}
-      end
+      true ->
+        # Played card includes cards not in the player's set of cards
+        {:error, message: "Wrong player. Cannot parse cards"}
     end
+  end
+
+  defp process_played_hand(
+         %{
+           players: players,
+           played: played,
+           player_turn: player_turn
+         } = state,
+         current_player,
+         hand
+       ) do
+    # Compute the next state based on the new hand:
+    # Update the player's cards
+    remaining_player_cards = current_player.cards -- hand
+    updated_player = %{current_player | cards: remaining_player_cards}
+
+    # Update the player in the players array
+    players
+    |> Enum.with_index()
+    |> Enum.map(fn
+      {_player, index} when index == player_turn -> updated_player
+      {value, _index} -> value
+    end)
+
+    # TODO: Verify the stack of played cards is updated correctly
+    # player cards -> [2H, 2F, 5H, 8H]
+    # hand -> [8H, 5H]
+    # e.g. in this case the 5H should be the one on the top of the deck
+    # Add the played cards to the played deck
+    new_played = Enum.reverse(hand) ++ played
+
+    # Update the player turn to the next player
+    next_player_turn = rem(player_turn + 1, Enum.count(players))
+
+    {:ok, %{state | played: new_played, player_turn: next_player_turn}}
   end
 
   @doc """
@@ -165,12 +209,12 @@ defmodule Games.Kadi.Server do
 
   def is_valid_hand?(last_card, cards) do
     cond do
+      # Validate single card of the same suit or number
       Utils.is_same_suit_or_number?(last_card, hd(cards)) and length(cards) == 1 ->
-        # Validate single card of the same suit or number
         true
 
+      # Is valid multi-card combo (same numbers)
       Utils.is_same_suit_or_number?(last_card, hd(cards)) and Utils.is_same_number?(cards) ->
-        # Is valid multi-card combo (same numbers)
         true
 
       true ->
@@ -188,6 +232,7 @@ defmodule Games.Kadi.Server do
       Enum.map_reduce(players, init_state, fn player, state ->
         {player_cards, remaining_deck} = Enum.split(state.deck, rules.cards_to_deal)
         # Update the player, and the deck
+        Logger.info("Assigning cards: #{inspect(player_cards)} Player: #{player.name}")
         updated_player = %{player | cards: player_cards}
         updated_state = %{state | deck: remaining_deck}
         # {result, accumulator}
