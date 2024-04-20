@@ -17,19 +17,19 @@ A classic card game popular in Kenya
 Run the following commands inside an iex session `iex -S mix`
 
 ```elixir
-alias Games.Kadi.Server
+{:ok, _pid} = Finitomata.start_link()
 
-# Start a game session
-{:ok, state} = Server.init()
+Finitomata.start_fsm FsmServer, "KadiServer", %{}
 
-# Add some players
-# This will be easier after moving to GenServer
-# For now you need to keep a reference to the state, which is returned from most functions
-{:ok, with_player_1} = Server.add_player(state, "Salah")
-{:ok, with_player_2} = Server.add_player(state, "Mané")
+# Start the game -> config optional
+Finitomata.transition "KadiServer", {:init, %{cards_to_deal: 2}}
 
-# Start the game
-{:ok, started} = Server.start_game(with_player_2)
+# Show the current state
+Finitomata.state "KadiServer"
+
+# Add players
+Finitomata.transition "KadiServer", {:add_player, "Kevin"}
+Finitomata.transition "KadiServer", {:add_player, "Devin"}
 
 # More coming soon
 ```
