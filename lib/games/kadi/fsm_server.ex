@@ -40,6 +40,7 @@ defmodule FsmServer do
     {:ok, :lobby, Map.put(@initial_state, :rules, valid_rules)}
   end
 
+  @impl Finitomata
   def on_transition(:lobby, :add_player, player_name, %{players: players, rules: rules} = state) do
     if Enum.any?(players, fn player -> player.name == player_name end) do
       Logger.info("Player #{player_name} already exists")
@@ -63,6 +64,7 @@ defmodule FsmServer do
     end
   end
 
+  @impl Finitomata
   def on_transition(
         :awaiting_deck,
         :add_deck,
@@ -72,6 +74,7 @@ defmodule FsmServer do
     {:ok, :awaiting_player_cards, %{state | deck: init_deck}}
   end
 
+  @impl Finitomata
   def on_transition(
         :awaiting_player_cards,
         :deal_player_cards,
@@ -93,6 +96,7 @@ defmodule FsmServer do
     {:ok, :awaiting_start_card, %{final_state | players: updated_players}}
   end
 
+  @impl Finitomata
   def on_transition(
         :awaiting_start_card,
         :deal_start_card,
@@ -108,6 +112,7 @@ defmodule FsmServer do
     {:ok, :live, %{state | deck: remaining, played: [first_card]}}
   end
 
+  @impl Finitomata
   def on_transition(
         :live,
         :play_hand,
