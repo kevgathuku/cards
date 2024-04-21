@@ -19,7 +19,7 @@ Run the following commands inside an iex session `iex -S mix`
 ```elixir
 {:ok, _pid} = Finitomata.start_link()
 
-Finitomata.start_fsm FsmServer, "KadiServer", %{}
+Finitomata.start_fsm Games.Kadi.FsmServer, "KadiServer", %{}
 
 # Start the game -> config optional
 Finitomata.transition "KadiServer", {:init, %{cards_to_deal: 2}}

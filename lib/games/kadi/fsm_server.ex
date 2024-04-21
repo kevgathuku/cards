@@ -1,4 +1,4 @@
-defmodule FsmServer do
+defmodule Games.Kadi.FsmServer do
   @fsm """
   start --> |init| lobby
   lobby --> |add_player| lobby
