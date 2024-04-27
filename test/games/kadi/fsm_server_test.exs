@@ -5,12 +5,22 @@ defmodule Games.Kadi.FSMServerTest do
 
   alias Games.Kadi.FsmServer
   alias Games.Kadi.Player
+  alias Games.Kadi.Card
 
   describe "Server FSM tests" do
     setup_finitomata do
       [
         fsm: [implementation: FsmServer, payload: %{}],
-        context: []
+        context: [
+          deck: [
+            %Card{suit: :hearts, number: :two},
+            %Card{suit: :hearts, number: :eight},
+            %Card{suit: :flowers, number: :eight},
+            %Card{suit: :flowers, number: :seven},
+            %Card{suit: :diamonds, number: :eight},
+            %Card{suit: :diamonds, number: :six}
+          ]
+        ]
       ]
     end
 
@@ -93,6 +103,36 @@ defmodule Games.Kadi.FSMServerTest do
         assert_state :lobby do
           assert_payload(%{
             players: [%Player{name: "Kevin", cards: []}]
+          })
+        end
+    end
+
+    test_path "adding deck", %{deck: init_deck} = _ctx do
+      {:start, %{min_players: 2}} ->
+        assert_state :lobby do
+          assert_payload(%{
+            rules: %{min_players: 2}
+          })
+        end
+
+      {:add_player, "Kevin"} ->
+        assert_state :lobby do
+          assert_payload(%{
+            players: [%Player{name: "Kevin", cards: []}]
+          })
+        end
+
+      {:add_player, "Devin"} ->
+        assert_state :awaiting_deck do
+          assert_payload(%{
+            players: [%Player{name: "Kevin", cards: []}, %Player{name: "Devin", cards: []}]
+          })
+        end
+
+      {:add_deck, %{deck: init_deck}} ->
+        assert_state :awaiting_player_cards do
+          assert_payload(%{
+            deck: init_deck
           })
         end
     end
