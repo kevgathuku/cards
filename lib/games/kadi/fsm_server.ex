@@ -21,30 +21,30 @@ defmodule Games.Kadi.FsmServer do
 
   alias Games.Kadi.Player
 
-  @initial_state %{
-    players: [],
-    deck: [],
-    played: [],
-    player_turn: 0
-  }
-
-  @default_rules %{
-    start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
-    # TODO: this should be a blocklist too
-    finishing_cards: [:a, :two, :three, :four, :five, :six, :seven, :nine, :ten],
-    min_players: 2,
-    cards_to_deal: 4
-  }
-
   @impl Finitomata
-  def on_transition(:idle, :start, event_payload, _state) do
+  def on_transition(:idle, :start, event_payload, state) do
+    initial_state = %{
+      players: [],
+      deck: [],
+      played: [],
+      player_turn: 0
+    }
+
+    default_rules = %{
+      start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
+      # TODO: this should be a blocklist too
+      finishing_cards: [:a, :two, :three, :four, :five, :six, :seven, :nine, :ten],
+      min_players: 2,
+      cards_to_deal: 4
+    }
+
     valid_rules =
-      @default_rules
+      default_rules
       |> Map.merge(Enum.into(event_payload, %{}))
       # Take only the valid keys
-      |> Map.take(Map.keys(@default_rules))
+      |> Map.take(Map.keys(default_rules))
 
-    {:ok, :lobby, Map.put(@initial_state, :rules, valid_rules)}
+    {:ok, :lobby, Map.merge(state, initial_state) |> Map.put(:rules, valid_rules)}
   end
 
   @impl Finitomata

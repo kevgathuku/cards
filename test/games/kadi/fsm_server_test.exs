@@ -13,10 +13,29 @@ defmodule Games.Kadi.FSMServerTest do
       ]
     end
 
-    test "start path", ctx do
-      assert_transition ctx, {:start, %{cards_to_deal: 2}} do
+    test "start with no args", ctx do
+      assert_transition ctx, {:start, %{}} do
         :lobby ->
-          assert_payload(%{rules: %{cards_to_deal: 2}})
+          assert_payload(%{
+            deck: [],
+            played: [],
+            player_turn: 0,
+            players: [],
+            rules: %{cards_to_deal: 4}
+          })
+      end
+    end
+
+    test "start with custom config", ctx do
+      assert_transition ctx, {:start, %{cards_to_deal: 2, min_players: 3}} do
+        :lobby ->
+          assert_payload(%{
+            deck: [],
+            played: [],
+            player_turn: 0,
+            players: [],
+            rules: %{cards_to_deal: 2, min_players: 3}
+          })
       end
     end
   end
