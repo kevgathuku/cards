@@ -50,15 +50,12 @@ defmodule Games.Kadi.FSMServerTest do
       end
     end
 
-    @tag :skip
-    test "start with bogus config", ctx do
-      assert_transition ctx, {:start, %{obviously_this_is_invalid: 67}} do
-        :lobby ->
-          # TODO: Find out how to test exclusion of a map key
-          assert_payload do
-            rules.obviously_this_is_invalid ~> true
-          end
-      end
+    test "start with bogus config", %{finitomata: %{fsm: fsm}} do
+      Finitomata.transition(fsm.name, {:start, %{obviously_this_is_invalid: 67}})
+      state = Finitomata.state(fsm.name)
+      assert match?(%{payload: %{rules: %{min_players: _, cards_to_deal: _}}}, state)
+      # Ensure we don't save the invalid rule
+      refute match?(%{payload: %{rules: %{obviously_this_is_invalid: _}}}, state)
     end
 
     test_path "adding players by name", _ctx do
