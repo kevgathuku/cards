@@ -158,46 +158,50 @@ defmodule Games.Kadi.FsmServer do
       ) do
     current_player = Enum.at(players, player_turn)
 
-    unless Utils.intersection(current_player.cards, played_hand) == played_hand do
-      # TODO: Confirm this works - add tests
-      # Invalid cards played. Played hand should come from the player's cards
-      # Go back to live. Same player should play again
+    cond do
+      # played card is in the current player's cards
+      Utils.intersection(current_player.cards, played_hand) == played_hand ->
+        # continue processing
+        # process_played_hand(state, current_player, played_hand)
+        unless Utils.is_valid_hand?(hd(played), played_hand) do
+          # Invalid hand. Go back to live
+          # TODO: Introduce the concept of a 'fine'
+          # Skip the current player. Go to the next player
+          next_player_turn = rem(player_turn + 1, Enum.count(players))
+          {:ok, :live, %{state | player_turn: next_player_turn}}
+        end
 
-      {:ok, :live, state}
+        # Update the right player in the players array
+        updated_players =
+          players
+          |> Enum.with_index()
+          |> Enum.map(fn
+            {player, index} when index == player_turn ->
+              %{player | cards: player.cards -- played_hand}
+
+            {value, _index} ->
+              value
+          end)
+
+        # TODO: Verify the stack of played cards is updated correctly
+        # player cards -> [2H, 2F, 5H, 8H]
+        # hand -> [8H, 5H]
+        # e.g. in this case the 5H should be the one on the top of the deck
+        # Add the played cards to the played deck
+        new_played = Enum.reverse(played_hand) ++ played
+
+        # Update the player turn to the next player
+        next_player_turn = rem(player_turn + 1, Enum.count(players))
+
+        {:ok, :live,
+         %{state | played: new_played, player_turn: next_player_turn, players: updated_players}}
+
+      true ->
+        # Invalid cards played. Probably a bug in the logic...
+        # Go back to live. Same player should play again
+        Logger.debug("Back to live. Invalid card")
+
+        {:ok, :live, state}
     end
-
-    unless Utils.is_valid_hand?(hd(played), played_hand) do
-      # Invalid hand. Go back to live
-      # TODO: Introduce the concept of a 'fine'
-      # Skip the current player. Go to the next player
-      next_player_turn = rem(player_turn + 1, Enum.count(players))
-      {:ok, :live, %{state | player_turn: next_player_turn}}
-    end
-
-    # process_played_hand(state, current_player, played_hand)
-    # Compute the next state based on the new hand:
-    # Update the player's cards
-    remaining_player_cards = current_player.cards -- played_hand
-    updated_player = %{current_player | cards: remaining_player_cards}
-
-    # Update the player in the players array
-    players
-    |> Enum.with_index()
-    |> Enum.map(fn
-      {_player, index} when index == player_turn -> updated_player
-      {value, _index} -> value
-    end)
-
-    # TODO: Verify the stack of played cards is updated correctly
-    # player cards -> [2H, 2F, 5H, 8H]
-    # hand -> [8H, 5H]
-    # e.g. in this case the 5H should be the one on the top of the deck
-    # Add the played cards to the played deck
-    new_played = Enum.reverse(played_hand) ++ played
-
-    # Update the player turn to the next player
-    next_player_turn = rem(player_turn + 1, Enum.count(players))
-
-    {:ok, %{state | played: new_played, player_turn: next_player_turn}}
   end
 end

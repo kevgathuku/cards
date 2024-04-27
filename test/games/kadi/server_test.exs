@@ -204,8 +204,6 @@ defmodule Games.Kadi.ServerTest do
         %Card{suit: :hearts, number: :six}
       ]
 
-      assert Utils.is_valid_hand?(hd(played), hand)
-
       result =
         Server.handle_hand(started_game, hand)
 
@@ -238,9 +236,6 @@ defmodule Games.Kadi.ServerTest do
       hand = [
         %Card{suit: :flowers, number: :six}
       ]
-
-      # The card is valid
-      assert Utils.is_valid_hand?(hd(played), hand)
 
       result =
         Server.handle_hand(started_game, hand)

@@ -16,7 +16,7 @@ defmodule Games.Kadi.FSMServerTest do
             %Card{suit: :hearts, number: :two},
             %Card{suit: :hearts, number: :eight},
             %Card{suit: :flowers, number: :eight},
-            %Card{suit: :flowers, number: :seven},
+            %Card{suit: :flowers, number: :six},
             %Card{suit: :diamonds, number: :eight},
             %Card{suit: :diamonds, number: :six}
           ]
@@ -133,7 +133,7 @@ defmodule Games.Kadi.FSMServerTest do
                 name: "Devin",
                 cards: [
                   %Card{suit: :flowers, number: :eight},
-                  %Card{suit: :flowers, number: :seven}
+                  %Card{suit: :flowers, number: :six}
                 ]
               }
             ],
@@ -169,7 +169,7 @@ defmodule Games.Kadi.FSMServerTest do
             # Next player's turn
             player_turn: 1,
             players: [
-              # Extra card here...
+              # Picked card added here...
               %Player{
                 name: "Kevin",
                 cards: [
@@ -182,10 +182,41 @@ defmodule Games.Kadi.FSMServerTest do
                 name: "Devin",
                 cards: [
                   %Card{suit: :flowers, number: :eight},
-                  %Card{suit: :flowers, number: :seven}
+                  %Card{suit: :flowers, number: :six}
                 ]
               }
+            ]
+          })
+        end
+
+      {:play_hand, [%Card{suit: :flowers, number: :ten}]} ->
+        # Devin's turn: Play invalid card -> back to live
+        assert_state :live do
+          assert_payload(%{
+            # No added played cards
+            played: [
+              %Card{suit: :diamonds, number: :six}
             ],
+            # Same player's turn
+            player_turn: 1,
+            # Same cards
+            players: [
+              %Player{
+                name: "Kevin",
+                cards: [
+                  %Card{suit: :hearts, number: :two},
+                  %Card{suit: :hearts, number: :eight},
+                  %Card{suit: :diamonds, number: :eight}
+                ]
+              },
+              %Player{
+                name: "Devin",
+                cards: [
+                  %Card{suit: :flowers, number: :eight},
+                  %Card{suit: :flowers, number: :six}
+                ]
+              }
+            ]
           })
         end
     end
