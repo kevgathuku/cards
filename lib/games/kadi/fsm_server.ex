@@ -7,6 +7,7 @@ defmodule Games.Kadi.FsmServer do
   awaiting_deal_cards --> |deal_player_cards| awaiting_start_card
   awaiting_start_card --> |deal_start_card| live
   live --> |play_hand| live
+  live --> |pick| live
   live --> |play_hand| kadi
   kadi --> |play_finish_card| end_game
   """
@@ -116,6 +117,35 @@ defmodule Games.Kadi.FsmServer do
     remaining = deck -- [first_card]
 
     {:ok, :live, %{state | deck: remaining, played: [first_card]}}
+  end
+
+  @impl Finitomata
+  def on_transition(
+        :live,
+        :pick,
+        _event_payload,
+        %{player_turn: player_turn, players: players, deck: deck} =
+          state
+      ) do
+    # Split the top card from the deck
+    {picked, remaining_deck} = Enum.split(deck, 1)
+
+    updated_players =
+      players
+      |> Enum.with_index()
+      |> Enum.map(fn
+        {player, index} when index == player_turn ->
+          %{player | cards: player.cards ++ picked}
+
+        {player, _index} ->
+          player
+      end)
+
+    # Update the player turn to the next player
+    next_player_turn = rem(player_turn + 1, length(players))
+
+    {:ok, :live,
+     %{state | deck: remaining_deck, player_turn: next_player_turn, players: updated_players}}
   end
 
   @impl Finitomata

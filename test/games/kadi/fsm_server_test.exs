@@ -89,7 +89,7 @@ defmodule Games.Kadi.FSMServerTest do
         end
     end
 
-    test_path "deal player cards with custom deck", %{deck: init_deck} = _ctx do
+    test_path "with custom deck", %{deck: init_deck} = _ctx do
       {:start, %{cards_to_deal: 2}} ->
         assert_state :lobby do
           assert_payload(%{
@@ -154,6 +154,38 @@ defmodule Games.Kadi.FSMServerTest do
             played: [
               %Card{suit: :diamonds, number: :six}
             ]
+          })
+        end
+
+      {:pick, %{}} ->
+        assert_state :live do
+          assert_payload(%{
+            # Reduce deck by one
+            deck: [],
+            # No added played cards
+            played: [
+              %Card{suit: :diamonds, number: :six}
+            ],
+            # Next player's turn
+            player_turn: 1,
+            players: [
+              # Extra card here...
+              %Player{
+                name: "Kevin",
+                cards: [
+                  %Card{suit: :hearts, number: :two},
+                  %Card{suit: :hearts, number: :eight},
+                  %Card{suit: :diamonds, number: :eight}
+                ]
+              },
+              %Player{
+                name: "Devin",
+                cards: [
+                  %Card{suit: :flowers, number: :eight},
+                  %Card{suit: :flowers, number: :seven}
+                ]
+              }
+            ],
           })
         end
     end
