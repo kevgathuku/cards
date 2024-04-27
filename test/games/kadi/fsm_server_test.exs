@@ -38,5 +38,16 @@ defmodule Games.Kadi.FSMServerTest do
           })
       end
     end
+
+    @tag :skip
+    test "start with bogus config", ctx do
+      assert_transition ctx, {:start, %{obviously_this_is_invalid: 67}} do
+        :lobby ->
+          # TODO: Figure out a way to test the map keys
+          assert_payload do
+            rules.obviously_this_is_invalid ~> true
+          end
+      end
+    end
   end
 end
