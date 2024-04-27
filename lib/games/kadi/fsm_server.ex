@@ -3,8 +3,8 @@ defmodule Games.Kadi.FsmServer do
   idle --> |start| lobby
   lobby --> |add_player| lobby
   lobby --> |add_player| awaiting_deck
-  awaiting_deck --> |add_deck| awaiting_player_cards
-  awaiting_player_cards --> |deal_player_cards| awaiting_start_card
+  awaiting_deck --> |add_deck| awaiting_deal_cards
+  awaiting_deal_cards --> |deal_player_cards| awaiting_start_card
   awaiting_start_card --> |deal_start_card| live
   live --> |play_hand| live
   live --> |play_hand| kadi
@@ -78,12 +78,12 @@ defmodule Games.Kadi.FsmServer do
         %{deck: init_deck} = _event_payload,
         state
       ) do
-    {:ok, :awaiting_player_cards, %{state | deck: init_deck}}
+    {:ok, :awaiting_deal_cards, %{state | deck: init_deck}}
   end
 
   @impl Finitomata
   def on_transition(
-        :awaiting_player_cards,
+        :awaiting_deal_cards,
         :deal_player_cards,
         _event_payload,
         %{players: players, rules: rules} = init_state

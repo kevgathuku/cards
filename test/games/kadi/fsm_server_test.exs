@@ -115,7 +115,12 @@ defmodule Games.Kadi.FSMServerTest do
         end
 
       {:add_deck, %{deck: init_deck}} ->
-        assert_state :awaiting_player_cards do
+        assert_state :awaiting_deal_cards do
+          assert_payload(%{
+            deck: init_deck
+          })
+        end
+
           assert_payload(%{
             deck: init_deck
           })
