@@ -89,11 +89,11 @@ defmodule Games.Kadi.FSMServerTest do
         end
     end
 
-    test_path "adding deck", %{deck: init_deck} = _ctx do
-      {:start, %{min_players: 2}} ->
+    test_path "deal player cards with custom deck", %{deck: init_deck} = _ctx do
+      {:start, %{cards_to_deal: 2}} ->
         assert_state :lobby do
           assert_payload(%{
-            rules: %{min_players: 2}
+            rules: %{min_players: 2, cards_to_deal: 2}
           })
         end
 
@@ -118,8 +118,25 @@ defmodule Games.Kadi.FSMServerTest do
           })
         end
 
+      {:deal_player_cards, %{}} ->
+        assert_state :awaiting_start_card do
           assert_payload(%{
-            deck: init_deck
+            players: [
+              %Player{
+                name: "Kevin",
+                cards: [
+                  %Card{suit: :hearts, number: :two},
+                  %Card{suit: :hearts, number: :eight}
+                ]
+              },
+              %Player{
+                name: "Devin",
+                cards: [
+                  %Card{suit: :flowers, number: :eight},
+                  %Card{suit: :flowers, number: :seven}
+                ]
+              }
+            ]
           })
         end
     end
