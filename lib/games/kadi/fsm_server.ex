@@ -1,6 +1,6 @@
 defmodule Games.Kadi.FsmServer do
   @fsm """
-  start --> |init| lobby
+  idle --> |start| lobby
   lobby --> |add_player| lobby
   lobby --> |add_player| awaiting_deck
   awaiting_deck --> |add_deck| awaiting_player_cards
@@ -30,7 +30,7 @@ defmodule Games.Kadi.FsmServer do
   }
 
   @impl Finitomata
-  def on_transition(:start, :init, event_payload, _state) do
+  def on_transition(:idle, :start, event_payload, _state) do
     valid_rules =
       @default_rules
       |> Map.merge(Enum.into(event_payload, %{}))

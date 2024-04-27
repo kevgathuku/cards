@@ -22,7 +22,7 @@ Run the following commands inside an iex session `iex -S mix`
 Finitomata.start_fsm Games.Kadi.FsmServer, "KadiServer", %{}
 
 # Start the game -> config optional
-Finitomata.transition "KadiServer", {:init, %{cards_to_deal: 2}}
+Finitomata.transition "KadiServer", {:start, %{cards_to_deal: 2}}
 
 # Show the current state
 Finitomata.state "KadiServer"
