@@ -136,6 +136,23 @@ defmodule Games.Kadi.FSMServerTest do
                   %Card{suit: :flowers, number: :seven}
                 ]
               }
+            ],
+            deck: [
+              %Card{suit: :diamonds, number: :eight},
+              %Card{suit: :diamonds, number: :six}
+            ]
+          })
+        end
+
+      {:deal_start_card, %{}} ->
+        assert_state :live do
+          # 8 is not a valid start card. Chooses the 6 instead
+          assert_payload(%{
+            deck: [
+              %Card{suit: :diamonds, number: :eight}
+            ],
+            played: [
+              %Card{suit: :diamonds, number: :six}
             ]
           })
         end

@@ -110,11 +110,10 @@ defmodule Games.Kadi.FsmServer do
         _event_payload,
         %{deck: deck, rules: rules} = state
       ) do
-    # TODO: Prevent double iteration over the deck here
     first_card =
       Enum.find(deck, fn card -> card.number not in rules[:start_cards_blocklist] end)
 
-    remaining = Enum.filter(deck, fn card -> card != first_card end)
+    remaining = deck -- [first_card]
 
     {:ok, :live, %{state | deck: remaining, played: [first_card]}}
   end
