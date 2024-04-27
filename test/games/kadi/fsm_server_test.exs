@@ -76,33 +76,18 @@ defmodule Games.Kadi.FSMServerTest do
           })
         end
 
+      # Does not add duplicate players
+      {:add_player, "Kevin"} ->
+        assert_state :lobby do
+          assert_payload(%{
+            players: [%Player{name: "Kevin", cards: []}]
+          })
+        end
+
       {:add_player, "Devin"} ->
         assert_state :awaiting_deck do
           assert_payload(%{
             players: [%Player{name: "Kevin", cards: []}, %Player{name: "Devin", cards: []}]
-          })
-        end
-    end
-
-    test_path "adding duplicate players", _ctx do
-      {:start, %{min_players: 2}} ->
-        assert_state :lobby do
-          assert_payload(%{
-            rules: %{min_players: 2}
-          })
-        end
-
-      {:add_player, "Kevin"} ->
-        assert_state :lobby do
-          assert_payload(%{
-            players: [%Player{name: "Kevin", cards: []}]
-          })
-        end
-
-      {:add_player, "Kevin"} ->
-        assert_state :lobby do
-          assert_payload(%{
-            players: [%Player{name: "Kevin", cards: []}]
           })
         end
     end
