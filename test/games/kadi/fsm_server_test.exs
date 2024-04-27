@@ -4,6 +4,7 @@ defmodule Games.Kadi.FSMServerTest do
   import Mox
 
   alias Games.Kadi.FsmServer
+  alias Games.Kadi.Player
 
   describe "Server FSM tests" do
     setup_finitomata do
@@ -48,6 +49,29 @@ defmodule Games.Kadi.FSMServerTest do
             rules.obviously_this_is_invalid ~> true
           end
       end
+    end
+
+    test_path "adding players by name", _ctx do
+      {:start, %{min_players: 2}} ->
+        assert_state :lobby do
+          assert_payload(%{
+            rules: %{min_players: 2}
+          })
+        end
+
+      {:add_player, "Kevin"} ->
+        assert_state :lobby do
+          assert_payload(%{
+            players: [%Player{name: "Kevin", cards: []}]
+          })
+        end
+
+      {:add_player, "Devin"} ->
+        assert_state :awaiting_deck do
+          assert_payload(%{
+            players: [%Player{name: "Kevin", cards: []}, %Player{name: "Devin", cards: []}]
+          })
+        end
     end
   end
 end
