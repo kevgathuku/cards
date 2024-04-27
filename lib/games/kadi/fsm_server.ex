@@ -10,7 +10,14 @@ defmodule Games.Kadi.FsmServer do
   live --> |play_hand| kadi
   kadi --> |play_finish_card| end_game
   """
-  use Finitomata, fsm: @fsm, syntax: :flowchart
+  @listener (if Mix.env() == :test do
+               Mox.defmock(Games.Kadi.FsmServer.Mox, for: Finitomata.Listener)
+               Games.Kadi.FsmServer.Mox
+             else
+               nil
+             end)
+
+  use Finitomata, fsm: @fsm, syntax: :flowchart, listener: @listener
 
   alias Games.Kadi.Player
 
