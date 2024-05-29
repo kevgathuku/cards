@@ -1,5 +1,5 @@
-defmodule Utils do
-  alias Games.Kadi.Card
+defmodule Kadi.Utils do
+  alias Kadi.Games.Poker.Card
 
   def create_deck() do
     numbers = [
@@ -63,7 +63,7 @@ defmodule Utils do
         true
 
       # Is valid multi-card combo (same numbers)
-      is_same_suit_or_number?(last_card, hd(cards)) and Utils.is_same_number?(cards) ->
+      is_same_suit_or_number?(last_card, hd(cards)) and is_same_number?(cards) ->
         true
 
       true ->

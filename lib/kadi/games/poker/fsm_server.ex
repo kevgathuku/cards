@@ -1,4 +1,4 @@
-defmodule Games.Kadi.FsmServer do
+defmodule Kadi.Games.Poker.FsmServer do
   @fsm """
   idle --> |start| lobby
   lobby --> |add_player| lobby
@@ -12,15 +12,15 @@ defmodule Games.Kadi.FsmServer do
   kadi --> |play_finish_card| end_game
   """
   @listener (if Mix.env() == :test do
-               Mox.defmock(Games.Kadi.FsmServer.Mox, for: Finitomata.Listener)
-               Games.Kadi.FsmServer.Mox
+               Mox.defmock(Kadi.Games.Poker.FsmServer.Mox, for: Finitomata.Listener)
+               Kadi.Games.Poker.FsmServer.Mox
              else
                nil
              end)
 
   use Finitomata, fsm: @fsm, syntax: :flowchart, listener: @listener
 
-  alias Games.Kadi.Player
+  alias Kadi.Games.Poker.Player
 
   @impl Finitomata
   def on_transition(:idle, :start, event_payload, state) do
@@ -160,10 +160,10 @@ defmodule Games.Kadi.FsmServer do
 
     cond do
       # played card is in the current player's cards
-      Utils.intersection(current_player.cards, played_hand) == played_hand ->
+      Kadi.Utils.intersection(current_player.cards, played_hand) == played_hand ->
         # continue processing
         # process_played_hand(state, current_player, played_hand)
-        unless Utils.is_valid_hand?(hd(played), played_hand) do
+        unless Kadi.Utils.is_valid_hand?(hd(played), played_hand) do
           # Invalid hand. Go back to live
           # TODO: Introduce the concept of a 'fine'
           # Skip the current player. Go to the next player

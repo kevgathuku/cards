@@ -1,9 +1,10 @@
-defmodule Games.Kadi.Server do
+defmodule Kadi.Games.Poker.Server do
   @moduledoc """
   Kadi Game Server
   """
   require Logger
-  alias Games.Kadi.Player
+  alias Kadi.Games.Poker.Player
+  alias Kadi.Utils
 
   @type stage :: :lobby | :playing | :finish
 
@@ -78,10 +79,10 @@ defmodule Games.Kadi.Server do
   ## Examples
 
       iex> add_player(%{players: []}, "lucho")
-      {:ok, %{players: [%Games.Kadi.Player{name: "lucho", cards: []}]}}
+      {:ok, %{players: [%Kadi.Games.Poker.Player{name: "lucho", cards: []}]}}
 
-      iex> add_player(%{players: [%Games.Kadi.Player{name: "lucho", cards: []}]}, "lucho")
-      {:ok, %{players: [%Games.Kadi.Player{name: "lucho", cards: []}]}}
+      iex> add_player(%{players: [%Kadi.Games.Poker.Player{name: "lucho", cards: []}]}, "lucho")
+      {:ok, %{players: [%Kadi.Games.Poker.Player{name: "lucho", cards: []}]}}
   """
   def add_player(%{stage: current_stage}, _name) when current_stage != :lobby,
     do: {:error, stage: "Invalid game state: #{current_stage}"}

@@ -1,8 +1,8 @@
-defmodule Games.Kadi.CardTest do
+defmodule Kadi.Games.Poker.CardTest do
   use ExUnit.Case, async: true
-  alias Games.Kadi.Card
+  alias Kadi.Games.Poker.Card
 
-  doctest Games.Kadi.Card, import: true
+  doctest Card, import: true
 
   describe "new" do
     test "initializes a card with suit and value" do

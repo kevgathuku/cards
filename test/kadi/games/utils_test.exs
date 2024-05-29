@@ -1,7 +1,8 @@
-defmodule UtilsTest do
+defmodule Kadi.Games.UtilsTest do
   use ExUnit.Case, async: true
 
-  alias Games.Kadi.Card
+  alias Kadi.Games.Poker.Card
+  alias Kadi.Utils
 
   test "create_deck" do
     deck = Utils.create_deck()
@@ -33,54 +34,54 @@ defmodule UtilsTest do
 
   describe "is_valid_hand?" do
     test "single card of the same suit is valid" do
-      assert Utils.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-               Games.Kadi.Card.new(:nine, :diamonds)
+      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:nine, :diamonds)
              ]) == true
     end
 
     test "single card of a different suit is not valid" do
-      assert Utils.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-               Games.Kadi.Card.new(:nine, :spades)
+      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:nine, :spades)
              ]) == false
     end
 
     test "single card of Q or 8 of the same suit is not valid" do
-      assert Utils.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-               Games.Kadi.Card.new(:q, :diamonds)
+      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:q, :diamonds)
              ]) == false
 
-      assert Utils.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-               Games.Kadi.Card.new(:eight, :diamonds)
+      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:eight, :diamonds)
              ]) == false
     end
 
     test "single card of A of any suit is valid" do
-      assert Utils.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-               Games.Kadi.Card.new(:a, :diamonds)
+      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:a, :diamonds)
              ]) == true
 
-      assert Utils.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-               Games.Kadi.Card.new(:a, :spades)
+      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:a, :spades)
              ]) == true
 
-      assert Utils.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-               Games.Kadi.Card.new(:a, :flowers)
+      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:a, :flowers)
              ]) == true
 
-      assert Utils.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-               Games.Kadi.Card.new(:a, :hearts)
+      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:a, :hearts)
              ]) == true
     end
 
     test "multiple cards of the same number are valid" do
-      assert Utils.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-               Games.Kadi.Card.new(:ten, :spades),
-               Games.Kadi.Card.new(:ten, :hearts)
+      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:ten, :spades),
+               Card.new(:ten, :hearts)
              ]) == true
 
-      assert Utils.is_valid_hand?(Games.Kadi.Card.new(:eight, :spades), [
-               Games.Kadi.Card.new(:ten, :spades),
-               Games.Kadi.Card.new(:ten, :hearts)
+      assert Utils.is_valid_hand?(Card.new(:eight, :spades), [
+               Card.new(:ten, :spades),
+               Card.new(:ten, :hearts)
              ]) == true
     end
   end

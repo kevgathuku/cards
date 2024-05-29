@@ -1,4 +1,4 @@
-defmodule Games.Kadi.Player do
+defmodule Kadi.Games.Poker.Player do
   @moduledoc """
   A struct representing a player in the game.
   """

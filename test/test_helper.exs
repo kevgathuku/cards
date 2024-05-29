@@ -1,2 +1,2 @@
 ExUnit.start()
-Finitomata.start_link()
+Ecto.Adapters.SQL.Sandbox.mode(Kadi.Repo, :manual)

@@ -1,8 +1,9 @@
-defmodule Games.Kadi.ServerTest do
+defmodule Kadi.Games.Poker.ServerTest do
   use ExUnit.Case, async: true
-  alias Games.Kadi.Server
-  alias Games.Kadi.Card
-  doctest Games.Kadi.Server, import: true
+  alias Kadi.Games.Poker.Server
+  alias Kadi.Games.Poker.Card
+  alias Kadi.Games.Poker.Player
+  doctest Server, import: true
 
   describe "init" do
     test "starts server on init with no options" do
@@ -73,8 +74,8 @@ defmodule Games.Kadi.ServerTest do
       state = %{
         deck: [1, 2, 3, 4, 5, 6, 7, 8],
         players: [
-          %Games.Kadi.Player{name: "1", cards: []},
-          %Games.Kadi.Player{name: "2", cards: []}
+          %Player{name: "1", cards: []},
+          %Player{name: "2", cards: []}
         ],
         rules: Server.default_rules()
       }

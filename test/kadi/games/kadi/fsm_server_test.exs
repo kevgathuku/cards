@@ -1,11 +1,11 @@
-defmodule Games.Kadi.FSMServerTest do
+defmodule Kadi.Games.Poker.FSMServerTest do
   use ExUnit.Case, async: true
   import Finitomata.ExUnit
   import Mox
 
-  alias Games.Kadi.FsmServer
-  alias Games.Kadi.Player
-  alias Games.Kadi.Card
+  alias Kadi.Games.Poker.FsmServer
+  alias Kadi.Games.Poker.Player
+  alias Kadi.Games.Poker.Card
 
   describe "Server FSM tests" do
     setup_finitomata do
