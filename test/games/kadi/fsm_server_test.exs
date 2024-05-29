@@ -50,12 +50,17 @@ defmodule Games.Kadi.FSMServerTest do
       end
     end
 
-    test "start with bogus config", %{finitomata: %{fsm: fsm}} do
-      Finitomata.transition(fsm.name, {:start, %{obviously_this_is_invalid: 67}})
-      state = Finitomata.state(fsm.name)
-      assert match?(%{payload: %{rules: %{min_players: _, cards_to_deal: _}}}, state)
-      # Ensure we don't save the invalid rule
-      refute match?(%{payload: %{rules: %{obviously_this_is_invalid: _}}}, state)
+    test "start with bogus config", ctx do
+      assert_transition ctx, {:start, %{obviously_this_is_invalid: 67}} do
+        :lobby ->
+          assert_payload do
+            deck ~> []
+            played ~> []
+            players ~> []
+            player_turn ~> 0
+            rules ~> %{cards_to_deal: 4, min_players: 2}
+          end
+      end
     end
 
     test_path "adding players by name", _ctx do
