@@ -139,7 +139,7 @@ defmodule Games.Kadi.Server do
         # Last played card before the current turn
         last_card = hd(played)
 
-        if is_valid_hand?(last_card, hand) do
+        if Utils.is_valid_hand?(last_card, hand) do
           process_played_hand(state, current_player, hand)
         else
           {:error, message: "Invalid cards played"}
@@ -184,44 +184,6 @@ defmodule Games.Kadi.Server do
     next_player_turn = rem(player_turn + 1, Enum.count(players))
 
     {:ok, %{state | played: new_played, player_turn: next_player_turn}}
-  end
-
-  @doc """
-  Determine if the provided combination of cards is valid in this game
-
-  ## Examples
-
-      iex> is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [Games.Kadi.Card.new(:nine, :diamonds)])
-      true
-
-      iex> is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [Games.Kadi.Card.new(:nine, :hearts)])
-      false
-
-      iex> is_valid_hand?(
-      ...> Games.Kadi.Card.new(:ten, :diamonds),
-      ...> [Games.Kadi.Card.new(:five, :diamonds), Games.Kadi.Card.new(:five, :spades)])
-      true
-
-  """
-  def is_valid_hand?(_, cards) when hd(cards).number == :a, do: true
-  def is_valid_hand?(_, cards) when hd(cards).number == :eight and length(cards) == 1, do: false
-  def is_valid_hand?(_, cards) when hd(cards).number == :q and length(cards) == 1, do: false
-
-  def is_valid_hand?(last_card, cards) do
-    cond do
-      # Validate single card of the same suit or number
-      Utils.is_same_suit_or_number?(last_card, hd(cards)) and length(cards) == 1 ->
-        true
-
-      # Is valid multi-card combo (same numbers)
-      Utils.is_same_suit_or_number?(last_card, hd(cards)) and Utils.is_same_number?(cards) ->
-        true
-
-      true ->
-        # TODO: Is valid Q and A combo
-        # Do some pattern matching to check if it starts with '8' or 'Q'
-        false
-    end
   end
 
   # Deal the required number of cards to each player

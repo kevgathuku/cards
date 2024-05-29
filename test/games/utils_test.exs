@@ -30,4 +30,58 @@ defmodule UtilsTest do
     assert Utils.is_same_number?(two_cards) == true
     assert Utils.is_same_number?(diff_number_cards) == false
   end
+
+  describe "is_valid_hand?" do
+    test "single card of the same suit is valid" do
+      assert Utils.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
+               Games.Kadi.Card.new(:nine, :diamonds)
+             ]) == true
+    end
+
+    test "single card of a different suit is not valid" do
+      assert Utils.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
+               Games.Kadi.Card.new(:nine, :spades)
+             ]) == false
+    end
+
+    test "single card of Q or 8 of the same suit is not valid" do
+      assert Utils.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
+               Games.Kadi.Card.new(:q, :diamonds)
+             ]) == false
+
+      assert Utils.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
+               Games.Kadi.Card.new(:eight, :diamonds)
+             ]) == false
+    end
+
+    test "single card of A of any suit is valid" do
+      assert Utils.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
+               Games.Kadi.Card.new(:a, :diamonds)
+             ]) == true
+
+      assert Utils.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
+               Games.Kadi.Card.new(:a, :spades)
+             ]) == true
+
+      assert Utils.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
+               Games.Kadi.Card.new(:a, :flowers)
+             ]) == true
+
+      assert Utils.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
+               Games.Kadi.Card.new(:a, :hearts)
+             ]) == true
+    end
+
+    test "multiple cards of the same number are valid" do
+      assert Utils.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
+               Games.Kadi.Card.new(:ten, :spades),
+               Games.Kadi.Card.new(:ten, :hearts)
+             ]) == true
+
+      assert Utils.is_valid_hand?(Games.Kadi.Card.new(:eight, :spades), [
+               Games.Kadi.Card.new(:ten, :spades),
+               Games.Kadi.Card.new(:ten, :hearts)
+             ]) == true
+    end
+  end
 end

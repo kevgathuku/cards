@@ -17,20 +17,44 @@ A classic card game popular in Kenya
 Run the following commands inside an iex session `iex -S mix`
 
 ```elixir
-alias Games.Kadi.Server
+{:ok, _pid} = Finitomata.start_link()
 
-# Start a game session
-{:ok, state} = Server.init()
+Finitomata.start_fsm Games.Kadi.FsmServer, "KadiServer", %{}
 
-# Add some players
-# This will be easier after moving to GenServer
-# For now you need to keep a reference to the state, which is returned from most functions
-{:ok, with_player_1} = Server.add_player(state, "Salah")
-{:ok, with_player_2} = Server.add_player(state, "Mané")
+# Start the game -> config optional
+Finitomata.transition "KadiServer", {:start, %{cards_to_deal: 2}}
 
-# Start the game
-{:ok, started} = Server.start_game(with_player_2)
+# Show the current state
+Finitomata.state "KadiServer"
 
+# Add players
+Finitomata.transition "KadiServer", {:add_player, "Kevin"}
+Finitomata.transition "KadiServer", {:add_player, "Devin"}
+
+alias Games.Kadi.Card
+deck = [
+    # Player 1
+    %Card{suit: :hearts, number: :five},
+    %Card{suit: :hearts, number: :eight},
+    # Player 2
+    %Card{suit: :flowers, number: :seven},
+    %Card{suit: :flowers, number: :six},
+    # Start card
+    %Card{suit: :diamonds, number: :six},
+    # Remaining stack
+    %Card{suit: :diamonds, number: :eight}
+]
+
+# Add deck
+Finitomata.transition "KadiServer", {:add_deck, %{deck: deck}}
+
+# Deal cards to the players
+Finitomata.transition "KadiServer", {:deal_player_cards, nil}
+
+# Deal the start card
+Finitomata.transition "KadiServer", {:deal_start_card, nil}
+
+# Game now in play
 # More coming soon
 ```
 

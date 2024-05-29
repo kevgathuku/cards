@@ -5,9 +5,10 @@ defmodule Cards.MixProject do
     [
       app: :cards,
       version: "0.1.0",
-      elixir: "~> 1.15",
+      elixir: "~> 1.16",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      compilers: [:finitomata | Mix.compilers()],
     ]
   end
 
@@ -23,6 +24,8 @@ defmodule Cards.MixProject do
     [
       # {:dep_from_hexpm, "~> 0.3.0"},
       # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
+      {:finitomata, "~> 0.20.2"},
+      {:mox, "~> 1.0", only: :test}
     ]
   end
 end

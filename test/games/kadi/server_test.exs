@@ -177,60 +177,6 @@ defmodule Games.Kadi.ServerTest do
     end
   end
 
-  describe "is_valid_hand?" do
-    test "single card of the same suit is valid" do
-      assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-               Games.Kadi.Card.new(:nine, :diamonds)
-             ]) == true
-    end
-
-    test "single card of a different suit is not valid" do
-      assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-               Games.Kadi.Card.new(:nine, :spades)
-             ]) == false
-    end
-
-    test "single card of Q or 8 of the same suit is not valid" do
-      assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-               Games.Kadi.Card.new(:q, :diamonds)
-             ]) == false
-
-      assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-               Games.Kadi.Card.new(:eight, :diamonds)
-             ]) == false
-    end
-
-    test "single card of A of any suit is valid" do
-      assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-               Games.Kadi.Card.new(:a, :diamonds)
-             ]) == true
-
-      assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-               Games.Kadi.Card.new(:a, :spades)
-             ]) == true
-
-      assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-               Games.Kadi.Card.new(:a, :flowers)
-             ]) == true
-
-      assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-               Games.Kadi.Card.new(:a, :hearts)
-             ]) == true
-    end
-
-    test "multiple cards of the same number are valid" do
-      assert Server.is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [
-               Games.Kadi.Card.new(:ten, :spades),
-               Games.Kadi.Card.new(:ten, :hearts)
-             ]) == true
-
-      assert Server.is_valid_hand?(Games.Kadi.Card.new(:eight, :spades), [
-               Games.Kadi.Card.new(:ten, :spades),
-               Games.Kadi.Card.new(:ten, :hearts)
-             ]) == true
-    end
-  end
-
   describe "handle_hand" do
     test "accepts a play from the next player" do
       {:ok, state} = Server.init(%{cards_to_deal: 3})
@@ -257,8 +203,6 @@ defmodule Games.Kadi.ServerTest do
       hand = [
         %Card{suit: :hearts, number: :six}
       ]
-
-      assert Server.is_valid_hand?(hd(played), hand)
 
       result =
         Server.handle_hand(started_game, hand)
@@ -292,9 +236,6 @@ defmodule Games.Kadi.ServerTest do
       hand = [
         %Card{suit: :flowers, number: :six}
       ]
-
-      # The card is valid
-      assert Server.is_valid_hand?(hd(played), hand)
 
       result =
         Server.handle_hand(started_game, hand)
