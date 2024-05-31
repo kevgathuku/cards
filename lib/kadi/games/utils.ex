@@ -75,6 +75,6 @@ defmodule Kadi.Utils do
 
   # Find the intersection of two lists, providing the larger one first
   def intersection(larger, smaller) do
-    Enum.filter(larger, fn x -> Enum.member?(smaller, x) end)
+    Enum.filter(larger, fn larger_item -> Enum.member?(smaller, larger_item) end)
   end
 end
