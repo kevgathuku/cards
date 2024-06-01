@@ -75,3 +75,34 @@ You can provide a few config options when calling `init`. For now they are:
 
 Prior art:
 - [Level10](https://level10.games/) - https://github.com/dnsbty/level10
+
+
+TODO:
+- Figure out the best place to start the finitomata instance - on session create??
+- Add this after scaffolding the sessions stuff
+- Read through OTP process docs on this topic
+- Does this need a dynamic supervisor?
+
+```
+defp do_start_fsm(id, name, impl, payload) when is_atom(impl) do
+  DynamicSupervisor.start_child(
+    Finitomata.Supervisor.manager_name(id),
+    {impl, name: fqn(id, name), payload: payload}
+  )
+end
+```
+
+Desired payload on auto-start: 
+Started with: `Finitomata.start_fsm Kadi.Games.Poker.FsmServer, "KadiServer", %{}`
+
+```
+[debug] [→ ↹] [state: #Finitomata<[name: "KadiServer", state: [current: :*, previous: nil, payload: %{}], internals: [errored?: false, persisted?: false, timer: false]]>, exiting: :*]
+```
+
+Ideal way to start this:
+```
+Finitomata.start_fsm Kadi.Games.Poker.FsmServer, "session-code", %{}
+```
+
+On the player logging in and creating a new session.
+There should also be a few transitions

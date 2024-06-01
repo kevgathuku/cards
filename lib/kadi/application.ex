@@ -15,7 +15,8 @@ defmodule Kadi.Application do
       # Start the Finch HTTP client for sending emails
       {Finch, name: Kadi.Finch},
       # Start a worker by calling: Kadi.Worker.start_link(arg)
-      # {Kadi.Worker, arg},
+      # {Kadi.Games.Poker.FsmServer, name: Poker.FSM},
+      Finitomata.Supervisor,
       # Start to serve requests, typically the last entry
       KadiWeb.Endpoint
     ]
