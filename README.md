@@ -1,8 +1,8 @@
-# Cards
+# Kadi
 
 A collection of card games.
 
-### Kadi
+### Poker
 
 A classic card game popular in Kenya
 
@@ -14,12 +14,21 @@ A classic card game popular in Kenya
 
 ### Runthrough
 
+To start your Phoenix server:
+
+  * Run `mix setup` to install and setup dependencies
+  * Start Phoenix endpoint with `mix phx.server` or inside IEx with `iex -S mix phx.server`
+
+Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
+
+#### Console
+
 Run the following commands inside an iex session `iex -S mix`
 
 ```elixir
 {:ok, _pid} = Finitomata.start_link()
 
-Finitomata.start_fsm Games.Kadi.FsmServer, "KadiServer", %{}
+Finitomata.start_fsm Kadi.Games.Poker.FsmServer, "KadiServer", %{}
 
 # Start the game -> config optional
 Finitomata.transition "KadiServer", {:start, %{cards_to_deal: 2}}
@@ -31,7 +40,7 @@ Finitomata.state "KadiServer"
 Finitomata.transition "KadiServer", {:add_player, "Kevin"}
 Finitomata.transition "KadiServer", {:add_player, "Devin"}
 
-alias Games.Kadi.Card
+alias Kadi.Games.Poker.Card
 deck = [
     # Player 1
     %Card{suit: :hearts, number: :five},
@@ -66,3 +75,34 @@ You can provide a few config options when calling `init`. For now they are:
 
 Prior art:
 - [Level10](https://level10.games/) - https://github.com/dnsbty/level10
+
+
+TODO:
+- Figure out the best place to start the finitomata instance - on session create??
+- Add this after scaffolding the sessions stuff
+- Read through OTP process docs on this topic
+- Does this need a dynamic supervisor?
+
+```
+defp do_start_fsm(id, name, impl, payload) when is_atom(impl) do
+  DynamicSupervisor.start_child(
+    Finitomata.Supervisor.manager_name(id),
+    {impl, name: fqn(id, name), payload: payload}
+  )
+end
+```
+
+Desired payload on auto-start: 
+Started with: `Finitomata.start_fsm Kadi.Games.Poker.FsmServer, "KadiServer", %{}`
+
+```
+[debug] [→ ↹] [state: #Finitomata<[name: "KadiServer", state: [current: :*, previous: nil, payload: %{}], internals: [errored?: false, persisted?: false, timer: false]]>, exiting: :*]
+```
+
+Ideal way to start this:
+```
+Finitomata.start_fsm Kadi.Games.Poker.FsmServer, "session-code", %{}
+```
+
+On the player logging in and creating a new session.
+There should also be a few transitions
