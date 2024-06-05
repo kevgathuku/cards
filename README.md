@@ -106,3 +106,13 @@ Finitomata.start_fsm Kadi.Games.Poker.FsmServer, "session-code", %{}
 
 On the player logging in and creating a new session.
 There should also be a few transitions
+
+Regarding saving server state:
+- Avoid saving the Genserver state in the DB.
+- If both players are not online and playing at the same time, then it ends.
+
+- It might be worth exploring if the whole can be serialized,
+for the purposes of loading a game from state.
+
+Seems like an impractical concern for now. Focus on not saving the state.
+It's supposed to be a realtime game.
