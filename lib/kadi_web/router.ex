@@ -18,7 +18,8 @@ defmodule KadiWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
-    live "/game", GameLive
+    live "/live", GameLive
+    get "/game", PageController, :game
   end
 
   # Other scopes may use custom stacks.

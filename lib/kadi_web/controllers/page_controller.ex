@@ -6,4 +6,8 @@ defmodule KadiWeb.PageController do
     # so skip the default app layout.
     render(conn, :home, layout: false)
   end
+
+  def game(conn, _params) do
+    render(conn, :game)
+  end
 end
