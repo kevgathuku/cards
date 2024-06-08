@@ -5,7 +5,8 @@ defmodule Kadi.Repo.Migrations.CreateGameSession do
     create table(:game_sessions) do
       add :short_code, :string
       add :created_by, :string
-      add :created_at, :utc_datetime
+
+      timestamps(type: :utc_datetime)
     end
   end
 end
