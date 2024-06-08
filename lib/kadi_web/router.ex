@@ -17,9 +17,14 @@ defmodule KadiWeb.Router do
   scope "/", KadiWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
-    live "/live", GameLive
-    get "/game", PageController, :game
+    get "/chat", PageController, :chat
+    live "/", GameLive
+  end
+
+  scope "/game", KadiWeb do
+    pipe_through :browser
+
+    get "/new", GameController, :new
   end
 
   # Other scopes may use custom stacks.
