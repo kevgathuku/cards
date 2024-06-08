@@ -24,6 +24,7 @@ defmodule KadiWeb.Router do
   scope "/game", KadiWeb do
     pipe_through :browser
 
+    post "/", GameController, :create
     get "/new", GameController, :new
   end
 
