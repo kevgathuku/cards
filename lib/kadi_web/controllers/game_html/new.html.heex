@@ -1,27 +1,6 @@
-<%!-- <form method="post" action="/game">
-    <div class="grid gap-6 mb-6">
-        <div class="mb-6">
-            <label for="display_name" class="block mb-2 text-md font-medium text-gray-900">Display Name</label>
-            <input type="text" id="display_name" class="bg-lime-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required />
-        </div> 
-        <div class="mb-6">
-            <input type="submit" class="mt-10 block w-full rounded-md bg-green-700 px-3 py-2 text-center text-sm font-semibold text-white focus-visible:outline border border-green-700 hover:bg-green-800 focus:ring-4" value="Create game" />
-        </div>
-    </div>
-</form> --%>
-
-<%= form_for @changeset, Routes.item_path(@conn, :create), fn f -> %>
-  <div>
-    <%= label f, :name %>
-    <%= text_input f, :name %>
-    <%= error_tag f, :name %>
-  </div>
-  <div>
-    <%= label f, :description %>
-    <%= textarea f, :description %>
-    <%= error_tag f, :description %>
-  </div>
-  <div>
-    <%= submit "Create Item" %>
-  </div>
-<% end %>
+<.simple_form for={@form} phx-change="validate" phx-submit="save" method="post" action={~p"/games"}>
+    <.input field={@form[:created_by]} label="Display Name"/>
+    <:actions>
+        <.button class="mt-10 block w-full rounded-md bg-green-700 px-3 py-2 text-center text-sm font-semibold text-white focus-visible:outline border border-green-700 hover:bg-green-800 focus:ring-4">Create game</.button>
+    </:actions>
+</.simple_form>

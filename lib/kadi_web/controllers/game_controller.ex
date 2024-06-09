@@ -2,21 +2,28 @@ defmodule KadiWeb.GameController do
   use KadiWeb, :controller
 
   alias Kadi.GameSession
+  require Ecto.UUID
 
   def new(conn, _params) do
-    # session = %GameSession{}
-    changeset = GameSession.changeset(%GameSession{}, %{})
-    render(conn, :new, changeset: changeset)
+    alias Phoenix.Component
+    form = %GameSession{} |> Ecto.Changeset.change() |> Component.to_form()
+    render(conn, :new, form: form)
   end
 
-  def create(conn, %{game_session: game_session_params} = _params) do
-    case GameSession.create_item(game_session_params) do
+
+  def create(conn, %{"game_session" => game_session_params} = _params) do
+    game_code = Ecto.UUID.generate()
+    params_with_code = Map.merge(game_session_params, %{"short_code" => game_code})
+    changeset = GameSession.changeset(%GameSession{}, params_with_code)
+
+    case Kadi.Repo.insert(changeset) do
       {:ok, game_session} ->
         conn
         |> put_flash(:info, "Game Session created!")
-        |> redirect(to: Routes.game_session_path(conn, :show, game_session))
+        |> redirect(to: ~p"/games/#{game_session}")
 
-      {:error, %Ecto.Changeset{} = changeset} ->
+      {:error, changeset} ->
+        # do something with changeset
         render(conn, :new, changeset: changeset)
     end
   end
