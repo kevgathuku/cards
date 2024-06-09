@@ -19,7 +19,7 @@ defmodule KadiWeb.Router do
 
     get "/chat", PageController, :chat
     live "/", GameLive
-    resources "/games", GameController, except: [:delete]
+    resources "/games", GameController, except: [:index, :delete]
   end
 
   # Other scopes may use custom stacks.

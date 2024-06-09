@@ -27,4 +27,16 @@ defmodule KadiWeb.GameController do
         render(conn, :new, changeset: changeset)
     end
   end
+
+  def show(conn, %{"id" => game_session_id} = _params) do
+    case Kadi.Repo.get(GameSession, game_session_id) do
+      nil ->
+      conn
+      |> put_flash(:error, "Game Session not found!")
+      |> redirect(to: "/")
+
+      game_session ->
+        render(conn, :show, game_session: game_session)
+    end
+  end
 end
