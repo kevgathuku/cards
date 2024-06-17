@@ -18,6 +18,7 @@ defmodule KadiWeb.GameController do
 
     case Kadi.Repo.insert(changeset) do
       {:ok, game_session} ->
+        # Create the Game Server here
         conn
         |> put_flash(:info, "Game Session created!")
         |> redirect(to: ~p"/games/#{game_session}")
