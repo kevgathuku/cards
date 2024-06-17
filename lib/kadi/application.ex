@@ -19,7 +19,7 @@ defmodule Kadi.Application do
       # Start to serve requests, typically the last entry
       KadiWeb.Endpoint,
       # Registry to keep track of Game server sessions
-      Kadi.Games.Registry
+      # Kadi.Games.Registry
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
