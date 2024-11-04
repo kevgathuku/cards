@@ -34,7 +34,7 @@ defmodule Kadi.Games.Poker.Server do
   ## Examples
 
       iex> init()
-      {:ok, %{
+      {:ok, :lobby, %{
         players: [],
         deck: [],
         played: [],
@@ -48,7 +48,7 @@ defmodule Kadi.Games.Poker.Server do
       }}
 
       iex> init(%{cards_to_deal: 5})
-      {:ok, %{
+      {:ok, :lobby, %{
         players: [],
         deck: [],
         played: [],
@@ -75,17 +75,17 @@ defmodule Kadi.Games.Poker.Server do
 
   @doc """
   Add a player associated with the given `name` to the game
-
-  ## Examples
-
-      iex> add_player(%{players: []}, "lucho")
-      {:ok, %{players: [%Kadi.Games.Poker.Player{name: "lucho", cards: []}]}}
-
-      iex> add_player(%{players: [%Kadi.Games.Poker.Player{name: "lucho", cards: []}]}, "lucho")
-      {:ok, %{players: [%Kadi.Games.Poker.Player{name: "lucho", cards: []}]}}
   """
   def add_player(pid, player_name) do
     GenStateMachine.cast(pid, {:add_player, player_name})
+  end
+
+  @doc """
+  Get the player associated with the given `name`
+  TODO: Implement if needed
+  """
+  def get_player(pid, player_name) do
+    GenStateMachine.call(pid, {:get_player, player_name})
   end
 
   @doc """
@@ -97,6 +97,10 @@ defmodule Kadi.Games.Poker.Server do
   """
   def start_game(pid, deck \\ %{}) do
     GenStateMachine.cast(pid, {:start_game, deck})
+  end
+
+  def play_hand(pid, hand) do
+    GenStateMachine.cast(pid, {:play_hand, hand})
   end
 
   def handle_event(:cast, {:add_player, name}, :lobby, %{players: players} = data) do
@@ -154,27 +158,33 @@ defmodule Kadi.Games.Poker.Server do
     {:next_state, :live, new_data}
   end
 
-  def handle_hand(
-        %{players: players, played: played, player_turn: player_turn} = state,
-        hand
+  def handle_event(
+        :cast,
+        {:play_hand, hand},
+        :live,
+        %{players: players, played: played, player_turn: player_turn} = data
       ) do
     # Get the player who should be playing the current turn
     current_player = Enum.at(players, player_turn)
+    Logger.warning("EVT: current player: #{current_player.name}")
 
     cond do
       Enum.member?(current_player.cards, hd(hand)) ->
-        # Last played card before the current turn
+        # Last played card
         last_card = hd(played)
 
         if Utils.is_valid_hand?(last_card, hand) do
-          process_played_hand(state, current_player, hand)
+          new_state = process_played_hand(data, current_player, hand)
+          {:next_state, :live, new_state}
         else
           {:error, message: "Invalid cards played"}
         end
 
       true ->
         # Played card includes cards not in the player's set of cards
-        {:error, message: "How'd you play cards you don't have? Now that's a new trick"}
+        Logger.warning("How'd you play cards you don't have? Now that's a new trick")
+
+        {:next_state, :live, data}
     end
   end
 
@@ -192,13 +202,15 @@ defmodule Kadi.Games.Poker.Server do
     remaining_player_cards = current_player.cards -- hand
     updated_player = %{current_player | cards: remaining_player_cards}
 
+    Logger.warning("process_played_hand: player_turn: #{player_turn}")
+
     # Update the player in the players array
-    players
-    |> Enum.with_index()
-    |> Enum.map(fn
-      {_player, index} when index == player_turn -> updated_player
-      {value, _index} -> value
-    end)
+    updated_players =
+      players
+      |> Enum.map(fn
+        player when player.name == updated_player.name -> updated_player
+        value -> value
+      end)
 
     # TODO: Verify the stack of played cards is updated correctly
     # player cards -> [2H, 2F, 5H, 8H]
@@ -210,7 +222,7 @@ defmodule Kadi.Games.Poker.Server do
     # Update the player turn to the next player
     next_player_turn = rem(player_turn + 1, Enum.count(players))
 
-    {:ok, %{state | played: new_played, player_turn: next_player_turn}}
+    %{state | played: new_played, player_turn: next_player_turn, players: updated_players}
   end
 
   # Deal the required number of cards to each player

@@ -169,11 +169,11 @@ defmodule Kadi.Games.Poker.ServerTest do
     end
   end
 
-  describe "handle_hand" do
-    test "accepts a play from the next player" do
-      {:ok, state} = Server.init(%{cards_to_deal: 3})
-      {:ok, state_1} = Server.add_player(state, "Boo")
-      {:ok, state_2} = Server.add_player(state_1, "Doo")
+  describe "play_hand" do
+    @tag payload: %{cards_to_deal: 3}
+    test "accepts a play from the next player", %{game: game} do
+      Server.add_player(game, "Boo")
+      Server.add_player(game, "Doo")
 
       deck = [
         # Player 1
@@ -190,16 +190,24 @@ defmodule Kadi.Games.Poker.ServerTest do
         %Card{suit: :diamonds, number: :eight}
       ]
 
-      {:ok, %{played: played} = started_game} = Server.start_game(state_2, deck)
+      Server.start_game(game, deck)
 
       hand = [
         %Card{suit: :hearts, number: :six}
       ]
 
-      result =
-        Server.handle_hand(started_game, hand)
+      Server.play_hand(game, hand)
 
-      assert match?({:ok, _}, result)
+      {state, %{players: players, played: played, player_turn: player_turn}} =
+        :sys.get_state(game)
+
+      assert state == :live
+      # Updated to the next player
+      assert player_turn == 1
+      assert hd(played) == hd(hand)
+
+      player_one = Enum.find(players, fn player -> player.name == "Boo" end)
+      assert length(player_one.cards) == 2
     end
 
     test "does not accept a play from other players" do
@@ -235,10 +243,7 @@ defmodule Kadi.Games.Poker.ServerTest do
       assert match?({:error, _}, result)
     end
 
-    # test "does not accept an invalid hand from the correct player" do
-    #   {:ok, state} = Server.init()
-    #   {:ok, state_1} = Server.add_player(state, "Boo")
-    #   {:ok, state_2} = Server.add_player(state_1, "Doo")
-    # end
+    test "does not accept an invalid hand from the correct player" do
+    end
   end
 end
