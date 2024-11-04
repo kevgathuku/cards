@@ -17,7 +17,7 @@ defmodule Kadi.Application do
       # Start a worker by calling: Kadi.Worker.start_link(arg)
       Finitomata.Supervisor,
       # Start to serve requests, typically the last entry
-      KadiWeb.Endpoint,
+      KadiWeb.Endpoint
       # Registry to keep track of Game server sessions
       # Kadi.Games.Registry
     ]

@@ -10,7 +10,7 @@ defmodule Kadi.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
-      compilers: [:finitomata | Mix.compilers()],
+      compilers: [:finitomata | Mix.compilers()]
     ]
   end
 
