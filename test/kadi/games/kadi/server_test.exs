@@ -7,8 +7,8 @@ defmodule Kadi.Games.Poker.ServerTest do
 
   setup context do
     case context do
-      %{min_players: min_players} ->
-        {:ok, game} = GenStateMachine.start_link(Server, %{min_players: min_players})
+      %{payload: payload} ->
+        {:ok, game} = GenStateMachine.start_link(Server, payload)
         %{game: game}
 
       _ ->
@@ -20,7 +20,6 @@ defmodule Kadi.Games.Poker.ServerTest do
 
   describe "init" do
     test "starts server on init with no options", %{game: game} do
-      # {:ok, state} = Server.init()
       {state, data} = :sys.get_state(game)
 
       assert state == :lobby
@@ -34,16 +33,15 @@ defmodule Kadi.Games.Poker.ServerTest do
              }
     end
 
-    test "starts server on init with valid options" do
-      {:ok, state} =
-        Server.init(%{
-          cards_to_deal: 5
-        })
+    @tag payload: %{cards_to_deal: 5}
+    test "starts server on init with valid options", %{game: game} do
+      {state, data} = :sys.get_state(game)
 
-      other_state = Map.take(state, [:players, :deck, :played, :stage])
+      assert state == :lobby
 
-      assert other_state == %{players: [], deck: [], played: [], stage: :lobby}
-      assert state.rules.cards_to_deal == 5
+      assert Map.take(data, [:players, :deck, :played]) == %{players: [], deck: [], played: []}
+
+      assert data.rules.cards_to_deal == 5
     end
 
     test "discards invalid rules and starts server on init" do
