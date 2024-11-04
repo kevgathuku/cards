@@ -1,16 +1,19 @@
 defmodule Kadi.Games.Registry do
 
   @doc """
-  Looks up the bucket pid for `name` stored in `server`.
+  Looks up the game pid for `name` stored in `server`.
 
-  Returns `{:ok, pid}` if the bucket exists, `nil` otherwise.
+  Returns `{:ok, pid}` if the bucket exists, `:error` otherwise.
   """
   def lookup(name) do
-    Finitomata.lookup(name)
+    case Finitomata.lookup(name) do
+      pid when is_pid(pid) -> {:ok, pid}
+      _ -> :error
+    end
   end
 
   @doc """
-  Ensures there is a bucket associated with the given `name` in `server`.
+  Create or return the game associated with the given `name` in `server`.
   """
   def create(name, payload) do
     existing_game = Finitomata.lookup(name)
