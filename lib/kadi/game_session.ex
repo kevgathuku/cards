@@ -12,7 +12,7 @@ defmodule Kadi.GameSession do
   @doc false
   def changeset(game_session, attrs) do
     game_session
-    |> cast(attrs, [:short_code, :created_by,])
+    |> cast(attrs, [:short_code, :created_by])
     |> validate_required([:short_code, :created_by])
   end
 end

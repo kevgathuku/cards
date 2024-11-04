@@ -9,7 +9,7 @@ defmodule KadiWeb.RoomChannel do
     {:error, %{reason: "unauthorized"}}
   end
 
-  def handle_in("new_msg", %{"body" => body},  socket) do
+  def handle_in("new_msg", %{"body" => body}, socket) do
     # Broadcast to all clients
     broadcast!(socket, "new_msg", %{body: body})
     {:noreply, socket}

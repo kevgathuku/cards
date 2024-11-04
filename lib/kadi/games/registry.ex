@@ -1,5 +1,4 @@
 defmodule Kadi.Games.Registry do
-
   @doc """
   Looks up the game pid for `name` stored in `server`.
 

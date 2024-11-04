@@ -2,54 +2,63 @@ defmodule Kadi.Games.Poker.ServerTest do
   use ExUnit.Case, async: true
   alias Kadi.Games.Poker.Server
   alias Kadi.Games.Poker.Card
-  alias Kadi.Games.Poker.Player
+  # alias Kadi.Games.Poker.Player
   doctest Server, import: true
 
-  describe "init" do
-    test "starts server on init with no options" do
-      {:ok, state} = Server.init()
+  setup context do
+    case context do
+      %{payload: payload} ->
+        {:ok, game} = GenStateMachine.start_link(Server, payload)
+        %{game: game}
 
-      assert state == %{
+      _ ->
+        # game = start_supervised!(Server)
+        {:ok, game} = GenStateMachine.start_link(Server, %{})
+        %{game: game}
+    end
+  end
+
+  describe "init" do
+    test "starts server on init with no options", %{game: game} do
+      {state, data} = :sys.get_state(game)
+
+      assert state == :lobby
+
+      assert data == %{
                players: [],
                deck: [],
                played: [],
-               stage: :lobby,
                player_turn: 0,
                rules: Server.default_rules()
              }
     end
 
-    test "starts server on init with valid options" do
-      {:ok, state} =
-        Server.init(%{
-          cards_to_deal: 5
-        })
+    @tag payload: %{cards_to_deal: 5}
+    test "starts server on init with valid options", %{game: game} do
+      {state, data} = :sys.get_state(game)
 
-      other_state = Map.take(state, [:players, :deck, :played, :stage])
+      assert state == :lobby
 
-      assert other_state == %{players: [], deck: [], played: [], stage: :lobby}
-      assert state.rules.cards_to_deal == 5
+      assert Map.take(data, [:players, :deck, :played]) == %{players: [], deck: [], played: []}
+
+      assert data.rules.cards_to_deal == 5
     end
 
-    test "discards invalid rules and starts server on init" do
-      {:ok, state} =
-        Server.init(%{
-          obviously_this_is_invalid: ~c"wowww"
-        })
+    @tag payload: %{obviously_this_is_invalid: ~c"wowww"}
+    test "discards invalid rules and starts server on init", %{game: game} do
+      {_, data} = :sys.get_state(game)
 
-      other_state = Map.take(state, [:players, :deck, :played])
-
-      assert other_state == %{players: [], deck: [], played: []}
-      assert state.rules == Server.default_rules()
+      assert Map.take(data, [:players, :deck, :played]) == %{players: [], deck: [], played: []}
+      assert data.rules == Server.default_rules()
     end
   end
 
   describe "add_players" do
-    test "add player by name" do
+    test "add player by name", %{game: game} do
       name = "iniesta"
 
-      {:ok, init_state} = Server.init()
-      {:ok, %{players: players}} = Server.add_player(init_state, name)
+      Server.add_player(game, name)
+      {_, %{players: players}} = :sys.get_state(game)
       player = Enum.find(players, fn player -> player.name == name end)
 
       assert player in players
@@ -58,131 +67,113 @@ defmodule Kadi.Games.Poker.ServerTest do
       assert length(players) == 1
     end
 
-    test "does not add duplicate players" do
+    test "does not add duplicate players", %{game: game} do
       name = "iniesta"
 
-      {:ok, init_state} = Server.init()
-      {:ok, with_player_1} = Server.add_player(init_state, name)
-      {:ok, %{players: players}} = Server.add_player(with_player_1, name)
+      Server.add_player(game, name)
+      Server.add_player(game, name)
+
+      {_, %{players: players}} = :sys.get_state(game)
 
       assert length(players) == 1
     end
   end
 
-  describe "deal_start_cards_to_players" do
-    test "assigns the right number of cards to each player" do
-      state = %{
-        deck: [1, 2, 3, 4, 5, 6, 7, 8],
-        players: [
-          %Player{name: "1", cards: []},
-          %Player{name: "2", cards: []}
-        ],
-        rules: Server.default_rules()
-      }
+  describe "start_game" do
+    test "assigns the right number of cards to each player", %{game: game} do
+      init_deck = [1, 2, 3, 4, 5, 6, 7, 8]
 
-      %{players: players, deck: deck} = Server.deal_start_cards_to_players(state)
+      Server.add_player(game, "player 1")
+      Server.add_player(game, "player 2")
+      Server.start_game(game, init_deck)
+
+      {state, %{players: players, deck: deck}} = :sys.get_state(game)
+
+      assert state == :live
       assert Enum.all?(players, fn player -> length(player.cards) == 4 end) == true
       assert length(deck) == 0
     end
-  end
 
-  describe "start_game" do
-    test "assigns correct first card on start game" do
-      {:ok, state} = Server.init()
-      {:ok, with_player_1} = Server.add_player(state, "Kevin")
-      {:ok, with_player_2} = Server.add_player(with_player_1, "King")
+    test "assigns correct first card on start game", %{game: game} do
+      Server.add_player(game, "Kevin")
+      Server.add_player(game, "King")
+      Server.start_game(game)
 
-      {:ok, %{played: played, rules: rules, deck: deck}} = Server.start_game(with_player_2)
+      {state, %{played: played, rules: rules, deck: deck}} = :sys.get_state(game)
 
       card = hd(played)
 
+      assert state == :live
       assert length(played) == 1
       assert card not in deck
       refute card.number in rules.start_cards_blocklist
     end
 
-    test "deals 4 cards to each player by default on start game" do
-      {:ok, %{rules: %{cards_to_deal: cards_to_deal}} = state} = Server.init()
-      {:ok, with_player_1} = Server.add_player(state, "Kevin")
-      {:ok, with_player_2} = Server.add_player(with_player_1, "King")
-      {:ok, %{players: players, deck: deck}} = Server.start_game(with_player_2)
+    test "deals 4 cards to each player by default on start game", %{game: game} do
+      Server.add_player(game, "Kevin")
+      Server.add_player(game, "King")
+      Server.start_game(game)
+
+      {state, %{players: players, deck: deck, rules: %{cards_to_deal: cards_to_deal}}} =
+        :sys.get_state(game)
 
       # cards assigned to each player + starting card
       assigned_cards = length(players) * cards_to_deal + 1
 
+      assert state == :live
       assert Enum.all?(players, fn player -> length(player.cards) == 4 end) == true
-
       assert length(deck) == 52 - assigned_cards
     end
 
-    test "deals configured number of cards to each player on start game" do
-      cards_to_deal = 5
+    @tag payload: %{cards_to_deal: 5}
+    test "deals configured number of cards to each player on start game", %{game: game} do
+      Server.add_player(game, "Kevin")
+      Server.add_player(game, "King")
+      Server.start_game(game)
 
-      {:ok, state} =
-        Server.init(%{
-          cards_to_deal: cards_to_deal
-        })
-
-      {:ok, with_player_1} = Server.add_player(state, "Kevin")
-      {:ok, with_player_2} = Server.add_player(with_player_1, "King")
-      {:ok, %{players: players, deck: deck}} = Server.start_game(with_player_2)
+      {state, %{players: players, deck: deck, rules: %{cards_to_deal: cards_to_deal}}} =
+        :sys.get_state(game)
 
       assigned_cards = length(players) * cards_to_deal + 1
 
+      assert state == :live
+      assert cards_to_deal == 5
       assert Enum.all?(players, fn player -> length(player.cards) == 5 end) == true
       assert length(deck) == 52 - assigned_cards
     end
 
-    test "does not start game without minimum players" do
-      {:ok, state} = Server.init()
-      {:ok, with_player_1} = Server.add_player(state, "Kevin")
+    test "does not start game without minimum players", %{game: game} do
+      Server.add_player(game, "Kevin")
+      Server.start_game(game)
 
-      {:error, errors} = Server.start_game(with_player_1)
-      errors_map = errors |> Enum.into(%{})
-      assert errors_map.players == "Not enough players"
+      {state, _} = :sys.get_state(game)
+
+      # Does not progress to the next state
+      assert state == :lobby
     end
 
-    test "does not allow adding players after game starts" do
-      {:ok, state} = Server.init()
-      {:ok, with_player_1} = Server.add_player(state, "Kevin")
-      {:ok, with_player_2} = Server.add_player(with_player_1, "King")
+    test "does not allow adding players after game starts", %{game: game} do
+      Server.add_player(game, "Kevin")
+      Server.add_player(game, "King")
+      Server.start_game(game)
 
-      {:ok, game_state} = Server.start_game(with_player_2)
+      {state, %{players: players}} = :sys.get_state(game)
 
       # Try to add a player after game is in progress
-      result = Server.add_player(game_state, "Kevin")
+      Server.add_player(game, "Peppa")
 
-      assert match?({:error, _}, result)
-    end
-
-    test "can accept a custom deck" do
-      {:ok, state} = Server.init(%{cards_to_deal: 2})
-      {:ok, with_player_1} = Server.add_player(state, "Kevin")
-      {:ok, with_player_2} = Server.add_player(with_player_1, "King")
-
-      deck = [
-        %Card{suit: :hearts, number: :two},
-        %Card{suit: :hearts, number: :eight},
-        %Card{suit: :flowers, number: :eight},
-        %Card{suit: :flowers, number: :seven},
-        %Card{suit: :diamonds, number: :eight},
-        %Card{suit: :diamonds, number: :six}
-      ]
-
-      {:ok, %{players: players, deck: game_deck, played: played}} =
-        Server.start_game(with_player_2, deck)
-
-      player_cards = Enum.flat_map(players, fn player -> player.cards end)
-
-      assert Enum.count(player_cards ++ game_deck ++ played) == Enum.count(deck)
+      # Game is still live
+      assert state == :live
+      # No new players added
+      assert length(players) == 2
     end
   end
 
-  describe "handle_hand" do
-    test "accepts a play from the next player" do
-      {:ok, state} = Server.init(%{cards_to_deal: 3})
-      {:ok, state_1} = Server.add_player(state, "Boo")
-      {:ok, state_2} = Server.add_player(state_1, "Doo")
+  describe "play_hand" do
+    @tag payload: %{cards_to_deal: 3}
+    test "accepts a play from the next player", %{game: game} do
+      Server.add_player(game, "Boo")
+      Server.add_player(game, "Doo")
 
       deck = [
         # Player 1
@@ -199,22 +190,30 @@ defmodule Kadi.Games.Poker.ServerTest do
         %Card{suit: :diamonds, number: :eight}
       ]
 
-      {:ok, %{played: played} = started_game} = Server.start_game(state_2, deck)
+      Server.start_game(game, deck)
 
       hand = [
         %Card{suit: :hearts, number: :six}
       ]
 
-      result =
-        Server.handle_hand(started_game, hand)
+      Server.play_hand(game, hand)
 
-      assert match?({:ok, _}, result)
+      {state, %{players: players, played: played, player_turn: player_turn}} =
+        :sys.get_state(game)
+
+      assert state == :live
+      # Updated to the next player
+      assert player_turn == 1
+      assert hd(played) == hd(hand)
+
+      player_one = Enum.find(players, fn player -> player.name == "Boo" end)
+      assert length(player_one.cards) == 2
     end
 
-    test "does not accept a play from other players" do
-      {:ok, state} = Server.init(%{cards_to_deal: 3})
-      {:ok, state_1} = Server.add_player(state, "Boo")
-      {:ok, state_2} = Server.add_player(state_1, "Doo")
+    @tag payload: %{cards_to_deal: 3}
+    test "does not accept a play from other players", %{game: game} do
+      Server.add_player(game, "Boo")
+      Server.add_player(game, "Doo")
 
       deck = [
         # Player 1
@@ -231,23 +230,86 @@ defmodule Kadi.Games.Poker.ServerTest do
         %Card{suit: :diamonds, number: :eight}
       ]
 
-      {:ok, %{played: played} = started_game} = Server.start_game(state_2, deck)
+      Server.start_game(game, deck)
 
       # Card from player 2. Invalid - it is not their turn.
       hand = [
         %Card{suit: :flowers, number: :six}
       ]
 
-      result =
-        Server.handle_hand(started_game, hand)
+      {_, %{played: initial_played, player_turn: initial_player_turn}} =
+        :sys.get_state(game)
 
-      assert match?({:error, _}, result)
+      Server.play_hand(game, hand)
+
+      {state, %{players: players, played: played, player_turn: player_turn}} =
+        :sys.get_state(game)
+
+      # No state changes
+      player_cards = Enum.reduce(players, 0, fn player, acc -> length(player.cards) + acc end)
+      assert player_cards == 6
+
+      assert state == :live
+      assert player_turn == initial_player_turn
+      assert initial_played == played
     end
 
-    # test "does not accept an invalid hand from the correct player" do
-    #   {:ok, state} = Server.init()
-    #   {:ok, state_1} = Server.add_player(state, "Boo")
-    #   {:ok, state_2} = Server.add_player(state_1, "Doo")
-    # end
+    test "does not accept an invalid hand from the correct player", %{game: game} do
+    end
+  end
+
+  describe "pick card" do
+    test "assigns card to the next player", %{game: game} do
+      init_deck = [
+        # P1
+        %Card{suit: :hearts, number: :two},
+        %Card{suit: :hearts, number: :eight},
+        %Card{suit: :flowers, number: :eight},
+        %Card{suit: :flowers, number: :six},
+        # P2
+        %Card{suit: :diamonds, number: :eight},
+        %Card{suit: :diamonds, number: :six},
+        %Card{suit: :diamonds, number: :five},
+        %Card{suit: :flowers, number: :five},
+        # Start
+        %Card{suit: :spades, number: :eight},
+        %Card{suit: :spades, number: :four}
+      ]
+
+      Server.add_player(game, "Boo")
+      Server.add_player(game, "Doo")
+
+      Server.start_game(game, init_deck)
+
+      {_,
+       %{
+         played: initial_played,
+         player_turn: initial_player_turn,
+         deck: initial_deck,
+         players: initial_players
+       }} =
+        :sys.get_state(game)
+
+      initial_player = Enum.at(initial_players, initial_player_turn)
+      initial_player_cards = initial_player.cards
+
+      # Pick -> Assign 1 card (default) to the next player
+      Server.deal_card(game)
+
+      {state, %{players: players, played: played, player_turn: player_turn}} =
+        :sys.get_state(game)
+
+      updated_player = Enum.at(players, initial_player_turn)
+
+      # The topmost card is assigned to the next player
+      assert hd(initial_deck) in updated_player.cards
+      assert length(updated_player.cards) == length(initial_player_cards) + 1
+
+      assert state == :live
+      # Advances to the next player
+      refute player_turn == initial_player_turn
+      # No change in played cards
+      assert initial_played == played
+    end
   end
 end

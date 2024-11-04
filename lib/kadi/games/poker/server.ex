@@ -2,32 +2,42 @@ defmodule Kadi.Games.Poker.Server do
   @moduledoc """
   Kadi Game Server
   """
+  use GenStateMachine
+
   require Logger
   alias Kadi.Games.Poker.Player
   alias Kadi.Utils
 
-  @type stage :: :lobby | :playing | :finish
+  @type state :: :lobby | :awaiting_start | :playing | :finish
 
   @initial_state %{
     players: [],
     deck: [],
     played: [],
-    player_turn: 0,
-    stage: :lobby
+    player_turn: 0
   }
 
+  @init_rules %{
+    start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
+    # TODO: this should be a blocklist too
+    finishing_cards: [:a, :two, :three, :four, :five, :six, :seven, :nine, :ten],
+    min_players: 2,
+    cards_to_deal: 4
+  }
+
+  def default_rules, do: @init_rules
+
   @doc """
-  Initiate the server.
-  Accept any custom rules you want to apply
+  Start the server.
+  Accepts any custom rules you want to apply
 
   ## Examples
 
       iex> init()
-      {:ok, %{
+      {:ok, :lobby, %{
         players: [],
         deck: [],
         played: [],
-        stage: :lobby,
         player_turn: 0,
         rules: %{
           start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
@@ -38,11 +48,10 @@ defmodule Kadi.Games.Poker.Server do
       }}
 
       iex> init(%{cards_to_deal: 5})
-      {:ok, %{
+      {:ok, :lobby, %{
         players: [],
         deck: [],
         played: [],
-        stage: :lobby,
         player_turn: 0,
         rules: %{
           start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
@@ -52,104 +61,174 @@ defmodule Kadi.Games.Poker.Server do
         }
       }}
   """
-  def init(options \\ %{}) do
+  def init(rules \\ %{}) do
     # Merge default and provided rules options
     valid_rules =
-      default_rules()
-      |> Map.merge(Enum.into(options, %{}))
+      @init_rules
+      |> Map.merge(Enum.into(rules, %{}))
       # Take only the valid keys
-      |> Map.take(Map.keys(default_rules()))
+      |> Map.take(Map.keys(@init_rules))
 
-    {:ok, Map.put(@initial_state, :rules, valid_rules)}
-  end
-
-  def default_rules() do
-    %{
-      start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
-      # TODO: this should be a blocklist too
-      finishing_cards: [:a, :two, :three, :four, :five, :six, :seven, :nine, :ten],
-      min_players: 2,
-      cards_to_deal: 4
-    }
+    # Return {:ok, state, data}
+    {:ok, :lobby, Map.put(@initial_state, :rules, valid_rules)}
   end
 
   @doc """
   Add a player associated with the given `name` to the game
-
-  ## Examples
-
-      iex> add_player(%{players: []}, "lucho")
-      {:ok, %{players: [%Kadi.Games.Poker.Player{name: "lucho", cards: []}]}}
-
-      iex> add_player(%{players: [%Kadi.Games.Poker.Player{name: "lucho", cards: []}]}, "lucho")
-      {:ok, %{players: [%Kadi.Games.Poker.Player{name: "lucho", cards: []}]}}
   """
-  def add_player(%{stage: current_stage}, _name) when current_stage != :lobby,
-    do: {:error, stage: "Invalid game state: #{current_stage}"}
+  def add_player(pid, player_name) do
+    GenStateMachine.cast(pid, {:add_player, player_name})
+  end
 
-  def add_player(%{players: players} = state, name) do
-    if Enum.any?(players, fn player -> player.name == name end) do
-      Logger.info("Player #{name} already exists")
-      {:ok, state}
-    else
-      Logger.info("Adding Player: #{name}")
-      player = %Player{name: name, cards: []}
-
-      {:ok, %{state | players: Enum.reverse([player | players])}}
-    end
+  @doc """
+  Get the player associated with the given `name`
+  TODO: Implement if needed
+  """
+  def get_player(pid, player_name) do
+    GenStateMachine.call(pid, {:get_player, player_name})
   end
 
   @doc """
   Starts the game.
 
-  Generate a deck
+  Generate a deck, or use one if provided
   Assign the right number of cards to the players
   Play the start card
   """
-  def start_game(%{players: players, rules: rules}) when length(players) < rules.min_players,
-    do: {:error, players: "Not enough players"}
+  def start_game(pid, deck \\ %{}) do
+    GenStateMachine.cast(pid, {:start_game, deck})
+  end
 
-  def start_game(state, deck \\ []) do
+  @doc """
+  Process a hand played by one of the players
+  Advance the turn
+  """
+  def play_hand(pid, hand) do
+    GenStateMachine.cast(pid, {:play_hand, hand})
+  end
+
+  @doc """
+  Deal card(s) to the next player.
+  Default no. of cards to deal is 1, unless different value is specified
+  Advance the turn
+  """
+  def deal_card(pid, num_cards \\ 1) do
+    GenStateMachine.cast(pid, {:deal_cards, num_cards})
+  end
+
+  # Server (callbacks)
+  def handle_event(:cast, {:add_player, name}, :lobby, %{players: players} = data) do
+    if Enum.any?(players, fn player -> player.name == name end) do
+      Logger.info("Player #{name} already exists")
+      {:next_state, :lobby, data}
+    else
+      Logger.info("Adding Player: #{name}")
+      player = %Player{name: name, cards: []}
+
+      {:next_state, :lobby, %{data | players: Enum.reverse([player | players])}}
+    end
+  end
+
+  def handle_event(:cast, {:add_player, _}, :live, data) do
+    Logger.warning("Cannot add more players. Game already started!")
+
+    {:next_state, :live, data}
+  end
+
+  def handle_event(:cast, {:start_game, _}, state, %{players: players, rules: rules} = data)
+      when length(players) < rules.min_players do
+    Logger.warning(
+      "Not enough players, Current: #{length(players)} Expected: #{rules.min_players}"
+    )
+
+    {:next_state, state, data}
+  end
+
+  def handle_event(:cast, {:start_game, _}, state, %{players: players, rules: rules} = data)
+      when state != :lobby do
+    Logger.warning(
+      "Not enough players, Current: #{length(players)} Expected: #{rules.min_players}"
+    )
+
+    {:next_state, state, data}
+  end
+
+  def handle_event(:cast, {:start_game, deck}, :lobby, data) do
+    # If deck is not provided, create a new one and shuffle it
     start_deck =
       if Enum.empty?(deck) do
-        # If deck is not provided, create a new one and shuffle it
         Utils.create_deck() |> Enum.shuffle()
       else
         deck
       end
 
-    new_state =
-      state
+    new_data =
+      data
       |> Map.put(:deck, start_deck)
       |> Map.put(:stage, :playing)
       |> deal_start_cards_to_players()
       |> assign_start_card()
 
-    {:ok, new_state}
+    {:next_state, :live, new_data}
   end
 
-  def handle_hand(
-        %{players: players, played: played, player_turn: player_turn} = state,
-        hand
+  def handle_event(
+        :cast,
+        {:play_hand, hand},
+        :live,
+        %{players: players, played: played, player_turn: player_turn} = data
       ) do
     # Get the player who should be playing the current turn
     current_player = Enum.at(players, player_turn)
 
     cond do
       Enum.member?(current_player.cards, hd(hand)) ->
-        # Last played card before the current turn
+        # Last played card
         last_card = hd(played)
 
         if Utils.is_valid_hand?(last_card, hand) do
-          process_played_hand(state, current_player, hand)
+          new_state = process_played_hand(data, current_player, hand)
+          {:next_state, :live, new_state}
         else
           {:error, message: "Invalid cards played"}
         end
 
       true ->
         # Played card includes cards not in the player's set of cards
-        {:error, message: "How'd you play cards you don't have? Now that's a new trick"}
+        Logger.warning("How'd you play cards you don't have? Now that's a new trick")
+
+        {:next_state, :live, data}
     end
+  end
+
+  def handle_event(
+        :cast,
+        {:deal_cards, num_cards},
+        :live,
+        %{deck: deck, player_turn: player_turn, players: players} = data
+      ) do
+    # Get the current player
+    current_player = Enum.at(players, player_turn)
+
+    # Get the top card from the deck
+    {picked, remaining_deck} = Enum.split(deck, num_cards)
+
+    # Update the player in the players array
+    updated_players =
+      players
+      |> Enum.map(fn
+        player when player.name == current_player.name ->
+          %{player | cards: player.cards ++ picked}
+
+        player ->
+          player
+      end)
+
+    # Update the player turn to the next player
+    next_player_turn = rem(player_turn + 1, length(players))
+
+    {:next_state, :live,
+     %{data | deck: remaining_deck, player_turn: next_player_turn, players: updated_players}}
   end
 
   defp process_played_hand(
@@ -166,13 +245,15 @@ defmodule Kadi.Games.Poker.Server do
     remaining_player_cards = current_player.cards -- hand
     updated_player = %{current_player | cards: remaining_player_cards}
 
+    Logger.warning("process_played_hand: player_turn: #{player_turn}")
+
     # Update the player in the players array
-    players
-    |> Enum.with_index()
-    |> Enum.map(fn
-      {_player, index} when index == player_turn -> updated_player
-      {value, _index} -> value
-    end)
+    updated_players =
+      players
+      |> Enum.map(fn
+        player when player.name == updated_player.name -> updated_player
+        value -> value
+      end)
 
     # TODO: Verify the stack of played cards is updated correctly
     # player cards -> [2H, 2F, 5H, 8H]
@@ -184,7 +265,7 @@ defmodule Kadi.Games.Poker.Server do
     # Update the player turn to the next player
     next_player_turn = rem(player_turn + 1, Enum.count(players))
 
-    {:ok, %{state | played: new_played, player_turn: next_player_turn}}
+    %{state | played: new_played, player_turn: next_player_turn, players: updated_players}
   end
 
   # Deal the required number of cards to each player

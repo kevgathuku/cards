@@ -10,6 +10,6 @@ defmodule Kadi.Games.RegistryTest do
 
     assert :ok = Finitomata.transition("game_one", :start)
 
-    assert %{current: :lobby} = Finitomata.state "game_one"
+    assert %{current: :lobby} = Finitomata.state("game_one")
   end
 end

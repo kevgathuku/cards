@@ -178,7 +178,7 @@ defmodule Kadi.Games.Poker.FSMServerTest do
                   %Card{suit: :hearts, number: :eight},
                   %Card{suit: :flowers, number: :eight},
                   %Card{suit: :flowers, number: :six},
-                  %Card{suit: :spades, number: :eight},
+                  %Card{suit: :spades, number: :eight}
                 ]
               },
               %Player{
@@ -214,7 +214,7 @@ defmodule Kadi.Games.Poker.FSMServerTest do
                   %Card{suit: :hearts, number: :eight},
                   %Card{suit: :flowers, number: :eight},
                   %Card{suit: :flowers, number: :six},
-                  %Card{suit: :spades, number: :eight},
+                  %Card{suit: :spades, number: :eight}
                 ]
               },
               %Player{
