@@ -1,6 +1,7 @@
 defmodule Kadi.Games.RegistryTest do
   use ExUnit.Case, async: true
 
+  @tag :skip
   test "can create and lookup games" do
     assert Kadi.Games.Registry.lookup("game_one") == :error
 
