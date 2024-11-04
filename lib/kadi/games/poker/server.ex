@@ -166,7 +166,6 @@ defmodule Kadi.Games.Poker.Server do
       ) do
     # Get the player who should be playing the current turn
     current_player = Enum.at(players, player_turn)
-    Logger.warning("EVT: current player: #{current_player.name}")
 
     cond do
       Enum.member?(current_player.cards, hd(hand)) ->

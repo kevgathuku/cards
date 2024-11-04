@@ -210,10 +210,10 @@ defmodule Kadi.Games.Poker.ServerTest do
       assert length(player_one.cards) == 2
     end
 
-    test "does not accept a play from other players" do
-      {:ok, state} = Server.init(%{cards_to_deal: 3})
-      {:ok, state_1} = Server.add_player(state, "Boo")
-      {:ok, state_2} = Server.add_player(state_1, "Doo")
+    @tag payload: %{cards_to_deal: 3}
+    test "does not accept a play from other players", %{game: game} do
+      Server.add_player(game, "Boo")
+      Server.add_player(game, "Doo")
 
       deck = [
         # Player 1
@@ -230,17 +230,28 @@ defmodule Kadi.Games.Poker.ServerTest do
         %Card{suit: :diamonds, number: :eight}
       ]
 
-      {:ok, %{played: played} = started_game} = Server.start_game(state_2, deck)
+      Server.start_game(game, deck)
 
       # Card from player 2. Invalid - it is not their turn.
       hand = [
         %Card{suit: :flowers, number: :six}
       ]
 
-      result =
-        Server.handle_hand(started_game, hand)
+      {_, %{played: initial_played, player_turn: initial_player_turn}} =
+        :sys.get_state(game)
 
-      assert match?({:error, _}, result)
+      Server.play_hand(game, hand)
+
+      {state, %{players: players, played: played, player_turn: player_turn}} =
+        :sys.get_state(game)
+
+      # No state changes
+      player_cards = Enum.reduce(players, 0, fn player, acc -> length(player.cards) + acc end)
+      assert player_cards == 6
+
+      assert state == :live
+      assert player_turn == initial_player_turn
+      assert initial_played == played
     end
 
     test "does not accept an invalid hand from the correct player" do
