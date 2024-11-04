@@ -103,30 +103,40 @@ defmodule Kadi.Games.Poker.Server do
   @doc """
   Starts the game.
 
-  Generate a deck
+  Generate a deck, or use one if provided
   Assign the right number of cards to the players
   Play the start card
   """
-  def start_game(%{players: players, rules: rules}) when length(players) < rules.min_players,
-    do: {:error, players: "Not enough players"}
+  def start_game(pid, deck \\ %{}) do
+    GenStateMachine.cast(pid, {:start_game, deck})
+  end
 
-  def start_game(state, deck \\ []) do
+  def handle_event(:cast, {:start_game, _}, state, %{players: players, rules: rules} = data)
+      when length(players) < rules.min_players do
+    Logger.warning(
+      "Not enough players, Current: #{length(players)} Expected: #{rules.min_players}"
+    )
+
+    {:next_state, state, data}
+  end
+
+  def handle_event(:cast, {:start_game, deck}, :lobby, data) do
+    # If deck is not provided, create a new one and shuffle it
     start_deck =
       if Enum.empty?(deck) do
-        # If deck is not provided, create a new one and shuffle it
         Utils.create_deck() |> Enum.shuffle()
       else
         deck
       end
 
-    new_state =
-      state
+    new_data =
+      data
       |> Map.put(:deck, start_deck)
       |> Map.put(:stage, :playing)
       |> deal_start_cards_to_players()
       |> assign_start_card()
 
-    {:ok, new_state}
+    {:next_state, :live, new_data}
   end
 
   def handle_hand(
