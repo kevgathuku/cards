@@ -2,19 +2,30 @@ defmodule Kadi.Games.Poker.Server do
   @moduledoc """
   Kadi Game Server
   """
+  use GenStateMachine
+
   require Logger
   alias Kadi.Games.Poker.Player
   alias Kadi.Utils
 
-  @type stage :: :lobby | :playing | :finish
+  @type state :: :lobby | :awaiting_start | :playing | :finish
 
   @initial_state %{
     players: [],
     deck: [],
     played: [],
-    player_turn: 0,
-    stage: :lobby
+    player_turn: 0
   }
+
+  @init_rules %{
+    start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
+    # TODO: this should be a blocklist too
+    finishing_cards: [:a, :two, :three, :four, :five, :six, :seven, :nine, :ten],
+    min_players: 2,
+    cards_to_deal: 4
+  }
+
+  def default_rules, do: @init_rules
 
   @doc """
   Initiate the server.
@@ -27,7 +38,6 @@ defmodule Kadi.Games.Poker.Server do
         players: [],
         deck: [],
         played: [],
-        stage: :lobby,
         player_turn: 0,
         rules: %{
           start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
@@ -42,7 +52,6 @@ defmodule Kadi.Games.Poker.Server do
         players: [],
         deck: [],
         played: [],
-        stage: :lobby,
         player_turn: 0,
         rules: %{
           start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
@@ -52,25 +61,16 @@ defmodule Kadi.Games.Poker.Server do
         }
       }}
   """
-  def init(options \\ %{}) do
+  def init(rules \\ %{}) do
     # Merge default and provided rules options
     valid_rules =
-      default_rules()
-      |> Map.merge(Enum.into(options, %{}))
+      @init_rules
+      |> Map.merge(Enum.into(rules, %{}))
       # Take only the valid keys
-      |> Map.take(Map.keys(default_rules()))
+      |> Map.take(Map.keys(@init_rules))
 
-    {:ok, Map.put(@initial_state, :rules, valid_rules)}
-  end
-
-  def default_rules() do
-    %{
-      start_cards_blocklist: [:k, :q, :j, :a, :two, :three, :eight],
-      # TODO: this should be a blocklist too
-      finishing_cards: [:a, :two, :three, :four, :five, :six, :seven, :nine, :ten],
-      min_players: 2,
-      cards_to_deal: 4
-    }
+    # Return {:ok, state, data}
+    {:ok, :lobby, Map.put(@initial_state, :rules, valid_rules)}
   end
 
   @doc """

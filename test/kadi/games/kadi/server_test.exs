@@ -5,15 +5,30 @@ defmodule Kadi.Games.Poker.ServerTest do
   alias Kadi.Games.Poker.Player
   doctest Server, import: true
 
-  describe "init" do
-    test "starts server on init with no options" do
-      {:ok, state} = Server.init()
+  setup context do
+    case context do
+      %{min_players: min_players} ->
+        {:ok, game} = GenStateMachine.start_link(Server, %{min_players: min_players})
+        %{game: game}
 
-      assert state == %{
+      _ ->
+        # game = start_supervised!(Server)
+        {:ok, game} = GenStateMachine.start_link(Server, %{})
+        %{game: game}
+    end
+  end
+
+  describe "init" do
+    test "starts server on init with no options", %{game: game} do
+      # {:ok, state} = Server.init()
+      {state, data} = :sys.get_state(game)
+
+      assert state == :lobby
+
+      assert data == %{
                players: [],
                deck: [],
                played: [],
-               stage: :lobby,
                player_turn: 0,
                rules: Server.default_rules()
              }
