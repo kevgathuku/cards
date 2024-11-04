@@ -2,7 +2,7 @@ defmodule Kadi.Games.Poker.ServerTest do
   use ExUnit.Case, async: true
   alias Kadi.Games.Poker.Server
   alias Kadi.Games.Poker.Card
-  alias Kadi.Games.Poker.Player
+  # alias Kadi.Games.Poker.Player
   doctest Server, import: true
 
   setup context do
@@ -46,7 +46,7 @@ defmodule Kadi.Games.Poker.ServerTest do
 
     @tag payload: %{obviously_this_is_invalid: ~c"wowww"}
     test "discards invalid rules and starts server on init", %{game: game} do
-      {state, data} = :sys.get_state(game)
+      {_, data} = :sys.get_state(game)
 
       assert Map.take(data, [:players, :deck, :played]) == %{players: [], deck: [], played: []}
       assert data.rules == Server.default_rules()
@@ -58,7 +58,7 @@ defmodule Kadi.Games.Poker.ServerTest do
       name = "iniesta"
 
       Server.add_player(game, name)
-      {state, %{players: players}} = :sys.get_state(game)
+      {_, %{players: players}} = :sys.get_state(game)
       player = Enum.find(players, fn player -> player.name == name end)
 
       assert player in players
@@ -73,7 +73,7 @@ defmodule Kadi.Games.Poker.ServerTest do
       Server.add_player(game, name)
       Server.add_player(game, name)
 
-      {state, %{players: players}} = :sys.get_state(game)
+      {_, %{players: players}} = :sys.get_state(game)
 
       assert length(players) == 1
     end
@@ -146,7 +146,7 @@ defmodule Kadi.Games.Poker.ServerTest do
       Server.add_player(game, "Kevin")
       Server.start_game(game)
 
-      {state, data} = :sys.get_state(game)
+      {state, _} = :sys.get_state(game)
 
       # Does not progress to the next state
       assert state == :lobby
@@ -157,13 +157,15 @@ defmodule Kadi.Games.Poker.ServerTest do
       Server.add_player(game, "King")
       Server.start_game(game)
 
-      # {:ok, game_state} = Server.start_game(with_player_2)
-      {state, data} = :sys.get_state(game)
+      {state, %{players: players}} = :sys.get_state(game)
 
       # Try to add a player after game is in progress
       Server.add_player(game, "Peppa")
 
-      # assert match?({:error, _}, result)
+      # Game is still live
+      assert state == :live
+      # No new players added
+      assert length(players) == 2
     end
   end
 

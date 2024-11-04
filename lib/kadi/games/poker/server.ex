@@ -88,6 +88,17 @@ defmodule Kadi.Games.Poker.Server do
     GenStateMachine.cast(pid, {:add_player, player_name})
   end
 
+  @doc """
+  Starts the game.
+
+  Generate a deck, or use one if provided
+  Assign the right number of cards to the players
+  Play the start card
+  """
+  def start_game(pid, deck \\ %{}) do
+    GenStateMachine.cast(pid, {:start_game, deck})
+  end
+
   def handle_event(:cast, {:add_player, name}, :lobby, %{players: players} = data) do
     if Enum.any?(players, fn player -> player.name == name end) do
       Logger.info("Player #{name} already exists")
@@ -100,19 +111,23 @@ defmodule Kadi.Games.Poker.Server do
     end
   end
 
-  @doc """
-  Starts the game.
+  def handle_event(:cast, {:add_player, _}, :live, data) do
+    Logger.warning("Cannot add more players. Game already started!")
 
-  Generate a deck, or use one if provided
-  Assign the right number of cards to the players
-  Play the start card
-  """
-  def start_game(pid, deck \\ %{}) do
-    GenStateMachine.cast(pid, {:start_game, deck})
+    {:next_state, :live, data}
   end
 
   def handle_event(:cast, {:start_game, _}, state, %{players: players, rules: rules} = data)
       when length(players) < rules.min_players do
+    Logger.warning(
+      "Not enough players, Current: #{length(players)} Expected: #{rules.min_players}"
+    )
+
+    {:next_state, state, data}
+  end
+
+  def handle_event(:cast, {:start_game, _}, state, %{players: players, rules: rules} = data)
+      when state != :lobby do
     Logger.warning(
       "Not enough players, Current: #{length(players)} Expected: #{rules.min_players}"
     )
