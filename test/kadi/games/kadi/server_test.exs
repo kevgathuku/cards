@@ -44,25 +44,21 @@ defmodule Kadi.Games.Poker.ServerTest do
       assert data.rules.cards_to_deal == 5
     end
 
-    test "discards invalid rules and starts server on init" do
-      {:ok, state} =
-        Server.init(%{
-          obviously_this_is_invalid: ~c"wowww"
-        })
+    @tag payload: %{obviously_this_is_invalid: ~c"wowww"}
+    test "discards invalid rules and starts server on init", %{game: game} do
+      {state, data} = :sys.get_state(game)
 
-      other_state = Map.take(state, [:players, :deck, :played])
-
-      assert other_state == %{players: [], deck: [], played: []}
-      assert state.rules == Server.default_rules()
+      assert Map.take(data, [:players, :deck, :played]) == %{players: [], deck: [], played: []}
+      assert data.rules == Server.default_rules()
     end
   end
 
   describe "add_players" do
-    test "add player by name" do
+    test "add player by name", %{game: game} do
       name = "iniesta"
 
-      {:ok, init_state} = Server.init()
-      {:ok, %{players: players}} = Server.add_player(init_state, name)
+      Server.add_player(game, name)
+      {state, %{players: players}} = :sys.get_state(game)
       player = Enum.find(players, fn player -> player.name == name end)
 
       assert player in players
@@ -71,12 +67,13 @@ defmodule Kadi.Games.Poker.ServerTest do
       assert length(players) == 1
     end
 
-    test "does not add duplicate players" do
+    test "does not add duplicate players", %{game: game} do
       name = "iniesta"
 
-      {:ok, init_state} = Server.init()
-      {:ok, with_player_1} = Server.add_player(init_state, name)
-      {:ok, %{players: players}} = Server.add_player(with_player_1, name)
+      Server.add_player(game, name)
+      Server.add_player(game, name)
+
+      {state, %{players: players}} = :sys.get_state(game)
 
       assert length(players) == 1
     end

@@ -84,18 +84,19 @@ defmodule Kadi.Games.Poker.Server do
       iex> add_player(%{players: [%Kadi.Games.Poker.Player{name: "lucho", cards: []}]}, "lucho")
       {:ok, %{players: [%Kadi.Games.Poker.Player{name: "lucho", cards: []}]}}
   """
-  def add_player(%{stage: current_stage}, _name) when current_stage != :lobby,
-    do: {:error, stage: "Invalid game state: #{current_stage}"}
+  def add_player(pid, player_name) do
+    GenStateMachine.cast(pid, {:add_player, player_name})
+  end
 
-  def add_player(%{players: players} = state, name) do
+  def handle_event(:cast, {:add_player, name}, :lobby, %{players: players} = data) do
     if Enum.any?(players, fn player -> player.name == name end) do
       Logger.info("Player #{name} already exists")
-      {:ok, state}
+      {:next_state, :lobby, data}
     else
       Logger.info("Adding Player: #{name}")
       player = %Player{name: name, cards: []}
 
-      {:ok, %{state | players: Enum.reverse([player | players])}}
+      {:next_state, :lobby, %{data | players: Enum.reverse([player | players])}}
     end
   end
 
