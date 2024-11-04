@@ -17,8 +17,9 @@ defmodule KadiWeb.Router do
   scope "/", KadiWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
-    live "/game", GameLive
+    get "/chat", PageController, :chat
+    live "/", GameLive
+    resources "/games", GameController, except: [:index, :delete]
   end
 
   # Other scopes may use custom stacks.

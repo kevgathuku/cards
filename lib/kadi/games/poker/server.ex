@@ -148,7 +148,7 @@ defmodule Kadi.Games.Poker.Server do
 
       true ->
         # Played card includes cards not in the player's set of cards
-        {:error, message: "Wrong player. Cannot parse cards"}
+        {:error, message: "How'd you play cards you don't have? Now that's a new trick"}
     end
   end
 

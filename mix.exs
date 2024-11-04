@@ -60,7 +60,8 @@ defmodule Kadi.MixProject do
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.2"},
       {:finitomata, "~> 0.20.2"},
-      {:mox, "~> 1.0", only: :test}
+      {:mox, "~> 1.0", only: :test},
+      {:paper_trail, "~> 0.14.3"}
     ]
   end
 

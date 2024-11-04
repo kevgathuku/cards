@@ -31,7 +31,7 @@ Run the following commands inside an iex session `iex -S mix`
 Finitomata.start_fsm Kadi.Games.Poker.FsmServer, "KadiServer", %{}
 
 # Start the game -> config optional
-Finitomata.transition "KadiServer", {:start, %{cards_to_deal: 2}}
+Finitomata.transition "KadiServer", :start
 
 # Show the current state
 Finitomata.state "KadiServer"
@@ -106,3 +106,27 @@ Finitomata.start_fsm Kadi.Games.Poker.FsmServer, "session-code", %{}
 
 On the player logging in and creating a new session.
 There should also be a few transitions
+
+Regarding saving server state:
+- Avoid saving the Genserver state in the DB.
+- If both players are not online and playing at the same time, then it ends.
+
+- It might be worth exploring if the whole can be serialized,
+for the purposes of loading a game from state.
+
+Seems like an impractical concern for now. Focus on not saving the state.
+It's supposed to be a realtime game.
+
+### Managing the Dynamically Started Games:
+
+Turns out Finitomata already has a registry and we don't need to create another one
+
+Getting a process by name:
+```
+Finitomata.lookup("game_one")
+```
+
+Some info from the tests:
+```
+[{:via, Registry, {Finitomata.Registry, "game_one"}}, :idle, %{}]
+```

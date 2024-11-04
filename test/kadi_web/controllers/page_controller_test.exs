@@ -3,6 +3,6 @@ defmodule KadiWeb.PageControllerTest do
 
   test "GET /", %{conn: conn} do
     conn = get(conn, ~p"/")
-    assert html_response(conn, 200) =~ "Chat messages"
+    assert html_response(conn, 200) =~ "Welcome to Poker"
   end
 end
