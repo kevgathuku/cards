@@ -28,8 +28,8 @@ defmodule Kadi.Games.Poker.Server do
   def default_rules, do: @init_rules
 
   @doc """
-  Initiate the server.
-  Accept any custom rules you want to apply
+  Start the server.
+  Accepts any custom rules you want to apply
 
   ## Examples
 
@@ -99,10 +99,24 @@ defmodule Kadi.Games.Poker.Server do
     GenStateMachine.cast(pid, {:start_game, deck})
   end
 
+  @doc """
+  Process a hand played by one of the players
+  Advance the turn
+  """
   def play_hand(pid, hand) do
     GenStateMachine.cast(pid, {:play_hand, hand})
   end
 
+  @doc """
+  Deal card(s) to the next player.
+  Default no. of cards to deal is 1, unless different value is specified
+  Advance the turn
+  """
+  def deal_card(pid, num_cards \\ 1) do
+    GenStateMachine.cast(pid, {:deal_cards, num_cards})
+  end
+
+  # Server (callbacks)
   def handle_event(:cast, {:add_player, name}, :lobby, %{players: players} = data) do
     if Enum.any?(players, fn player -> player.name == name end) do
       Logger.info("Player #{name} already exists")
@@ -185,6 +199,36 @@ defmodule Kadi.Games.Poker.Server do
 
         {:next_state, :live, data}
     end
+  end
+
+  def handle_event(
+        :cast,
+        {:deal_cards, num_cards},
+        :live,
+        %{deck: deck, player_turn: player_turn, players: players} = data
+      ) do
+    # Get the current player
+    current_player = Enum.at(players, player_turn)
+
+    # Get the top card from the deck
+    {picked, remaining_deck} = Enum.split(deck, num_cards)
+
+    # Update the player in the players array
+    updated_players =
+      players
+      |> Enum.map(fn
+        player when player.name == current_player.name ->
+          %{player | cards: player.cards ++ picked}
+
+        player ->
+          player
+      end)
+
+    # Update the player turn to the next player
+    next_player_turn = rem(player_turn + 1, length(players))
+
+    {:next_state, :live,
+     %{data | deck: remaining_deck, player_turn: next_player_turn, players: updated_players}}
   end
 
   defp process_played_hand(

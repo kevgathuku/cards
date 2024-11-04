@@ -254,7 +254,62 @@ defmodule Kadi.Games.Poker.ServerTest do
       assert initial_played == played
     end
 
-    test "does not accept an invalid hand from the correct player" do
+    test "does not accept an invalid hand from the correct player", %{game: game} do
+    end
+  end
+
+  describe "pick card" do
+    test "assigns card to the next player", %{game: game} do
+      init_deck = [
+        # P1
+        %Card{suit: :hearts, number: :two},
+        %Card{suit: :hearts, number: :eight},
+        %Card{suit: :flowers, number: :eight},
+        %Card{suit: :flowers, number: :six},
+        # P2
+        %Card{suit: :diamonds, number: :eight},
+        %Card{suit: :diamonds, number: :six},
+        %Card{suit: :diamonds, number: :five},
+        %Card{suit: :flowers, number: :five},
+        # Start
+        %Card{suit: :spades, number: :eight},
+        %Card{suit: :spades, number: :four}
+      ]
+
+      Server.add_player(game, "Boo")
+      Server.add_player(game, "Doo")
+
+      Server.start_game(game, init_deck)
+
+      {_,
+       %{
+         played: initial_played,
+         player_turn: initial_player_turn,
+         deck: initial_deck,
+         players: initial_players
+       }} =
+        :sys.get_state(game)
+
+      initial_player = Enum.at(initial_players, initial_player_turn)
+      initial_player_cards = initial_player.cards
+
+      # Pick -> Assign 1 card (default) to the next player
+      Server.deal_card(game)
+
+      {state, %{players: players, played: played, player_turn: player_turn}} =
+        :sys.get_state(game)
+
+      updated_player = Enum.at(players, initial_player_turn)
+
+      # The topmost card is assigned to the next player
+      assert hd(initial_deck) in updated_player.cards
+      assert length(updated_player.cards) == length(initial_player_cards) + 1
+
+      assert state == :live
+      # Advances to the next player
+      refute player_turn == initial_player_turn
+      # No change in played cards
+      assert initial_played == played
     end
   end
 end
