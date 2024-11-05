@@ -71,24 +71,6 @@ You can provide a few config options when calling `init`. For now they are:
 Prior art:
 - [Level10](https://level10.games/) - https://github.com/dnsbty/level10
 
-
-TODO:
-- Add this after scaffolding the sessions stuff
-- Read through OTP process docs on this topic
-- Does this need a dynamic supervisor?
-
-```
-defp do_start_fsm(id, name, impl, payload) when is_atom(impl) do
-  DynamicSupervisor.start_child(
-    Finitomata.Supervisor.manager_name(id),
-    {impl, name: fqn(id, name), payload: payload}
-  )
-end
-```
-
-On the player logging in and creating a new session.
-There should also be a few transitions
-
 Regarding saving server state:
 - Save the actions and re-create the latest state if needed
 
