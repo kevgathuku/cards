@@ -80,15 +80,15 @@ Regarding saving server state:
 ### Current State Machine Transitions
 
 ```mermaid
-graph Poker;
-  idle --> |start| lobby
-  lobby --> |add_player| lobby
-  lobby --> |add_player| awaiting_deck
-  awaiting_deck --> |add_deck| awaiting_deal_cards
-  awaiting_deal_cards --> |deal_player_cards| awaiting_start_card
-  awaiting_start_card --> |deal_start_card| live
-  live --> |play_hand| live
-  live --> |pick| live
-  live --> |play_hand| kadi
-  kadi --> |play_finish_card| end_game
+graph TD;
+  idle --> |start| lobby;
+  lobby --> |add_player| lobby;
+  lobby --> |add_player| awaiting_deck;
+  awaiting_deck --> |add_deck| awaiting_deal_cards;
+  awaiting_deal_cards --> |deal_player_cards| awaiting_start_card;
+  awaiting_start_card --> |deal_start_card| live;
+  live --> |play_hand| live;
+  live --> |pick| live;
+  live --> |play_hand| kadi;
+  kadi --> |play_finish_card| end_game;
 ```
