@@ -77,23 +77,10 @@ Prior art:
 Regarding saving server state:
 - Save the actions and re-create the latest state if needed
 
-### Managing the Dynamically Started Games:
-
-```elixir
-# Start process registry to keep track of named processes
-{:ok, _} = Registry.start_link(keys: :unique, name: Kadi.Registry)
-# Pass in a unique Game ID
-game_session = {:via, Registry, {Kadi.Registry, "ABC"}}
-# Start the game server, and pass in the name
-{:ok, _} = GenStateMachine.start_link(Kadi.Games.Poker.Server, %{}, name: game_session)
-
-# And now the game can be accessed through the name
-Server.get_state(game_session)
-```
-
 ### Current State Machine Transitions
 
 ```mermaid
+graph Poker;
   idle --> |start| lobby
   lobby --> |add_player| lobby
   lobby --> |add_player| awaiting_deck
