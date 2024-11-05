@@ -32,25 +32,43 @@ defmodule Kadi.Registry do
 
   @impl true
   def init(:ok) do
-    {:ok, %{}}
+    names = %{}
+    refs = %{}
+    {:ok, {names, refs}}
   end
 
   @impl true
-  def handle_call({:lookup, name}, _from, names) do
-    {:reply, Map.fetch(names, name), names}
+  def handle_call({:lookup, name}, _from, state) do
+    {names, _} = state
+    {:reply, Map.fetch(names, name), state}
   end
 
   @impl true
-  def handle_cast({:create, name, payload}, names) do
+  def handle_cast({:create, name, payload}, {names, refs}) do
     if Map.has_key?(names, name) do
       {:noreply, names}
     else
       {:ok, game} =
-        GenStateMachine.start_link(Poker.Server, payload,
-          name: {:via, Registry, {Kadi.Registry, name}}
-        )
+        GenStateMachine.start_link(Poker.Server, payload)
 
-      {:noreply, Map.put(names, name, game)}
+      ref = Process.monitor(game)
+      refs = Map.put(refs, ref, name)
+      names = Map.put(names, name, game)
+
+      {:noreply, {names, refs}}
     end
+  end
+
+  @impl true
+  def handle_info({:DOWN, ref, :process, _pid, _reason}, {names, refs}) do
+    {name, refs} = Map.pop(refs, ref)
+    names = Map.delete(names, name)
+    {:noreply, {names, refs}}
+  end
+
+  @impl true
+  def handle_info(msg, state) do
+    Logger.debug("Unexpected message in Kadi.Registry: #{inspect(msg)}")
+    {:noreply, state}
   end
 end
