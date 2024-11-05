@@ -154,10 +154,10 @@ defmodule Kadi.Games.Poker.Server do
     {:next_state, state, data}
   end
 
-  def handle_event(:cast, {:start_game, _}, state, %{players: players, rules: rules} = data)
+  def handle_event(:cast, {:start_game, _}, state, data)
       when state != :lobby do
     Logger.warning(
-      "Not enough players, Current: #{length(players)} Expected: #{rules.min_players}"
+      "Invalid state for start game. Expected: #{inspect(:lobby)} \tActual:#{inspect(state)}"
     )
 
     {:next_state, state, data}
