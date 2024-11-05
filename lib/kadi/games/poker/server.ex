@@ -27,6 +27,13 @@ defmodule Kadi.Games.Poker.Server do
 
   def default_rules, do: @init_rules
 
+  def for_session(session_name) do
+    case Registry.lookup(KadiRegistry, session_name) do
+      [{pid, _}] -> {:ok, pid}
+      [] -> start_named_process(session_name)
+    end
+  end
+
   @doc """
   Start the server.
   Accepts any custom rules you want to apply
@@ -82,10 +89,16 @@ defmodule Kadi.Games.Poker.Server do
 
   @doc """
   Get the player associated with the given `name`
-  TODO: Implement if needed
   """
   def get_player(pid, player_name) do
     GenStateMachine.call(pid, {:get_player, player_name})
+  end
+
+  @doc """
+  Get the current state of the game
+  """
+  def get_state(pid) do
+    :sys.get_state(pid)
   end
 
   @doc """
@@ -293,5 +306,14 @@ defmodule Kadi.Games.Poker.Server do
     remaining = Enum.filter(deck, fn card -> card != first_card end)
 
     %{state | deck: remaining, played: [first_card]}
+  end
+
+  defp start_named_process(session_name) do
+    case GenStateMachine.start_link(__MODULE__, %{},
+           name: {:via, Registry, {KadiRegistry, session_name}}
+         ) do
+      {:ok, pid} -> {:ok, pid}
+      {:error, reason} -> {:error, reason}
+    end
   end
 end
