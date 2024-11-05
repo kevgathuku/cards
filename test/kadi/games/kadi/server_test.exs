@@ -1,26 +1,22 @@
 defmodule Kadi.Games.Poker.ServerTest do
   use ExUnit.Case, async: true
+
   alias Kadi.Games.Poker.Server
   alias Kadi.Games.Poker.Card
   # alias Kadi.Games.Poker.Player
   doctest Server, import: true
 
-  setup context do
-    case context do
-      %{payload: payload} ->
-        {:ok, game} = GenStateMachine.start_link(Server, payload)
-        %{game: game}
-
-      _ ->
-        # game = start_supervised!(Server)
-        {:ok, game} = GenStateMachine.start_link(Server, %{})
-        %{game: game}
-    end
+  setup do
+    registry = start_supervised!(Kadi.Registry)
+    %{registry: registry}
   end
 
   describe "init" do
-    test "starts server on init with no options", %{game: game} do
-      {state, data} = :sys.get_state(game)
+    test "starts server on init with no options", %{registry: registry} do
+      Kadi.Registry.create(registry, "init")
+      {:ok, game} = Kadi.Registry.lookup(registry, "init")
+
+      {state, data} = Server.get_state(game)
 
       assert state == :lobby
 
@@ -33,9 +29,11 @@ defmodule Kadi.Games.Poker.ServerTest do
              }
     end
 
-    @tag payload: %{cards_to_deal: 5}
-    test "starts server on init with valid options", %{game: game} do
-      {state, data} = :sys.get_state(game)
+    test "starts server on init with valid options", %{registry: registry} do
+      Kadi.Registry.create(registry, "init_options", %{cards_to_deal: 5})
+      {:ok, game} = Kadi.Registry.lookup(registry, "init_options")
+
+      {state, data} = Server.get_state(game)
 
       assert state == :lobby
 
@@ -44,9 +42,11 @@ defmodule Kadi.Games.Poker.ServerTest do
       assert data.rules.cards_to_deal == 5
     end
 
-    @tag payload: %{obviously_this_is_invalid: ~c"wowww"}
-    test "discards invalid rules and starts server on init", %{game: game} do
-      {_, data} = :sys.get_state(game)
+    test "discards invalid rules and starts server on init", %{registry: registry} do
+      Kadi.Registry.create(registry, "init", %{obviously_this_is_invalid: ~c"wowww"})
+      {:ok, game} = Kadi.Registry.lookup(registry, "init")
+
+      {_, data} = Server.get_state(game)
 
       assert Map.take(data, [:players, :deck, :played]) == %{players: [], deck: [], played: []}
       assert data.rules == Server.default_rules()
@@ -54,11 +54,14 @@ defmodule Kadi.Games.Poker.ServerTest do
   end
 
   describe "add_players" do
-    test "add player by name", %{game: game} do
+    test "add player by name", %{registry: registry} do
       name = "iniesta"
+      Kadi.Registry.create(registry, "init")
+      {:ok, game} = Kadi.Registry.lookup(registry, "init")
 
       Server.add_player(game, name)
-      {_, %{players: players}} = :sys.get_state(game)
+
+      {_, %{players: players}} = Server.get_state(game)
       player = Enum.find(players, fn player -> player.name == name end)
 
       assert player in players
@@ -67,39 +70,48 @@ defmodule Kadi.Games.Poker.ServerTest do
       assert length(players) == 1
     end
 
-    test "does not add duplicate players", %{game: game} do
+    test "does not add duplicate players", %{registry: registry} do
       name = "iniesta"
 
+      Kadi.Registry.create(registry, "init")
+      {:ok, game} = Kadi.Registry.lookup(registry, "init")
+
       Server.add_player(game, name)
       Server.add_player(game, name)
 
-      {_, %{players: players}} = :sys.get_state(game)
+      {_, %{players: players}} = Server.get_state(game)
 
       assert length(players) == 1
     end
   end
 
   describe "start_game" do
-    test "assigns the right number of cards to each player", %{game: game} do
+    test "assigns the right number of cards to each player", %{registry: registry} do
       init_deck = [1, 2, 3, 4, 5, 6, 7, 8]
+
+      Kadi.Registry.create(registry, "game")
+      {:ok, game} = Kadi.Registry.lookup(registry, "game")
 
       Server.add_player(game, "player 1")
       Server.add_player(game, "player 2")
       Server.start_game(game, init_deck)
 
-      {state, %{players: players, deck: deck}} = :sys.get_state(game)
+      {state, %{players: players, deck: deck}} = Server.get_state(game)
 
       assert state == :live
       assert Enum.all?(players, fn player -> length(player.cards) == 4 end) == true
       assert length(deck) == 0
     end
 
-    test "assigns correct first card on start game", %{game: game} do
+    test "assigns correct first card on start game", %{registry: registry} do
+      Kadi.Registry.create(registry, "game")
+      {:ok, game} = Kadi.Registry.lookup(registry, "game")
+
       Server.add_player(game, "Kevin")
       Server.add_player(game, "King")
       Server.start_game(game)
 
-      {state, %{played: played, rules: rules, deck: deck}} = :sys.get_state(game)
+      {state, %{played: played, rules: rules, deck: deck}} = Server.get_state(game)
 
       card = hd(played)
 
@@ -109,13 +121,16 @@ defmodule Kadi.Games.Poker.ServerTest do
       refute card.number in rules.start_cards_blocklist
     end
 
-    test "deals 4 cards to each player by default on start game", %{game: game} do
+    test "deals 4 cards to each player by default on start game", %{registry: registry} do
+      Kadi.Registry.create(registry, "game")
+      {:ok, game} = Kadi.Registry.lookup(registry, "game")
+
       Server.add_player(game, "Kevin")
       Server.add_player(game, "King")
       Server.start_game(game)
 
       {state, %{players: players, deck: deck, rules: %{cards_to_deal: cards_to_deal}}} =
-        :sys.get_state(game)
+        Server.get_state(game)
 
       # cards assigned to each player + starting card
       assigned_cards = length(players) * cards_to_deal + 1
@@ -125,14 +140,16 @@ defmodule Kadi.Games.Poker.ServerTest do
       assert length(deck) == 52 - assigned_cards
     end
 
-    @tag payload: %{cards_to_deal: 5}
-    test "deals configured number of cards to each player on start game", %{game: game} do
+    test "deals configured number of cards to each player on start game", %{registry: registry} do
+      Kadi.Registry.create(registry, "game", %{cards_to_deal: 5})
+      {:ok, game} = Kadi.Registry.lookup(registry, "game")
+
       Server.add_player(game, "Kevin")
       Server.add_player(game, "King")
       Server.start_game(game)
 
       {state, %{players: players, deck: deck, rules: %{cards_to_deal: cards_to_deal}}} =
-        :sys.get_state(game)
+        Server.get_state(game)
 
       assigned_cards = length(players) * cards_to_deal + 1
 
@@ -142,22 +159,28 @@ defmodule Kadi.Games.Poker.ServerTest do
       assert length(deck) == 52 - assigned_cards
     end
 
-    test "does not start game without minimum players", %{game: game} do
+    test "does not start game without minimum players", %{registry: registry} do
+      Kadi.Registry.create(registry, "game")
+      {:ok, game} = Kadi.Registry.lookup(registry, "game")
+
       Server.add_player(game, "Kevin")
       Server.start_game(game)
 
-      {state, _} = :sys.get_state(game)
+      {state, _} = Server.get_state(game)
 
       # Does not progress to the next state
       assert state == :lobby
     end
 
-    test "does not allow adding players after game starts", %{game: game} do
+    test "does not allow adding players after game starts", %{registry: registry} do
+      Kadi.Registry.create(registry, "game")
+      {:ok, game} = Kadi.Registry.lookup(registry, "game")
+
       Server.add_player(game, "Kevin")
       Server.add_player(game, "King")
       Server.start_game(game)
 
-      {state, %{players: players}} = :sys.get_state(game)
+      {state, %{players: players}} = Server.get_state(game)
 
       # Try to add a player after game is in progress
       Server.add_player(game, "Peppa")
@@ -170,8 +193,10 @@ defmodule Kadi.Games.Poker.ServerTest do
   end
 
   describe "play_hand" do
-    @tag payload: %{cards_to_deal: 3}
-    test "accepts a play from the next player", %{game: game} do
+    test "accepts a play from the next player", %{registry: registry} do
+      Kadi.Registry.create(registry, "game",  %{cards_to_deal: 3})
+      {:ok, game} = Kadi.Registry.lookup(registry, "game")
+
       Server.add_player(game, "Boo")
       Server.add_player(game, "Doo")
 
@@ -199,7 +224,7 @@ defmodule Kadi.Games.Poker.ServerTest do
       Server.play_hand(game, hand)
 
       {state, %{players: players, played: played, player_turn: player_turn}} =
-        :sys.get_state(game)
+        Server.get_state(game)
 
       assert state == :live
       # Updated to the next player
@@ -210,8 +235,10 @@ defmodule Kadi.Games.Poker.ServerTest do
       assert length(player_one.cards) == 2
     end
 
-    @tag payload: %{cards_to_deal: 3}
-    test "does not accept a play from other players", %{game: game} do
+    test "does not accept a play from other players", %{registry: registry} do
+      Kadi.Registry.create(registry, "game", %{cards_to_deal: 3})
+      {:ok, game} = Kadi.Registry.lookup(registry, "game")
+
       Server.add_player(game, "Boo")
       Server.add_player(game, "Doo")
 
@@ -238,12 +265,12 @@ defmodule Kadi.Games.Poker.ServerTest do
       ]
 
       {_, %{played: initial_played, player_turn: initial_player_turn}} =
-        :sys.get_state(game)
+        Server.get_state(game)
 
       Server.play_hand(game, hand)
 
       {state, %{players: players, played: played, player_turn: player_turn}} =
-        :sys.get_state(game)
+        Server.get_state(game)
 
       # No state changes
       player_cards = Enum.reduce(players, 0, fn player, acc -> length(player.cards) + acc end)
@@ -254,12 +281,12 @@ defmodule Kadi.Games.Poker.ServerTest do
       assert initial_played == played
     end
 
-    test "does not accept an invalid hand from the correct player", %{game: game} do
+    test "does not accept an invalid hand from the correct player", %{registry: registry} do
     end
   end
 
   describe "pick card" do
-    test "assigns card to the next player", %{game: game} do
+    test "assigns card to the next player", %{registry: registry} do
       init_deck = [
         # P1
         %Card{suit: :hearts, number: :two},
@@ -276,6 +303,9 @@ defmodule Kadi.Games.Poker.ServerTest do
         %Card{suit: :spades, number: :four}
       ]
 
+      Kadi.Registry.create(registry, "game")
+      {:ok, game} = Kadi.Registry.lookup(registry, "game")
+
       Server.add_player(game, "Boo")
       Server.add_player(game, "Doo")
 
@@ -288,7 +318,7 @@ defmodule Kadi.Games.Poker.ServerTest do
          deck: initial_deck,
          players: initial_players
        }} =
-        :sys.get_state(game)
+        Server.get_state(game)
 
       initial_player = Enum.at(initial_players, initial_player_turn)
       initial_player_cards = initial_player.cards
@@ -297,7 +327,7 @@ defmodule Kadi.Games.Poker.ServerTest do
       Server.deal_card(game)
 
       {state, %{players: players, played: played, player_turn: player_turn}} =
-        :sys.get_state(game)
+        Server.get_state(game)
 
       updated_player = Enum.at(players, initial_player_turn)
 

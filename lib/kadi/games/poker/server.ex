@@ -82,10 +82,16 @@ defmodule Kadi.Games.Poker.Server do
 
   @doc """
   Get the player associated with the given `name`
-  TODO: Implement if needed
   """
   def get_player(pid, player_name) do
     GenStateMachine.call(pid, {:get_player, player_name})
+  end
+
+  @doc """
+  Get the current state of the game
+  """
+  def get_state(pid) do
+    :sys.get_state(pid)
   end
 
   @doc """
@@ -116,6 +122,10 @@ defmodule Kadi.Games.Poker.Server do
     GenStateMachine.cast(pid, {:deal_cards, num_cards})
   end
 
+  def stop(pid) do
+    GenStateMachine.stop(pid)
+  end
+
   # Server (callbacks)
   def handle_event(:cast, {:add_player, name}, :lobby, %{players: players} = data) do
     if Enum.any?(players, fn player -> player.name == name end) do
@@ -144,10 +154,10 @@ defmodule Kadi.Games.Poker.Server do
     {:next_state, state, data}
   end
 
-  def handle_event(:cast, {:start_game, _}, state, %{players: players, rules: rules} = data)
+  def handle_event(:cast, {:start_game, _}, state, data)
       when state != :lobby do
     Logger.warning(
-      "Not enough players, Current: #{length(players)} Expected: #{rules.min_players}"
+      "Invalid state for start game. Expected: #{inspect(:lobby)} \tActual:#{inspect(state)}"
     )
 
     {:next_state, state, data}

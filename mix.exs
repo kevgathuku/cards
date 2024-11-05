@@ -9,8 +9,7 @@ defmodule Kadi.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
-      deps: deps(),
-      compilers: [:finitomata | Mix.compilers()]
+      deps: deps()
     ]
   end
 
@@ -60,7 +59,6 @@ defmodule Kadi.MixProject do
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.2"},
-      {:finitomata, "~> 0.20.2"},
       {:mox, "~> 1.0", only: :test},
       {:paper_trail, "~> 0.14.3"}
     ]

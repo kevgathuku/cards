@@ -14,12 +14,10 @@ defmodule Kadi.Application do
       {Phoenix.PubSub, name: Kadi.PubSub},
       # Start the Finch HTTP client for sending emails
       {Finch, name: Kadi.Finch},
-      # Start a worker by calling: Kadi.Worker.start_link(arg)
-      Finitomata.Supervisor,
-      # Start to serve requests, typically the last entry
-      KadiWeb.Endpoint
       # Registry to keep track of Game server sessions
-      # Kadi.Games.Registry
+      {Kadi.Registry, name: Kadi.Registry},
+      # Start to serve requests, typically the last entry
+      KadiWeb.Endpoint,
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
