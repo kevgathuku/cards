@@ -26,17 +26,20 @@ Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
 Run the following commands inside an iex session `iex -S mix`
 
 ```elixir
-alias Kadi.Games.Poker.Server
+alias Kadi.Games.Poker
 
-# Pass in an optional config object
-{:ok, game_pid} = GenStateMachine.start_link(Server, %{})
+# Create a new game, passing in a name, and an optional config object
+Kadi.Registry.create(Kadi.Registry, "poker", %{})
+
+# Lookup the game by the name
+{:ok, game_pid} = Kadi.Registry.lookup(Kadi.Registry, "poker")
 
 # Show the current state
-Server.get_state(game_pid)
+Poker.Server.get_state(game_pid)
 
 # Add players
-Server.add_player(game_pid, "Kevin")
-Server.add_player(game_pid, "Devin")
+Poker.Server.add_player(game_pid, "Kevin")
+Poker.Server.add_player(game_pid, "Devin")
 
 alias Kadi.Games.Poker.Card
 deck = [
@@ -53,11 +56,11 @@ deck = [
 ]
 
 # Start the game. You can pass in a custom deck if needed
-Server.start_game(game_pid, deck)
+Poker.Server.start_game(game_pid, deck)
 
 # Game now in play
 # process some cards played
-Server.play_hand(game_pid, hand)
+Poker.Server.play_hand(game_pid, hand)
 
 # More coming soon
 ```
@@ -77,7 +80,6 @@ Regarding saving server state:
 ### Managing the Dynamically Started Games:
 
 ```elixir
-
 # Start process registry to keep track of named processes
 {:ok, _} = Registry.start_link(keys: :unique, name: Kadi.Registry)
 # Pass in a unique Game ID
