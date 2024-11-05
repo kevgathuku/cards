@@ -26,19 +26,17 @@ Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
 Run the following commands inside an iex session `iex -S mix`
 
 ```elixir
-{:ok, _pid} = Finitomata.start_link()
+alias Kadi.Games.Poker.Server
 
-Finitomata.start_fsm Kadi.Games.Poker.FsmServer, "KadiServer", %{}
-
-# Start the game -> config optional
-Finitomata.transition "KadiServer", :start
+# Pass in an optional config object
+{:ok, game_pid} = GenStateMachine.start_link(Server, %{})
 
 # Show the current state
-Finitomata.state "KadiServer"
+Server.get_state(game_pid)
 
 # Add players
-Finitomata.transition "KadiServer", {:add_player, "Kevin"}
-Finitomata.transition "KadiServer", {:add_player, "Devin"}
+Server.add_player(game_pid, "Kevin")
+Server.add_player(game_pid, "Devin")
 
 alias Kadi.Games.Poker.Card
 deck = [
@@ -54,16 +52,13 @@ deck = [
     %Card{suit: :diamonds, number: :eight}
 ]
 
-# Add deck
-Finitomata.transition "KadiServer", {:add_deck, %{deck: deck}}
-
-# Deal cards to the players
-Finitomata.transition "KadiServer", {:deal_player_cards, nil}
-
-# Deal the start card
-Finitomata.transition "KadiServer", {:deal_start_card, nil}
+# Start the game. You can pass in a custom deck if needed
+Server.start_game(game_pid, deck)
 
 # Game now in play
+# process some cards played
+Server.play_hand(game_pid, hand)
+
 # More coming soon
 ```
 
@@ -78,7 +73,6 @@ Prior art:
 
 
 TODO:
-- Figure out the best place to start the finitomata instance - on session create??
 - Add this after scaffolding the sessions stuff
 - Read through OTP process docs on this topic
 - Does this need a dynamic supervisor?
@@ -92,41 +86,23 @@ defp do_start_fsm(id, name, impl, payload) when is_atom(impl) do
 end
 ```
 
-Desired payload on auto-start: 
-Started with: `Finitomata.start_fsm Kadi.Games.Poker.FsmServer, "KadiServer", %{}`
-
-```
-[debug] [→ ↹] [state: #Finitomata<[name: "KadiServer", state: [current: :*, previous: nil, payload: %{}], internals: [errored?: false, persisted?: false, timer: false]]>, exiting: :*]
-```
-
-Ideal way to start this:
-```
-Finitomata.start_fsm Kadi.Games.Poker.FsmServer, "session-code", %{}
-```
-
 On the player logging in and creating a new session.
 There should also be a few transitions
 
 Regarding saving server state:
-- Avoid saving the Genserver state in the DB.
-- If both players are not online and playing at the same time, then it ends.
-
-- It might be worth exploring if the whole can be serialized,
-for the purposes of loading a game from state.
-
-Seems like an impractical concern for now. Focus on not saving the state.
-It's supposed to be a realtime game.
+- Save the actions and re-create the latest state if needed
 
 ### Managing the Dynamically Started Games:
 
-Turns out Finitomata already has a registry and we don't need to create another one
+```elixir
 
-Getting a process by name:
-```
-Finitomata.lookup("game_one")
-```
+# Start process registry to keep track of named processes
+{:ok, _} = Registry.start_link(keys: :unique, name: Kadi.Registry)
+# Pass in a unique Game ID
+game_session = {:via, Registry, {Kadi.Registry, "ABC"}}
+# Start the game server, and pass in the name
+{:ok, _} = GenStateMachine.start_link(Kadi.Games.Poker.Server, %{}, name: game_session)
 
-Some info from the tests:
-```
-[{:via, Registry, {Finitomata.Registry, "game_one"}}, :idle, %{}]
+# And now the game can be accessed through the name
+Server.get_state(game_session)
 ```
