@@ -122,7 +122,6 @@ defmodule Kadi.Games.Poker.Server do
     GenStateMachine.cast(pid, {:deal_cards, num_cards})
   end
 
-  @impl
   def stop(pid) do
     GenStateMachine.stop(pid)
   end

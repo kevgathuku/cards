@@ -28,4 +28,11 @@ defmodule Kadi.RegistryTest do
     assert state == :lobby
     assert data.rules.cards_to_deal == 5
   end
+
+  test "removes games on exit", %{registry: registry} do
+    Kadi.Registry.create(registry, "game")
+    {:ok, game} = Kadi.Registry.lookup(registry, "game")
+    GenServer.stop(game)
+    assert Kadi.Registry.lookup(registry, "game") == :error
+  end
 end
