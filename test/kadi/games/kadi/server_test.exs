@@ -1,26 +1,23 @@
 defmodule Kadi.Games.Poker.ServerTest do
   use ExUnit.Case, async: true
+
   alias Kadi.Games.Poker.Server
   alias Kadi.Games.Poker.Card
   # alias Kadi.Games.Poker.Player
   doctest Server, import: true
 
-  setup context do
-    case context do
-      %{payload: payload} ->
-        {:ok, game} = GenStateMachine.start_link(Server, payload)
-        %{game: game}
-
-      _ ->
-        # game = start_supervised!(Server)
-        {:ok, game} = GenStateMachine.start_link(Server, %{})
-        %{game: game}
-    end
+  setup do
+    registry = start_supervised!(Kadi.Registry)
+    # {:ok, game} = Server.for_session("Tests:Server")
+    %{registry: registry}
   end
 
   describe "init" do
-    test "starts server on init with no options", %{game: game} do
-      {state, data} = :sys.get_state(game)
+    test "starts server on init with no options", %{registry: registry} do
+      Kadi.Registry.create(registry, "init")
+      {:ok, game} = Kadi.Registry.lookup(registry, "init")
+
+      {state, data} = Server.get_state(game)
 
       assert state == :lobby
 
@@ -33,9 +30,11 @@ defmodule Kadi.Games.Poker.ServerTest do
              }
     end
 
-    @tag payload: %{cards_to_deal: 5}
-    test "starts server on init with valid options", %{game: game} do
-      {state, data} = :sys.get_state(game)
+    test "starts server on init with valid options", %{registry: registry} do
+      Kadi.Registry.create(registry, "init_options", %{cards_to_deal: 5})
+      {:ok, game} = Kadi.Registry.lookup(registry, "init_options")
+
+      {state, data} = Server.get_state(game)
 
       assert state == :lobby
 
@@ -45,8 +44,11 @@ defmodule Kadi.Games.Poker.ServerTest do
     end
 
     @tag payload: %{obviously_this_is_invalid: ~c"wowww"}
-    test "discards invalid rules and starts server on init", %{game: game} do
-      {_, data} = :sys.get_state(game)
+    test "discards invalid rules and starts server on init", %{registry: registry} do
+      Kadi.Registry.create(registry, "init")
+      {:ok, game} = Kadi.Registry.lookup(registry, "init")
+
+      {_, data} = Server.get_state(game)
 
       assert Map.take(data, [:players, :deck, :played]) == %{players: [], deck: [], played: []}
       assert data.rules == Server.default_rules()

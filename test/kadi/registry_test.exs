@@ -17,4 +17,15 @@ defmodule Kadi.RegistryTest do
     {state, _data} = Poker.Server.get_state(game)
     assert state == :lobby
   end
+
+  test "can create and lookup games with payload", %{registry: registry} do
+    assert Kadi.Registry.lookup(registry, "game_one") == :error
+
+    Kadi.Registry.create(registry, "game_one", %{cards_to_deal: 5})
+    assert {:ok, game} = Kadi.Registry.lookup(registry, "game_one")
+
+    {state, data} = Poker.Server.get_state(game)
+    assert state == :lobby
+    assert data.rules.cards_to_deal == 5
+  end
 end

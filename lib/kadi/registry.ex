@@ -1,6 +1,7 @@
 defmodule Kadi.Registry do
   use GenServer
 
+  require Logger
   alias Kadi.Games.Poker
 
   @doc """
@@ -23,6 +24,7 @@ defmodule Kadi.Registry do
   Create or return the game associated with the given `name` in `server`.
   """
   def create(server, name, payload \\ %{}) do
+    Logger.warning("Payload: #{inspect(payload)}")
     GenServer.cast(server, {:create, name, payload})
   end
 
