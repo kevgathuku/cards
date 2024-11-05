@@ -106,3 +106,18 @@ game_session = {:via, Registry, {Kadi.Registry, "ABC"}}
 # And now the game can be accessed through the name
 Server.get_state(game_session)
 ```
+
+### Current State Machine Transitions
+
+```mermaid
+  idle --> |start| lobby
+  lobby --> |add_player| lobby
+  lobby --> |add_player| awaiting_deck
+  awaiting_deck --> |add_deck| awaiting_deal_cards
+  awaiting_deal_cards --> |deal_player_cards| awaiting_start_card
+  awaiting_start_card --> |deal_start_card| live
+  live --> |play_hand| live
+  live --> |pick| live
+  live --> |play_hand| kadi
+  kadi --> |play_finish_card| end_game
+```
