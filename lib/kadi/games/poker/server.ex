@@ -73,6 +73,10 @@ defmodule Kadi.Games.Poker.Server do
     {:ok, :lobby, Map.put(@initial_state, :rules, valid_rules)}
   end
 
+  def start_link(payload) do
+    GenStateMachine.start_link(__MODULE__, payload)
+  end
+
   @doc """
   Add a player associated with the given `name` to the game
   """

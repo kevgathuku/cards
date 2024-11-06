@@ -48,8 +48,7 @@ defmodule Kadi.Registry do
     if Map.has_key?(names, name) do
       {:noreply, {names, refs}}
     else
-      {:ok, game} =
-        GenStateMachine.start_link(Poker.Server, payload)
+      {:ok, game} = DynamicSupervisor.start_child(Kadi.GameSupervisor, {Poker.Server, payload})
 
       ref = Process.monitor(game)
       refs = Map.put(refs, ref, name)

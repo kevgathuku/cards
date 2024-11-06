@@ -16,6 +16,7 @@ defmodule Kadi.Application do
       {Finch, name: Kadi.Finch},
       # Registry to keep track of Game server sessions
       {Kadi.Registry, name: Kadi.Registry},
+      {DynamicSupervisor, name: Kadi.GameSupervisor, strategy: :one_for_one},
       # Start to serve requests, typically the last entry
       KadiWeb.Endpoint,
     ]

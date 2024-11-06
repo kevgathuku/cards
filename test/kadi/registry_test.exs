@@ -35,4 +35,13 @@ defmodule Kadi.RegistryTest do
     GenServer.stop(game)
     assert Kadi.Registry.lookup(registry, "game") == :error
   end
+
+  test "removes bucket on crash", %{registry: registry} do
+    Kadi.Registry.create(registry, "game")
+    {:ok, game} = Kadi.Registry.lookup(registry, "game")
+
+    # Stop the bucket with non-normal reason
+    GenServer.stop(game, :shutdown)
+    assert Kadi.Registry.lookup(registry, "game") == :error
+  end
 end
