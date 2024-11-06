@@ -46,7 +46,7 @@ defmodule Kadi.Registry do
   @impl true
   def handle_cast({:create, name, payload}, {names, refs}) do
     if Map.has_key?(names, name) do
-      {:noreply, names}
+      {:noreply, {names, refs}}
     else
       {:ok, game} =
         GenStateMachine.start_link(Poker.Server, payload)
