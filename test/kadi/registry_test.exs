@@ -41,7 +41,7 @@ defmodule Kadi.RegistryTest do
     {:ok, game} = Kadi.Registry.lookup(registry, "game")
 
     # Stop the bucket with non-normal reason
-    GenServer.stop(game, :shutdown)
+    GenStateMachine.stop(game, :shutdown)
     assert Kadi.Registry.lookup(registry, "game") == :error
   end
 end
