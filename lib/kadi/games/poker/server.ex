@@ -2,7 +2,7 @@ defmodule Kadi.Games.Poker.Server do
   @moduledoc """
   Kadi Game Server
   """
-  use GenStateMachine
+  use GenStateMachine, restart: :temporary
 
   require Logger
   alias Kadi.Games.Poker.Player

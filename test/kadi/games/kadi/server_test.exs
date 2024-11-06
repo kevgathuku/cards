@@ -11,6 +11,10 @@ defmodule Kadi.Games.Poker.ServerTest do
     %{registry: registry}
   end
 
+  test "are temporary workers" do
+    assert Supervisor.child_spec(Server, %{}).restart == :temporary
+  end
+
   describe "init" do
     test "starts server on init with no options", %{registry: registry} do
       Kadi.Registry.create(registry, "init")
