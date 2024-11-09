@@ -59,6 +59,11 @@ defmodule Kadi.Utils do
 
       iex> is_valid_hand?(
       ...> Games.Kadi.Card.new(:ten, :diamonds),
+      ...> [Games.Kadi.Card.new(:five, :diamonds), Games.Kadi.Card.new(:two, :diamonds)])
+      false
+
+      iex> is_valid_hand?(
+      ...> Games.Kadi.Card.new(:ten, :diamonds),
       ...> [Games.Kadi.Card.new(:five, :diamonds), Games.Kadi.Card.new(:five, :spades)])
       true
 
@@ -75,7 +80,7 @@ defmodule Kadi.Utils do
             true
 
           is_question_without_answer?(hand) ->
-            # All Qs. No answer. Accept hand and assign a card to the player
+            # TODO: Accept hand and assign a card to the player
             # Convert to return tuple -> {:valid, next_action}, {:invalid, reason???}
             false
 
@@ -88,11 +93,11 @@ defmodule Kadi.Utils do
             false
 
           true ->
-            Logger.warning("Should not get here. Hand: #{inspect(hand)}")
+            Logger.warning("Parsing Q/A: Should not get here. Hand: #{inspect(hand)}")
             false
         end
 
-      is_valid_suit_or_number?(last_card, hand) ->
+      is_valid_suit_or_number?(last_card, hand) and is_valid_combination?(hand) ->
         true
 
       # Fallback condition

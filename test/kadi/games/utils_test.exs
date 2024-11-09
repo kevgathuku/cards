@@ -83,6 +83,12 @@ defmodule Kadi.Games.UtilsTest do
                Card.new(:ten, :spades),
                Card.new(:ten, :hearts)
              ])
+
+      # Same suit. Different numbers
+      refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:five, :diamonds),
+               Card.new(:two, :diamonds)
+             ])
     end
 
     test "question and answer hands" do
