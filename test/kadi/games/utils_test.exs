@@ -28,45 +28,45 @@ defmodule Kadi.Games.UtilsTest do
     two_cards = [Card.new(:two, :spades), Card.new(:two, :hearts)]
     diff_number_cards = [Card.new(:two, :spades), Card.new(:three, :spades)]
 
-    assert Utils.is_same_number?(two_cards) == true
-    assert Utils.is_same_number?(diff_number_cards) == false
+    assert Utils.is_same_number?(two_cards)
+    refute Utils.is_same_number?(diff_number_cards)
   end
 
   describe "is_valid_hand?" do
     test "single card of the same suit is valid" do
       assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
                Card.new(:nine, :diamonds)
-             ]) == true
+             ])
     end
 
     test "single card of a different suit is not valid" do
-      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+      refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
                Card.new(:nine, :spades)
-             ]) == false
+             ])
     end
 
     test "single card of Q or 8 of the same suit is not valid" do
-      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+      refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
                Card.new(:q, :diamonds)
-             ]) == false
+             ])
 
-      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+      refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
                Card.new(:eight, :diamonds)
-             ]) == false
+             ])
     end
 
     test "single card of A of any suit is valid" do
       assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
                Card.new(:a, :diamonds)
-             ]) == true
+             ])
 
       assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
                Card.new(:a, :spades)
-             ]) == true
+             ])
 
       assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
                Card.new(:a, :flowers)
-             ]) == true
+             ])
 
       assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
                Card.new(:a, :hearts)
@@ -145,7 +145,7 @@ defmodule Kadi.Games.UtilsTest do
         %Card{suit: :diamonds, number: :ten}
       ]
 
-      assert Utils.is_valid_suit_or_number?(last_played, hand) == true
+      assert Utils.is_valid_suit_or_number?(last_played, hand)
     end
   end
 end
