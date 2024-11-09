@@ -5,19 +5,27 @@ defmodule Kadi.Registry do
   alias Kadi.Games.Poker
 
   @doc """
-  Starts the registry.
+  Starts the registry with the given options
+
+  `:name` is always required.
   """
   def start_link(opts) do
-    GenServer.start_link(__MODULE__, :ok, opts)
+    Logger.debug("Kadi.Registry opts: #{inspect(opts)}")
+    server = Keyword.fetch!(opts, :name)
+    GenServer.start_link(__MODULE__, server, opts)
   end
 
   @doc """
   Looks up the game pid for `name` stored in `server`.
 
-  Returns `{:ok, pid}` if the bucket exists, `:error` otherwise.
+  Returns `{:ok, pid}` if the game exists, `:error` otherwise.
   """
   def lookup(server, name) do
-    GenServer.call(server, {:lookup, name})
+    # Lookup directly in ETS without a server call
+    case :ets.lookup(server, name) do
+      [{^name, pid}] -> {:ok, pid}
+      [] -> :error
+    end
   end
 
   @doc """
@@ -25,43 +33,38 @@ defmodule Kadi.Registry do
   """
   def create(server, name, payload \\ %{}) do
     Logger.warning("Payload: #{inspect(payload)}")
-    GenServer.cast(server, {:create, name, payload})
+    GenServer.call(server, {:create, name, payload})
   end
 
   # Server callbacks
 
   @impl true
-  def init(:ok) do
-    names = %{}
+  def init(table) do
+    Logger.debug("Table name: #{inspect(table)}")
+    names = :ets.new(table, [:named_table, read_concurrency: true])
     refs = %{}
     {:ok, {names, refs}}
   end
 
   @impl true
-  def handle_call({:lookup, name}, _from, state) do
-    {names, _} = state
-    {:reply, Map.fetch(names, name), state}
-  end
+  def handle_call({:create, name, payload}, _from, {names, refs}) do
+    case lookup(names, name) do
+      {:ok, game} ->
+        {:reply, game, {names, refs}}
 
-  @impl true
-  def handle_cast({:create, name, payload}, {names, refs}) do
-    if Map.has_key?(names, name) do
-      {:noreply, {names, refs}}
-    else
-      {:ok, game} = DynamicSupervisor.start_child(Kadi.GameSupervisor, {Poker.Server, payload})
-
-      ref = Process.monitor(game)
-      refs = Map.put(refs, ref, name)
-      names = Map.put(names, name, game)
-
-      {:noreply, {names, refs}}
+      :error ->
+        {:ok, game} = DynamicSupervisor.start_child(Kadi.GameSupervisor, {Poker.Server, payload})
+        ref = Process.monitor(game)
+        refs = Map.put(refs, ref, name)
+        :ets.insert(names, {name, game})
+        {:reply, game, {names, refs}}
     end
   end
 
   @impl true
   def handle_info({:DOWN, ref, :process, _pid, _reason}, {names, refs}) do
     {name, refs} = Map.pop(refs, ref)
-    names = Map.delete(names, name)
+    :ets.delete(names, name)
     {:noreply, {names, refs}}
   end
 

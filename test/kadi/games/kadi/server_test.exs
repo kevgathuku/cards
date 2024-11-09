@@ -6,9 +6,9 @@ defmodule Kadi.Games.Poker.ServerTest do
   # alias Kadi.Games.Poker.Player
   doctest Server, import: true
 
-  setup do
-    registry = start_supervised!(Kadi.Registry)
-    %{registry: registry}
+  setup context do
+    _ = start_supervised!({Kadi.Registry, name: context.test})
+    %{registry: context.test}
   end
 
   test "are temporary workers" do
@@ -198,7 +198,7 @@ defmodule Kadi.Games.Poker.ServerTest do
 
   describe "play_hand" do
     test "accepts a play from the next player", %{registry: registry} do
-      Kadi.Registry.create(registry, "game",  %{cards_to_deal: 3})
+      Kadi.Registry.create(registry, "game", %{cards_to_deal: 3})
       {:ok, game} = Kadi.Registry.lookup(registry, "game")
 
       Server.add_player(game, "Boo")

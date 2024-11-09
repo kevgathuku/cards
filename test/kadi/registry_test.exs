@@ -3,9 +3,9 @@ defmodule Kadi.RegistryTest do
 
   alias Kadi.Games.Poker
 
-  setup do
-    registry = start_supervised!(Kadi.Registry)
-    %{registry: registry}
+  setup context do
+    _ = start_supervised!({Kadi.Registry, name: context.test})
+    %{registry: context.test}
   end
 
   test "can create and lookup games", %{registry: registry} do
@@ -33,6 +33,9 @@ defmodule Kadi.RegistryTest do
     Kadi.Registry.create(registry, "game")
     {:ok, game} = Kadi.Registry.lookup(registry, "game")
     GenServer.stop(game)
+
+    # Do call to ensure registry has processed :DOWN message
+    _ = Kadi.Registry.create(registry, "racing")
     assert Kadi.Registry.lookup(registry, "game") == :error
   end
 
@@ -42,6 +45,9 @@ defmodule Kadi.RegistryTest do
 
     # Stop the bucket with non-normal reason
     GenStateMachine.stop(game, :shutdown)
+
+    # Do call to ensure registry has processed :DOWN message
+    _ = Kadi.Registry.create(registry, "racing")
     assert Kadi.Registry.lookup(registry, "game") == :error
   end
 end
