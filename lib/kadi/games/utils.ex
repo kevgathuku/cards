@@ -35,6 +35,14 @@ defmodule Kadi.Utils do
     Enum.all?(tl(cards), fn card -> card.number == first_card.number end)
   end
 
+  def is_valid_suit_or_number?(last_played, hand) do
+    [last_played | hand]
+    |> Enum.chunk_every(2, 1, :discard)
+    |> Enum.all?(fn last_card, current_card ->
+      is_same_suit_or_number?(last_card, current_card)
+    end)
+  end
+
   @doc """
   Determine if the provided combination of cards is valid in this game
 
@@ -71,6 +79,23 @@ defmodule Kadi.Utils do
         # Do some pattern matching to check if it starts with '8' or 'Q'
         false
     end
+  end
+
+  def is_question?(card) do
+    card.number == :eight || card.number == :q
+  end
+
+  def contains_question?(hand) do
+    hand |> hd |> is_question?
+  end
+
+  def is_question_without_answer?(hand) do
+    Enum.all?(hand, fn x -> is_question?(x) end)
+  end
+
+  def is_valid_question_answer?(last_played, hand) do
+    contains_question?(hand) && not is_question_without_answer?(hand) &&
+      is_valid_suit_or_number?(last_played, hand)
   end
 
   # Find the intersection of two lists, providing the larger one first
