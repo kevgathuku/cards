@@ -114,6 +114,12 @@ defmodule Kadi.Games.UtilsTest do
              ])
 
       refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:eight, :diamonds),
+               Card.new(:five, :diamonds),
+               Card.new(:two, :diamonds)
+             ])
+
+      refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
                Card.new(:eight, :diamonds)
              ])
 
