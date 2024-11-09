@@ -77,6 +77,9 @@ defmodule Kadi.Utils do
       is_same_suit_or_number?(last_card, hd(cards)) and is_same_number?(cards) ->
         true
 
+      is_question?(hd(cards)) ->
+        is_valid_question_answer?(last_card, cards)
+
       true ->
         # TODO: Is valid Q and A combo
         # Do some pattern matching to check if it starts with '8' or 'Q'
@@ -97,7 +100,7 @@ defmodule Kadi.Utils do
   end
 
   def is_valid_question_answer?(last_played, hand) do
-    contains_question?(hand) && not is_question_without_answer?(hand) &&
+    not is_question_without_answer?(hand) &&
       is_valid_suit_or_number?(last_played, hand)
   end
 

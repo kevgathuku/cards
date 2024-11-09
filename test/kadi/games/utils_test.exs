@@ -70,19 +70,42 @@ defmodule Kadi.Games.UtilsTest do
 
       assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
                Card.new(:a, :hearts)
-             ]) == true
+             ])
     end
 
     test "multiple cards of the same number are valid" do
       assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
                Card.new(:ten, :spades),
                Card.new(:ten, :hearts)
-             ]) == true
+             ])
 
       assert Utils.is_valid_hand?(Card.new(:eight, :spades), [
                Card.new(:ten, :spades),
                Card.new(:ten, :hearts)
-             ]) == true
+             ])
+    end
+
+    test "question and answer hands" do
+      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:eight, :diamonds),
+               Card.new(:five, :diamonds)
+             ])
+
+      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:eight, :diamonds),
+               Card.new(:q, :diamonds),
+               Card.new(:five, :diamonds),
+               Card.new(:five, :hearts)
+             ])
+
+      refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:eight, :diamonds)
+             ])
+
+      refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:eight, :diamonds),
+               Card.new(:q, :diamonds)
+             ])
     end
 
     test "is_valid_suit_or_number?" do
