@@ -69,14 +69,6 @@ defmodule Kadi.Utils do
 
   def is_valid_hand?(last_card, hand) do
     cond do
-      # Validate single card of the same suit or number
-      is_same_suit_or_number?(last_card, hd(hand)) and length(hand) == 1 ->
-        true
-
-      # Is valid multi-card combo (same numbers)
-      is_same_suit_or_number?(last_card, hd(hand)) and is_same_number?(hand) ->
-        true
-
       contains_question?(hand) ->
         cond do
           is_valid_question_answer?(last_card, hand) ->
@@ -99,6 +91,9 @@ defmodule Kadi.Utils do
             Logger.warning("Should not get here. Hand: #{inspect(hand)}")
             false
         end
+
+      is_valid_suit_or_number?(last_card, hand) ->
+        true
 
       # Fallback condition
       true ->
