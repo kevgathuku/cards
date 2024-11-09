@@ -1,5 +1,6 @@
 defmodule Kadi.Utils do
   alias Kadi.Games.Poker.Card
+  require Logger
 
   def create_deck() do
     numbers = [
@@ -35,10 +36,12 @@ defmodule Kadi.Utils do
     Enum.all?(tl(cards), fn card -> card.number == first_card.number end)
   end
 
+  @spec is_valid_suit_or_number?(Card.t(), nonempty_list(Card.t())) :: boolean()
   def is_valid_suit_or_number?(last_played, hand) do
     [last_played | hand]
     |> Enum.chunk_every(2, 1, :discard)
-    |> Enum.all?(fn last_card, current_card ->
+    |> Enum.map(&List.to_tuple/1)
+    |> Enum.all?(fn {last_card, current_card} ->
       is_same_suit_or_number?(last_card, current_card)
     end)
   end

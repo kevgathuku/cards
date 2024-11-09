@@ -84,5 +84,16 @@ defmodule Kadi.Games.UtilsTest do
                Card.new(:ten, :hearts)
              ]) == true
     end
+
+    test "is_valid_suit_or_number?" do
+      last_played = %Card{suit: :spades, number: :ten}
+
+      hand = [
+        %Card{suit: :hearts, number: :ten},
+        %Card{suit: :diamonds, number: :ten}
+      ]
+
+      assert Utils.is_valid_suit_or_number?(last_played, hand) == true
+    end
   end
 end
