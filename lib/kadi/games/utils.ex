@@ -67,22 +67,25 @@ defmodule Kadi.Utils do
   def is_valid_hand?(_, cards) when hd(cards).number == :eight and length(cards) == 1, do: false
   def is_valid_hand?(_, cards) when hd(cards).number == :q and length(cards) == 1, do: false
 
-  def is_valid_hand?(last_card, cards) do
+  def is_valid_hand?(last_card, hand) do
     cond do
       # Validate single card of the same suit or number
-      is_same_suit_or_number?(last_card, hd(cards)) and length(cards) == 1 ->
+      is_same_suit_or_number?(last_card, hd(hand)) and length(hand) == 1 ->
         true
 
       # Is valid multi-card combo (same numbers)
-      is_same_suit_or_number?(last_card, hd(cards)) and is_same_number?(cards) ->
+      is_same_suit_or_number?(last_card, hd(hand)) and is_same_number?(hand) ->
         true
 
-      is_question?(hd(cards)) ->
-        is_valid_question_answer?(last_card, cards)
+      is_question?(hd(hand)) ->
+        is_valid_question_answer?(last_card, hand)
+
+      is_question?(hd(hand)) && is_question_without_answer?(hand) ->
+        # All Qs. No answer. Accept hand and assign a card to the player
+        # Convert to return tuple -> {:valid, next_action}, {:invalid, reason???}
+        false
 
       true ->
-        # TODO: Is valid Q and A combo
-        # Do some pattern matching to check if it starts with '8' or 'Q'
         false
     end
   end
