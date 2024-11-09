@@ -2,7 +2,7 @@ defmodule Kadi.Games.Poker.Server do
   @moduledoc """
   Kadi Game Server
   """
-  use GenStateMachine
+  use GenStateMachine, restart: :temporary
 
   require Logger
   alias Kadi.Games.Poker.Player
@@ -71,6 +71,10 @@ defmodule Kadi.Games.Poker.Server do
 
     # Return {:ok, state, data}
     {:ok, :lobby, Map.put(@initial_state, :rules, valid_rules)}
+  end
+
+  def start_link(payload) do
+    GenStateMachine.start_link(__MODULE__, payload)
   end
 
   @doc """
@@ -156,7 +160,7 @@ defmodule Kadi.Games.Poker.Server do
 
   def handle_event(:cast, {:start_game, _}, state, data)
       when state != :lobby do
-    Logger.warning(
+    Logger.debug(
       "Invalid state for start game. Expected: #{inspect(:lobby)} \tActual:#{inspect(state)}"
     )
 
@@ -255,7 +259,7 @@ defmodule Kadi.Games.Poker.Server do
     remaining_player_cards = current_player.cards -- hand
     updated_player = %{current_player | cards: remaining_player_cards}
 
-    Logger.warning("process_played_hand: player_turn: #{player_turn}")
+    Logger.debug("process_played_hand: player_turn: #{player_turn}")
 
     # Update the player in the players array
     updated_players =

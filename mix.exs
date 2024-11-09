@@ -19,7 +19,7 @@ defmodule Kadi.MixProject do
   def application do
     [
       mod: {Kadi.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:logger, :runtime_tools, :wx, :observer]
     ]
   end
 
