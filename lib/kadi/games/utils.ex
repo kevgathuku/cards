@@ -77,14 +77,30 @@ defmodule Kadi.Utils do
       is_same_suit_or_number?(last_card, hd(hand)) and is_same_number?(hand) ->
         true
 
-      is_question?(hd(hand)) ->
-        is_valid_question_answer?(last_card, hand)
+      contains_question?(hand) ->
+        cond do
+          is_valid_question_answer?(last_card, hand) ->
+            true
 
-      is_question?(hd(hand)) && is_question_without_answer?(hand) ->
-        # All Qs. No answer. Accept hand and assign a card to the player
-        # Convert to return tuple -> {:valid, next_action}, {:invalid, reason???}
-        false
+          is_question_without_answer?(hand) ->
+            # All Qs. No answer. Accept hand and assign a card to the player
+            # Convert to return tuple -> {:valid, next_action}, {:invalid, reason???}
+            false
 
+          extract_answer(hand) |> is_valid_combination?() == false ->
+            # Invalid answer combination
+            false
+
+          not is_valid_suit_or_number?(last_card, hand) ->
+            # Some invalid successive cards combination
+            false
+
+          true ->
+            Logger.warning("Should not get here. Hand: #{inspect(hand)}")
+            false
+        end
+
+      # Fallback condition
       true ->
         false
     end
@@ -102,9 +118,23 @@ defmodule Kadi.Utils do
     Enum.all?(hand, fn x -> is_question?(x) end)
   end
 
+  def is_valid_combination?(hand) do
+    Enum.map(hand, fn card -> card.number end) |> Enum.dedup() |> Enum.count() == 1
+  end
+
+  def extract_answer(hand) do
+    Enum.drop_while(hand, fn card -> is_question?(card) end)
+  end
+
   def is_valid_question_answer?(last_played, hand) do
-    not is_question_without_answer?(hand) &&
-      is_valid_suit_or_number?(last_played, hand)
+    Enum.all?(
+      [
+        not is_question_without_answer?(hand),
+        is_valid_suit_or_number?(last_played, hand),
+        extract_answer(hand) |> is_valid_combination?()
+      ],
+      & &1
+    )
   end
 
   # Find the intersection of two lists, providing the larger one first
