@@ -127,6 +127,12 @@ defmodule Kadi.Games.UtilsTest do
                Card.new(:two, :diamonds)
              ])
 
+      # Question should come first
+      refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:five, :diamonds),
+               Card.new(:eight, :diamonds)
+             ])
+
       refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
                Card.new(:eight, :diamonds)
              ])
