@@ -75,10 +75,14 @@ defmodule Kadi.Games.UtilsTest do
     end
 
     test "multiple cards of the same number are valid" do
-      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
-               Card.new(:ten, :spades),
-               Card.new(:ten, :hearts)
-             ])
+      assert Utils.is_valid_hand?(
+               Card.new(:ten, :diamonds),
+               [
+                 "10♠",
+                 "10♥"
+               ]
+               |> Enum.map(&Card.parse/1)
+             )
 
       assert Utils.is_valid_hand?(Card.new(:eight, :spades), [
                Card.new(:ten, :spades),
@@ -86,71 +90,101 @@ defmodule Kadi.Games.UtilsTest do
              ])
 
       # Same suit. Different numbers
-      refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
-               Card.new(:five, :diamonds),
-               Card.new(:two, :diamonds)
-             ])
+      refute Utils.is_valid_hand?(
+               Card.new(:ten, :diamonds),
+               [
+                 "5♦",
+                 "2♦"
+               ]
+               |> Enum.map(&Card.parse/1)
+             )
     end
 
     test "question and answer hands" do
-      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
-               Card.new(:eight, :diamonds),
-               Card.new(:five, :diamonds)
-             ])
+      assert Utils.is_valid_hand?(
+               Card.new(:ten, :diamonds),
+               [
+                 "8♦",
+                 "5♦"
+               ]
+               |> Enum.map(&Card.parse/1)
+             )
 
-      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
-               Card.new(:eight, :diamonds),
-               Card.new(:q, :diamonds),
-               Card.new(:five, :diamonds),
-               Card.new(:five, :hearts)
-             ])
+      assert Utils.is_valid_hand?(
+               Card.new(:ten, :diamonds),
+               [
+                 "8♦",
+                 "Q♦",
+                 "5♦",
+                 "5♥"
+               ]
+               |> Enum.map(&Card.parse/1)
+             )
 
-      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
-               Card.new(:eight, :diamonds),
-               Card.new(:q, :diamonds),
-               Card.new(:q, :hearts),
-               Card.new(:five, :hearts),
-               Card.new(:five, :diamonds)
-             ])
+      assert Utils.is_valid_hand?(
+               Card.new(:ten, :diamonds),
+               [
+                 "8♦",
+                 "Q♦",
+                 "Q♥",
+                 "5♥",
+                 "5♦"
+               ]
+               |> Enum.map(&Card.parse/1)
+             )
 
       # Invalid question
-      refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
-               Card.new(:eight, :diamonds),
-               Card.new(:q, :hearts),
-               Card.new(:five, :hearts),
-               Card.new(:five, :diamonds)
-             ])
+      refute Utils.is_valid_hand?(
+               Card.new(:ten, :diamonds),
+               [
+                 "8♦",
+                 "Q♥",
+                 "5♥",
+                 "5♦"
+               ]
+               |> Enum.map(&Card.parse/1)
+             )
 
       # Invalid answer
-      refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
-               Card.new(:eight, :diamonds),
-               Card.new(:five, :diamonds),
-               Card.new(:two, :diamonds)
-             ])
+      refute Utils.is_valid_hand?(
+               Card.new(:ten, :diamonds),
+               [
+                 "8♦",
+                 "5♦",
+                 "2♦"
+               ]
+               |> Enum.map(&Card.parse/1)
+             )
 
       # Question should come first
-      refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
-               Card.new(:five, :diamonds),
-               Card.new(:eight, :diamonds)
-             ])
+      refute Utils.is_valid_hand?(
+               Card.new(:ten, :diamonds),
+               [
+                 "5♦",
+                 "8♦"
+               ]
+               |> Enum.map(&Card.parse/1)
+             )
 
       refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
                Card.new(:eight, :diamonds)
              ])
 
-      refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
-               Card.new(:eight, :diamonds),
-               Card.new(:q, :diamonds)
-             ])
+      refute Utils.is_valid_hand?(
+               Card.new(:ten, :diamonds),
+               [
+                 "8♦",
+                 "Q♦"
+               ]
+               |> Enum.map(&Card.parse/1)
+             )
     end
 
     test "is_valid_suit_or_number?" do
       last_played = %Card{suit: :spades, number: :ten}
 
-      hand = [
-        %Card{suit: :hearts, number: :ten},
-        %Card{suit: :diamonds, number: :ten}
-      ]
+      hand =
+        ["10♥", "10♦"] |> Enum.map(&Card.parse/1)
 
       assert Utils.is_valid_suit_or_number?(last_played, hand)
     end
