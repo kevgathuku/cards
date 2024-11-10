@@ -96,7 +96,7 @@ defmodule Kadi.Games.UtilsTest do
                  "5♦",
                  "2♦"
                ]
-               |> Enum.map(&Card.parse/1)
+               |> parse_cards
              )
     end
 
@@ -107,7 +107,7 @@ defmodule Kadi.Games.UtilsTest do
                  "8♦",
                  "5♦"
                ]
-               |> Enum.map(&Card.parse/1)
+               |> parse_cards
              )
 
       assert is_valid_hand?(
@@ -118,7 +118,7 @@ defmodule Kadi.Games.UtilsTest do
                  "5♦",
                  "5♥"
                ]
-               |> Enum.map(&Card.parse/1)
+               |> parse_cards
              )
 
       assert is_valid_hand?(
@@ -130,7 +130,7 @@ defmodule Kadi.Games.UtilsTest do
                  "5♥",
                  "5♦"
                ]
-               |> Enum.map(&Card.parse/1)
+               |> parse_cards
              )
 
       # Invalid question
@@ -142,7 +142,7 @@ defmodule Kadi.Games.UtilsTest do
                  "5♥",
                  "5♦"
                ]
-               |> Enum.map(&Card.parse/1)
+               |> parse_cards
              )
 
       # Invalid answer
@@ -157,7 +157,7 @@ defmodule Kadi.Games.UtilsTest do
                  "5♦",
                  "8♦"
                ]
-               |> Enum.map(&Card.parse/1)
+               |> parse_cards
              )
 
       refute is_valid_hand?(Card.new(:ten, :diamonds), [
@@ -170,7 +170,7 @@ defmodule Kadi.Games.UtilsTest do
                  "8♦",
                  "Q♦"
                ]
-               |> Enum.map(&Card.parse/1)
+               |> parse_cards
              )
     end
 
@@ -178,7 +178,7 @@ defmodule Kadi.Games.UtilsTest do
       last_played = %Card{suit: :spades, number: :ten}
 
       hand =
-        ["10♥", "10♦"] |> Enum.map(&Card.parse/1)
+        ["10♥", "10♦"] |> parse_cards
 
       assert is_valid_suit_or_number?(last_played, hand)
     end

@@ -74,10 +74,10 @@ defmodule Kadi.Utils do
       false
 
       iex> is_valid_hand?(
-      ...> Card.parse("10♦"), ["5♦", "2♦"] |> Enum.map(&Card.parse/1) )
+      ...> Card.parse("10♦"), ["5♦", "2♦"] |> parse_cards )
       false
 
-      iex> is_valid_hand?(Card.parse("10♦"), ["5♦", "5♠"] |> Enum.map(&Card.parse/1))
+      iex> is_valid_hand?(Card.parse("10♦"), ["5♦", "5♠"] |> parse_cards)
       true
 
   """
@@ -141,7 +141,7 @@ defmodule Kadi.Utils do
       iex> is_valid_combination?([Card.parse("10♦"), Card.parse("10♠")])
       true
 
-      iex> is_valid_combination?(["10♥", "8♥"] |> Enum.map(&Card.parse/1))
+      iex> is_valid_combination?(["10♥", "8♥"] |> parse_cards)
       false
   """
   def is_valid_combination?(hand) do
