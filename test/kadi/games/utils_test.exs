@@ -146,15 +146,9 @@ defmodule Kadi.Games.UtilsTest do
              )
 
       # Invalid answer
-      refute Utils.is_valid_hand?(
-               Card.new(:ten, :diamonds),
-               [
-                 "8♦",
-                 "5♦",
-                 "2♦"
-               ]
-               |> Enum.map(&Card.parse/1)
-             )
+      invalid_answer = for card <- ["8♦", "5♦", "2♦"], do: Card.parse(card)
+
+      refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), invalid_answer)
 
       # Question should come first
       refute Utils.is_valid_hand?(
