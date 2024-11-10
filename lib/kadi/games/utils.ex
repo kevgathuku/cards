@@ -66,19 +66,18 @@ defmodule Kadi.Utils do
   ## Examples
 
       iex> alias Games.Kadi.Card
-      iex> alias Kadi.Utils
 
-      iex> Utils.is_valid_hand?(Card.parse("10♦"), [Card.parse("9♦")])
+      iex> is_valid_hand?(Card.parse("10♦"), [Card.parse("9♦")])
       true
 
-      iex> Utils.is_valid_hand?(Card.parse("10♦"), [Card.parse("9♥")])
+      iex> is_valid_hand?(Card.parse("10♦"), [Card.parse("9♥")])
       false
 
-      iex> Utils.is_valid_hand?(
+      iex> is_valid_hand?(
       ...> Card.parse("10♦"), ["5♦", "2♦"] |> Enum.map(&Card.parse/1) )
       false
 
-      iex> Utils.is_valid_hand?(Card.parse("10♦"), ["5♦", "5♠"] |> Enum.map(&Card.parse/1))
+      iex> is_valid_hand?(Card.parse("10♦"), ["5♦", "5♠"] |> Enum.map(&Card.parse/1))
       true
 
   """
@@ -137,13 +136,12 @@ defmodule Kadi.Utils do
     Not meant to check Q/A combinations
 
     ## Examples
-      iex> alias Kadi.Utils
       iex> alias Games.Kadi.Card
 
-      iex> Utils.is_valid_combination?([Card.parse("10♦"), Card.parse("10♠")])
+      iex> is_valid_combination?([Card.parse("10♦"), Card.parse("10♠")])
       true
 
-      iex> Utils.is_valid_combination?(["10♥", "8♥"] |> Enum.map(&Card.parse/1))
+      iex> is_valid_combination?(["10♥", "8♥"] |> Enum.map(&Card.parse/1))
       false
   """
   def is_valid_combination?(hand) do
