@@ -28,61 +28,130 @@ defmodule Kadi.Games.UtilsTest do
     two_cards = [Card.new(:two, :spades), Card.new(:two, :hearts)]
     diff_number_cards = [Card.new(:two, :spades), Card.new(:three, :spades)]
 
-    assert Utils.is_same_number?(two_cards) == true
-    assert Utils.is_same_number?(diff_number_cards) == false
+    assert Utils.is_same_number?(two_cards)
+    refute Utils.is_same_number?(diff_number_cards)
   end
 
   describe "is_valid_hand?" do
     test "single card of the same suit is valid" do
       assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
                Card.new(:nine, :diamonds)
-             ]) == true
+             ])
     end
 
     test "single card of a different suit is not valid" do
-      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+      refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
                Card.new(:nine, :spades)
-             ]) == false
+             ])
     end
 
     test "single card of Q or 8 of the same suit is not valid" do
-      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+      refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
                Card.new(:q, :diamonds)
-             ]) == false
+             ])
 
-      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+      refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
                Card.new(:eight, :diamonds)
-             ]) == false
+             ])
     end
 
     test "single card of A of any suit is valid" do
       assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
                Card.new(:a, :diamonds)
-             ]) == true
+             ])
 
       assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
                Card.new(:a, :spades)
-             ]) == true
+             ])
 
       assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
                Card.new(:a, :flowers)
-             ]) == true
+             ])
 
       assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
                Card.new(:a, :hearts)
-             ]) == true
+             ])
     end
 
     test "multiple cards of the same number are valid" do
       assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
                Card.new(:ten, :spades),
                Card.new(:ten, :hearts)
-             ]) == true
+             ])
 
       assert Utils.is_valid_hand?(Card.new(:eight, :spades), [
                Card.new(:ten, :spades),
                Card.new(:ten, :hearts)
-             ]) == true
+             ])
+
+      # Same suit. Different numbers
+      refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:five, :diamonds),
+               Card.new(:two, :diamonds)
+             ])
+    end
+
+    test "question and answer hands" do
+      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:eight, :diamonds),
+               Card.new(:five, :diamonds)
+             ])
+
+      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:eight, :diamonds),
+               Card.new(:q, :diamonds),
+               Card.new(:five, :diamonds),
+               Card.new(:five, :hearts)
+             ])
+
+      assert Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:eight, :diamonds),
+               Card.new(:q, :diamonds),
+               Card.new(:q, :hearts),
+               Card.new(:five, :hearts),
+               Card.new(:five, :diamonds)
+             ])
+
+      # Invalid question
+      refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:eight, :diamonds),
+               Card.new(:q, :hearts),
+               Card.new(:five, :hearts),
+               Card.new(:five, :diamonds)
+             ])
+
+      # Invalid answer
+      refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:eight, :diamonds),
+               Card.new(:five, :diamonds),
+               Card.new(:two, :diamonds)
+             ])
+
+      # Question should come first
+      refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:five, :diamonds),
+               Card.new(:eight, :diamonds)
+             ])
+
+      refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:eight, :diamonds)
+             ])
+
+      refute Utils.is_valid_hand?(Card.new(:ten, :diamonds), [
+               Card.new(:eight, :diamonds),
+               Card.new(:q, :diamonds)
+             ])
+    end
+
+    test "is_valid_suit_or_number?" do
+      last_played = %Card{suit: :spades, number: :ten}
+
+      hand = [
+        %Card{suit: :hearts, number: :ten},
+        %Card{suit: :diamonds, number: :ten}
+      ]
+
+      assert Utils.is_valid_suit_or_number?(last_played, hand)
     end
   end
 end
