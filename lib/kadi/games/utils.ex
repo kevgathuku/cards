@@ -23,6 +23,20 @@ defmodule Kadi.Utils do
     for num <- numbers, suit <- suits, do: Card.new(num, suit)
   end
 
+  @doc """
+  Parse a list of cards specified in the shorthand format into the Card struct
+
+  ## Examples
+
+     iex> alias Games.Kadi.Card
+
+     iex> parse_cards(["9♦", "8♥"])
+     [ %Card{number: :nine, suit: :diamonds}, %Card{number: :eight, suit: :hearts} ]
+  """
+  def parse_cards(cards) do
+    for card <- cards, do: Card.parse(card)
+  end
+
   @spec is_same_suit_or_number?(Card.t(), Card.t()) :: boolean()
   def is_same_suit_or_number?(first, second) do
     first.number == second.number || first.suit == second.suit
@@ -52,22 +66,18 @@ defmodule Kadi.Utils do
   ## Examples
 
       iex> alias Games.Kadi.Card
-      iex> alias Kadi.Utils
 
-      iex> Utils.is_valid_hand?(Card.new(:ten, :diamonds), [Card.new(:nine, :diamonds)])
+      iex> is_valid_hand?(Card.parse("10♦"), [Card.parse("9♦")])
       true
 
-      iex> Utils.is_valid_hand?(Card.new(:ten, :diamonds), [Card.new(:nine, :hearts)])
+      iex> is_valid_hand?(Card.parse("10♦"), [Card.parse("9♥")])
       false
 
-      iex> Utils.is_valid_hand?(
-      ...> Card.new(:ten, :diamonds),
-      ...> [Card.new(:five, :diamonds), Card.new(:two, :diamonds)])
+      iex> is_valid_hand?(
+      ...> Card.parse("10♦"), ["5♦", "2♦"] |> parse_cards )
       false
 
-      iex> Utils.is_valid_hand?(
-      ...> Card.new(:ten, :diamonds),
-      ...> [Card.new(:five, :diamonds), Card.new(:five, :spades)])
+      iex> is_valid_hand?(Card.parse("10♦"), ["5♦", "5♠"] |> parse_cards)
       true
 
   """
@@ -123,16 +133,16 @@ defmodule Kadi.Utils do
 
   @doc """
     Determine if the combination of cards is an allowed sequence
+    Not meant to check Q/A combinations
 
     ## Examples
-        iex> alias Kadi.Utils
-        iex> alias Games.Kadi.Card
+      iex> alias Games.Kadi.Card
 
-        iex> Utils.is_valid_combination?([%Card{suit: :diamonds, number: :ten }, %Card{suit: :spades, number: :ten }])
-        true
+      iex> is_valid_combination?([Card.parse("10♦"), Card.parse("10♠")])
+      true
 
-        iex> Utils.is_valid_combination?([%Card{suit: :hearts, number: :ten }, %Card{suit: :hearts, number: :eight }])
-        false
+      iex> is_valid_combination?(["10♥", "8♥"] |> parse_cards)
+      false
   """
   def is_valid_combination?(hand) do
     Enum.map(hand, fn card -> card.number end) |> Enum.dedup() |> Enum.count() == 1

@@ -101,4 +101,36 @@ defmodule Kadi.Games.Poker.Card do
   def from_number(8), do: :eight
   def from_number(9), do: :nine
   def from_number(10), do: :ten
+
+  @doc """
+  Returns a new Card instance from the provided shorthand format
+
+  ## Examples
+
+      iex> parse("10♣")
+      %Card{number: :ten, suit: :flowers}
+
+      iex> parse("3♦")
+      %Card{number: :three, suit: :diamonds}
+  """
+  def parse(short_format) do
+    {suit, remaining} = String.graphemes(short_format) |> List.pop_at(-1)
+
+    %__MODULE__{suit: parse_suit(suit), number: parse_value(Enum.join(remaining))}
+  end
+
+  defp parse_suit("H"), do: :hearts
+  defp parse_suit("♥"), do: :hearts
+  defp parse_suit("S"), do: :spades
+  defp parse_suit("♠"), do: :spades
+  defp parse_suit("D"), do: :diamonds
+  defp parse_suit("♦"), do: :diamonds
+  defp parse_suit("F"), do: :flowers
+  defp parse_suit("♣"), do: :flowers
+
+  defp parse_value("A"), do: :a
+  defp parse_value("K"), do: :k
+  defp parse_value("Q"), do: :q
+  defp parse_value("J"), do: :j
+  defp parse_value(other), do: other |> String.to_integer() |> from_number()
 end

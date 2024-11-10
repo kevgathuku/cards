@@ -42,18 +42,18 @@ Poker.Server.add_player(game_pid, "Kevin")
 Poker.Server.add_player(game_pid, "Devin")
 
 alias Kadi.Games.Poker.Card
-deck = [
+deck = Kadi.Utils.parse_cards ([
     # Player 1
-    %Card{suit: :hearts, number: :five},
-    %Card{suit: :hearts, number: :eight},
+    "5♥",
+    "8♥",
     # Player 2
-    %Card{suit: :flowers, number: :seven},
-    %Card{suit: :flowers, number: :six},
+    "7♣",
+    "6♣",
     # Start card
-    %Card{suit: :diamonds, number: :six},
+    "6♦",
     # Remaining stack
-    %Card{suit: :diamonds, number: :eight}
-]
+    "8♦",
+])
 
 # Start the game. You can pass in a custom deck if needed
 Poker.Server.start_game(game_pid, deck)
