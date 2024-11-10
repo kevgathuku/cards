@@ -42,7 +42,7 @@ Poker.Server.add_player(game_pid, "Kevin")
 Poker.Server.add_player(game_pid, "Devin")
 
 alias Kadi.Games.Poker.Card
-deck = [
+deck = Kadi.Utils.parse_cards ([
     # Player 1
     "5♥",
     "8♥",
@@ -53,7 +53,7 @@ deck = [
     "6♦",
     # Remaining stack
     "8♦",
-]|> Enum.map(&Card.parse/1)
+])
 
 # Start the game. You can pass in a custom deck if needed
 Poker.Server.start_game(game_pid, deck)

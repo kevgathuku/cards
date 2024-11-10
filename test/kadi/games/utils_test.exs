@@ -3,7 +3,9 @@ defmodule Kadi.Games.UtilsTest do
 
   alias Kadi.Games.Poker.Card
   alias Kadi.Utils
-  doctest Kadi.Utils
+  import Kadi.Utils
+
+  doctest Kadi.Utils, import: true
 
   test "create_deck" do
     deck = Utils.create_deck()
@@ -75,13 +77,12 @@ defmodule Kadi.Games.UtilsTest do
     end
 
     test "multiple cards of the same number are valid" do
-      assert Utils.is_valid_hand?(
+      assert is_valid_hand?(
                Card.new(:ten, :diamonds),
-               [
+               parse_cards([
                  "10♠",
                  "10♥"
-               ]
-               |> Enum.map(&Card.parse/1)
+               ])
              )
 
       assert Utils.is_valid_hand?(Card.new(:eight, :spades), [

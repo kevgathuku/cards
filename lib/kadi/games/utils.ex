@@ -23,6 +23,20 @@ defmodule Kadi.Utils do
     for num <- numbers, suit <- suits, do: Card.new(num, suit)
   end
 
+  @doc """
+  Parse a list of cards specified in the shorthand format into the Card struct
+
+  ## Examples
+
+     iex> alias Games.Kadi.Card
+
+     iex> parse_cards(["9♦", "8♥"])
+     [ %Card{number: :nine, suit: :diamonds}, %Card{number: :eight, suit: :hearts} ]
+  """
+  def parse_cards(cards) do
+    for card <- cards, do: Card.parse(card)
+  end
+
   @spec is_same_suit_or_number?(Card.t(), Card.t()) :: boolean()
   def is_same_suit_or_number?(first, second) do
     first.number == second.number || first.suit == second.suit
