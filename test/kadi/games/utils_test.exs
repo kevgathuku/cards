@@ -3,6 +3,7 @@ defmodule Kadi.Games.UtilsTest do
 
   alias Kadi.Games.Poker.Card
   alias Kadi.Utils
+  doctest Kadi.Utils
 
   test "create_deck" do
     deck = Utils.create_deck()

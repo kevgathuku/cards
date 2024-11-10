@@ -51,20 +51,23 @@ defmodule Kadi.Utils do
 
   ## Examples
 
-      iex> is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [Games.Kadi.Card.new(:nine, :diamonds)])
+      iex> alias Games.Kadi.Card
+      iex> alias Kadi.Utils
+
+      iex> Utils.is_valid_hand?(Card.new(:ten, :diamonds), [Card.new(:nine, :diamonds)])
       true
 
-      iex> is_valid_hand?(Games.Kadi.Card.new(:ten, :diamonds), [Games.Kadi.Card.new(:nine, :hearts)])
+      iex> Utils.is_valid_hand?(Card.new(:ten, :diamonds), [Card.new(:nine, :hearts)])
       false
 
-      iex> is_valid_hand?(
-      ...> Games.Kadi.Card.new(:ten, :diamonds),
-      ...> [Games.Kadi.Card.new(:five, :diamonds), Games.Kadi.Card.new(:two, :diamonds)])
+      iex> Utils.is_valid_hand?(
+      ...> Card.new(:ten, :diamonds),
+      ...> [Card.new(:five, :diamonds), Card.new(:two, :diamonds)])
       false
 
-      iex> is_valid_hand?(
-      ...> Games.Kadi.Card.new(:ten, :diamonds),
-      ...> [Games.Kadi.Card.new(:five, :diamonds), Games.Kadi.Card.new(:five, :spades)])
+      iex> Utils.is_valid_hand?(
+      ...> Card.new(:ten, :diamonds),
+      ...> [Card.new(:five, :diamonds), Card.new(:five, :spades)])
       true
 
   """
@@ -118,6 +121,19 @@ defmodule Kadi.Utils do
     Enum.all?(hand, fn x -> is_question?(x) end)
   end
 
+  @doc """
+    Determine if the combination of cards is an allowed sequence
+
+    ## Examples
+        iex> alias Kadi.Utils
+        iex> alias Games.Kadi.Card
+
+        iex> Utils.is_valid_combination?([%Card{suit: :diamonds, number: :ten }, %Card{suit: :spades, number: :ten }])
+        true
+
+        iex> Utils.is_valid_combination?([%Card{suit: :hearts, number: :ten }, %Card{suit: :hearts, number: :eight }])
+        false
+  """
   def is_valid_combination?(hand) do
     Enum.map(hand, fn card -> card.number end) |> Enum.dedup() |> Enum.count() == 1
   end
