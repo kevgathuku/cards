@@ -1,8 +1,13 @@
 defmodule KadiWeb.GameController do
   use KadiWeb, :controller
 
-  alias Kadi.GameSession
+  alias Kadi.{GameSession, Fetcher}
   require Ecto.UUID
+
+  def index(conn, _params) do
+    games = Fetcher.fetch_games()
+    render(conn, :index, games: games)
+  end
 
   def new(conn, _params) do
     alias Phoenix.Component
@@ -25,18 +30,6 @@ defmodule KadiWeb.GameController do
       {:error, changeset} ->
         # do something with changeset
         render(conn, :new, changeset: changeset)
-    end
-  end
-
-  def show(conn, %{"id" => game_session_id} = _params) do
-    case Kadi.Repo.get(GameSession, game_session_id) do
-      nil ->
-        conn
-        |> put_flash(:error, "Game Session not found!")
-        |> redirect(to: "/")
-
-      game_session ->
-        render(conn, :show, game_session: game_session)
     end
   end
 end
