@@ -9,8 +9,8 @@ defmodule Kadi.AccountsFixtures do
 
   def valid_player_attributes(attrs \\ %{}) do
     Enum.into(attrs, %{
-      email: email,
-      password: password
+      email: unique_player_email(),
+      password: valid_player_password()
     })
   end
 
