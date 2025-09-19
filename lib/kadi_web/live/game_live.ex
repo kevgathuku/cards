@@ -13,7 +13,7 @@ defmodule KadiWeb.GameLive do
         {:noreply,
          socket
          |> assign(:game_id, game_session.short_code)
-         |> assign(:current_player, game_session.created_by)
+         |> assign(:current_player_name, game_session.created_by)
         }
 
       {:error, :not_found} ->
