@@ -34,6 +34,7 @@ defmodule Kadi.Fetcher do
 
     Enum.each(suits, fn suit ->
       Enum.each(ranks, fn rank ->
+        # Find or create card
         card_attrs = %{suit: suit, rank: rank}
         {:ok, card} =
           case Repo.get_by(Card, card_attrs) do
@@ -42,7 +43,7 @@ defmodule Kadi.Fetcher do
           end
 
         # Create deck_cards entry
-        deck_card_attrs = %{deck_id: deck.id, card_id: card.id}
+        deck_card_attrs = %{deck_id: deck.id, card_id: card.id, location_type: "deck"}
         {:ok, _deck_card} = Repo.insert(DeckCard.changeset(%DeckCard{}, deck_card_attrs))
       end)
     end)
