@@ -9,9 +9,24 @@
 #
 # We recommend using the bang functions (`insert!`, `update!`
 # and so on) as they will fail if something goes wrong.
+alias Kadi.Repo
+alias Kadi.Games.Card
+
 suits = ~w(hearts diamonds clubs spades)
 ranks = Enum.map(2..10, &to_string/1) ++ ~w(jack queen king ace)
 
-for suit <- suits, rank <- ranks do
-  Kadi.Repo.insert!(%Kadi.Games.Card{suit: suit, rank: rank})
-end
+Enum.each(suits, fn suit ->
+  Enum.each(ranks, fn rank ->
+    card_attrs = %{suit: suit, rank: rank}
+    card_changeset = Card.changeset(%Card{}, card_attrs)
+
+    case Repo.insert(card_changeset) do
+      {:ok, card} ->
+        IO.puts("Inserted card: #{card.suit} #{card.rank}")
+
+      {:error, changeset} ->
+        errors = Enum.map(changeset.errors, fn {field, {msg, _}} -> "#{field}: #{msg}" end)
+        raise "Failed to insert card #{suit} #{rank}: #{Enum.join(errors, ", ")}"
+    end
+  end)
+end)
