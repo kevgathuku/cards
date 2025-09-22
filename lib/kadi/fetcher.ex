@@ -9,7 +9,7 @@ defmodule Kadi.Fetcher do
 
   import Ecto.Query, warn: false
   alias Kadi.{GameSession, Repo}
-  alias Kadi.Games.{Card, Deck}
+  alias Kadi.Games.{Card, Deck, DeckCard}
 
   @doc """
   Returns the state of a specific game, constructed from the events
@@ -35,7 +35,15 @@ defmodule Kadi.Fetcher do
     Enum.each(suits, fn suit ->
       Enum.each(ranks, fn rank ->
         card_attrs = %{suit: suit, rank: rank}
-        {:ok, _card} = Repo.insert(Card.changeset(%Card{}, card_attrs))
+        {:ok, card} =
+          case Repo.get_by(Card, card_attrs) do
+            nil -> Repo.insert(Card.changeset(%Card{}, card_attrs))
+            existing -> {:ok, existing}
+          end
+
+        # Create deck_cards entry
+        deck_card_attrs = %{deck_id: deck.id, card_id: card.id}
+        {:ok, _deck_card} = Repo.insert(DeckCard.changeset(%DeckCard{}, deck_card_attrs))
       end)
     end)
 
