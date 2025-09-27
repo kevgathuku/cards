@@ -21,8 +21,7 @@ defmodule KadiWeb.Router do
     pipe_through :browser
 
     get "/", GameController, :index
-    get "/chat", PageController, :chat
-    resources "/games", GameController, except: [:index, :delete, :show]
+    resources "/games", GameController, except: [:delete, :show]
     live "/games/:game_id", GameLive, :show
   end
 
