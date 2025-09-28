@@ -26,16 +26,46 @@ defmodule Kadi.Fetcher do
     GameSession |> Repo.all
   end
 
+  def list_user_games(player_id) do
+    query =
+      from gs in GameSession,
+        where: gs.created_by_id == ^player_id,
+        preload: [:created_by],
+        order_by: [desc: gs.inserted_at]
+
+    games = Repo.all(query)
+
+    # Temporarily set player_count to 1 (creator only) until participant tracking is implemented
+    Enum.map(games, fn game ->
+      Map.merge(game, %{player_count: 1})
+    end)
+  end
+
+  def create_game_session(player, attrs \\ %{}) do
+   %GameSession{}
+    |> GameSession.changeset(Map.merge(attrs, %{created_by_id: player.id}))
+    |> Repo.insert()
+    |> case do
+      {:ok, game_session} ->
+        {:ok, deck} = create_deck_for_session(game_session)
+        {:ok, game_session |> Repo.preload(:created_by) }
+
+      error -> error
+    end
+  end
+
   def create_deck_for_session(game_session) do
     {:ok, deck} = Repo.insert(Deck.changeset(%Deck{}, %{game_session_id: game_session.id}))
 
     suits = ~w(hearts diamonds clubs spades)
     ranks = Enum.map(2..10, &to_string/1) ++ ~w(jack queen king ace)
+    order_indices = Enum.shuffle(1..52)
 
-    Enum.each(suits, fn suit ->
-      Enum.each(ranks, fn rank ->
-        # Find or create card
-        card_attrs = %{suit: suit, rank: rank}
+    all_cards = for suit <- suits, rank <- ranks, do: %{suit: suit, rank: rank}
+
+    Repo.transaction(fn ->
+      Enum.zip([all_cards, order_indices])
+      |> Enum.each(fn {card_attrs, order_index} ->
         {:ok, card} =
           case Repo.get_by(Card, card_attrs) do
             nil -> Repo.insert(Card.changeset(%Card{}, card_attrs))
@@ -43,12 +73,12 @@ defmodule Kadi.Fetcher do
           end
 
         # Create deck_cards entry
-        deck_card_attrs = %{deck_id: deck.id, card_id: card.id, location_type: "deck"}
+        deck_card_attrs = %{deck_id: deck.id, card_id: card.id, location_type: "deck", order_index: order_index}
         {:ok, _deck_card} = Repo.insert(DeckCard.changeset(%DeckCard{}, deck_card_attrs))
       end)
     end)
 
     # Optionally shuffle and record event
-    deck
+    {:ok, deck}
   end
 end
