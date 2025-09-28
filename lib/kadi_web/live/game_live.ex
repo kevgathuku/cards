@@ -1,6 +1,8 @@
 defmodule KadiWeb.GameLive do
   use KadiWeb, :live_view
 
+  alias Kadi.CardGames
+
   @impl true
   def mount(_params, _session, socket) do
     {:ok, assign(socket, game_session: nil)}
@@ -8,7 +10,7 @@ defmodule KadiWeb.GameLive do
 
   @impl true
   def handle_params(%{"game_id" => game_id}, _uri, socket) do
-    case Kadi.Fetcher.get_game_session(game_id) do
+    case CardGames.get_game_session(game_id) do
       {:ok, game_session} ->
         {:noreply,
          socket

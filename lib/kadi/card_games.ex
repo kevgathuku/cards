@@ -1,7 +1,6 @@
-defmodule Kadi.Fetcher do
+defmodule Kadi.CardGames do
   @moduledoc """
-  Fetcher keeps the contexts that define your domain
-  and business logic.
+  CardGames keeps the contexts common to all the card games
 
   Contexts are also responsible for managing your data, regardless
   if it comes from the database, an external API or others.
@@ -12,7 +11,7 @@ defmodule Kadi.Fetcher do
   alias Kadi.Games.{Card, Deck, DeckCard, GameSession}
 
   @doc """
-  Returns the state of a specific game, constructed from the events
+  Returns the state of a specific game, with the game creator preloaded
   """
   def get_game_session(game_id) do
     case Repo.get(GameSession, game_id) do
@@ -21,6 +20,9 @@ defmodule Kadi.Fetcher do
     end
   end
 
+  @doc """
+  Returns a specific player's games, fetching by the player ID
+  """
   def list_user_games(player_id) do
     query =
       from gs in GameSession,
@@ -36,6 +38,9 @@ defmodule Kadi.Fetcher do
     end)
   end
 
+  @doc """
+  Creates a new game session, with the player creating the game passed in
+  """
   def create_game_session(player, attrs \\ %{}) do
    %GameSession{}
     |> GameSession.changeset(Map.merge(attrs, %{created_by_id: player.id}))
@@ -49,6 +54,9 @@ defmodule Kadi.Fetcher do
     end
   end
 
+  @doc """
+  Creates deck for a newly created game session, with the game session being passed in
+  """
   def create_deck_for_session(game_session) do
     {:ok, deck} = Repo.insert(Deck.changeset(%Deck{}, %{game_session_id: game_session.id}))
 
@@ -67,7 +75,7 @@ defmodule Kadi.Fetcher do
             existing -> {:ok, existing}
           end
 
-        # Create deck_cards entry
+        # Create deck_cards entries, assigning an initial order
         deck_card_attrs = %{deck_id: deck.id, card_id: card.id, location_type: "deck", order_index: order_index}
         {:ok, _deck_card} = Repo.insert(DeckCard.changeset(%DeckCard{}, deck_card_attrs))
       end)
