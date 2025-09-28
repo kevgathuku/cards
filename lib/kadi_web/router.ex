@@ -17,6 +17,12 @@ defmodule KadiWeb.Router do
     plug :accepts, ["json"]
   end
 
+  scope "/", KadiWeb do
+    pipe_through :browser
+
+    get "/", PageController, :home
+  end
+
   # Other scopes may use custom stacks.
   # scope "/api", KadiWeb do
   #   pipe_through :api
@@ -64,7 +70,7 @@ defmodule KadiWeb.Router do
       live "/players/settings/confirm_email/:token", PlayerSettingsLive, :confirm_email
 
       # Game Lobby
-      live "/", LobbyLive, :index
+      live "/lobby", LobbyLive, :index
       # Game session
       live "/games/:game_id", GameLive, :show
     end
