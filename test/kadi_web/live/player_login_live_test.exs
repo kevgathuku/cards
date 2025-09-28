@@ -18,7 +18,7 @@ defmodule KadiWeb.PlayerLoginLiveTest do
         conn
         |> log_in_player(player_fixture())
         |> live(~p"/players/log_in")
-        |> follow_redirect(conn, "/")
+        |> follow_redirect(conn, "/lobby")
 
       assert {:ok, _conn} = result
     end
@@ -36,7 +36,7 @@ defmodule KadiWeb.PlayerLoginLiveTest do
 
       conn = submit_form(form, conn)
 
-      assert redirected_to(conn) == ~p"/"
+      assert redirected_to(conn) == ~p"/lobby"
     end
 
     test "redirects to login page with a flash error if there are no valid credentials", %{

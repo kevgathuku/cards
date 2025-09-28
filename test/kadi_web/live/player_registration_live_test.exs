@@ -17,7 +17,7 @@ defmodule KadiWeb.PlayerRegistrationLiveTest do
         conn
         |> log_in_player(player_fixture())
         |> live(~p"/players/register")
-        |> follow_redirect(conn, "/")
+        |> follow_redirect(conn, "/lobby")
 
       assert {:ok, _conn} = result
     end
@@ -45,7 +45,7 @@ defmodule KadiWeb.PlayerRegistrationLiveTest do
       render_submit(form)
       conn = follow_trigger_action(form, conn)
 
-      assert redirected_to(conn) == ~p"/"
+      assert redirected_to(conn) == ~p"/lobby"
 
       # Now do a logged in request and assert on the menu
       conn = get(conn, "/")

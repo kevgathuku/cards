@@ -19,7 +19,7 @@ defmodule KadiWeb.GameLive do
         {:noreply,
          socket
          |> put_flash(:error, "Game not found")
-         |> redirect(to: ~p"/")}
+         |> redirect(to: ~p"/lobby")}
     end
   end
 end

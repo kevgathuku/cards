@@ -21,7 +21,7 @@ defmodule KadiWeb.PlayerForgotPasswordLiveTest do
         conn
         |> log_in_player(player_fixture())
         |> live(~p"/players/reset_password")
-        |> follow_redirect(conn, ~p"/")
+        |> follow_redirect(conn, ~p"/lobby")
 
       assert {:ok, _conn} = result
     end
