@@ -14,7 +14,7 @@ defmodule Kadi.Fetcher do
   @doc """
   Returns the state of a specific game, constructed from the events
   """
-  def get_game_state(game_id) do
+  def get_game_session(game_id) do
     case Repo.get(GameSession, game_id) do
       game_session when not is_nil(game_session) -> {:ok, game_session |> Repo.preload(:created_by)}
       _ -> {:error, :not_found}

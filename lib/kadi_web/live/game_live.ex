@@ -8,7 +8,7 @@ defmodule KadiWeb.GameLive do
 
   @impl true
   def handle_params(%{"game_id" => game_id}, _uri, socket) do
-    case Kadi.Fetcher.get_game_state(game_id) do
+    case Kadi.Fetcher.get_game_session(game_id) do
       {:ok, game_session} ->
         {:noreply,
          socket

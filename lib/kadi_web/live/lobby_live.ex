@@ -17,9 +17,11 @@ defmodule KadiWeb.LobbyLive do
 
     case Fetcher.create_game_session(socket.assigns.current_player, %{short_code: short_code}) do
       {:ok, game_session} ->
-        socket = put_flash(socket, :info, "Game Session created!")
 
-        {:noreply, redirect(socket, to: ~p"/games/#{game_session.id}")}
+        {:noreply,
+         socket
+         |> put_flash(:info, "Game Session created!")
+         |> redirect(to: ~p"/games/#{game_session.id}")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         error_msg = changeset.errors
