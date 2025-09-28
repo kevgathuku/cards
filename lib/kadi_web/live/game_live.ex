@@ -3,7 +3,7 @@ defmodule KadiWeb.GameLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, game_id: nil, game_state: nil)}
+    {:ok, assign(socket, game_session: nil)}
   end
 
   @impl true
@@ -12,8 +12,7 @@ defmodule KadiWeb.GameLive do
       {:ok, game_session} ->
         {:noreply,
          socket
-         |> assign(:game_id, game_session.short_code)
-         |> assign(:current_player_name, game_session.created_by)
+         |> assign(:game_session, game_session)
         }
 
       {:error, :not_found} ->

@@ -29,7 +29,7 @@
               Created by: <%= game.created_by.email %>
             </p>
             <p class="text-sm text-gray-500">
-              Started: <%= game.inserted_at |> Timex.format!("%b %d, %Y %H:%M", :strftime) %>
+              Started: <%= game.inserted_at |> Calendar.strftime("%b %d, %Y %H:%M") %>
             </p>
             <p class="text-sm text-gray-500">
               Players: <%= game.player_count %>/4

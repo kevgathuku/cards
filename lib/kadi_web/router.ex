@@ -20,9 +20,7 @@ defmodule KadiWeb.Router do
   scope "/", KadiWeb do
     pipe_through :browser
 
-    live "/", LobbyLive, :index
     resources "/games", GameController, except: [:index, :delete, :show]
-    live "/games/:game_id", GameLive, :show
   end
 
   # Other scopes may use custom stacks.
@@ -70,6 +68,11 @@ defmodule KadiWeb.Router do
       on_mount: [{KadiWeb.PlayerAuth, :ensure_authenticated}] do
       live "/players/settings", PlayerSettingsLive, :edit
       live "/players/settings/confirm_email/:token", PlayerSettingsLive, :confirm_email
+
+      # Game Lobby
+      live "/", LobbyLive, :index
+      # Game session
+      live "/games/:game_id", GameLive, :show
     end
   end
 

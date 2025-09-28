@@ -1,7 +1,6 @@
 defmodule KadiWeb.GameController do
   use KadiWeb, :controller
 
-  alias Kadi.{Fetcher}
   alias Kadi.Games.GameSession
   require Ecto.UUID
 

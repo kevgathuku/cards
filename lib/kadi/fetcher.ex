@@ -16,14 +16,9 @@ defmodule Kadi.Fetcher do
   """
   def get_game_state(game_id) do
     case Repo.get(GameSession, game_id) do
-      game_session when not is_nil(game_session) -> {:ok, game_session}
+      game_session when not is_nil(game_session) -> {:ok, game_session |> Repo.preload(:created_by)}
       _ -> {:error, :not_found}
     end
-  end
-
-  def fetch_games() do
-    # TODO: Fetch by player when auth is added
-    GameSession |> Repo.all
   end
 
   def list_user_games(player_id) do
