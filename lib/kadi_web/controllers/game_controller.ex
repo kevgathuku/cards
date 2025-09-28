@@ -1,7 +1,8 @@
 defmodule KadiWeb.GameController do
   use KadiWeb, :controller
 
-  alias Kadi.{GameSession, Fetcher}
+  alias Kadi.{Fetcher}
+  alias Kadi.Games.GameSession
   require Ecto.UUID
 
   def index(conn, _params) do

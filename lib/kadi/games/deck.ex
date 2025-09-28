@@ -3,7 +3,7 @@ defmodule Kadi.Games.Deck do
   import Ecto.Changeset
 
   schema "decks" do
-    belongs_to :game_session, Kadi.GameSession
+    belongs_to :game_session, Kadi.Games.GameSession
     has_many :deck_cards, Kadi.Games.DeckCard
     has_many :cards, through: [:deck_cards, :card]
 

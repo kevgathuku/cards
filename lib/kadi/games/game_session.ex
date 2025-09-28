@@ -1,4 +1,4 @@
-defmodule Kadi.GameSession do
+defmodule Kadi.Games.GameSession do
   use Ecto.Schema
   import Ecto.Changeset
 

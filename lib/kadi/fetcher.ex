@@ -8,8 +8,8 @@ defmodule Kadi.Fetcher do
   """
 
   import Ecto.Query, warn: false
-  alias Kadi.{GameSession, Repo}
-  alias Kadi.Games.{Card, Deck, DeckCard}
+  alias Kadi.{Repo}
+  alias Kadi.Games.{Card, Deck, DeckCard, GameSession}
 
   @doc """
   Returns the state of a specific game, constructed from the events
