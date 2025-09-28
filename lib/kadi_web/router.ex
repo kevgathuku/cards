@@ -17,12 +17,6 @@ defmodule KadiWeb.Router do
     plug :accepts, ["json"]
   end
 
-  scope "/", KadiWeb do
-    pipe_through :browser
-
-    resources "/games", GameController, except: [:index, :delete, :show]
-  end
-
   # Other scopes may use custom stacks.
   # scope "/api", KadiWeb do
   #   pipe_through :api
