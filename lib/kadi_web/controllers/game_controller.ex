@@ -5,11 +5,6 @@ defmodule KadiWeb.GameController do
   alias Kadi.Games.GameSession
   require Ecto.UUID
 
-  def index(conn, _params) do
-    games = Fetcher.fetch_games()
-    render(conn, :index, games: games)
-  end
-
   def new(conn, _params) do
     alias Phoenix.Component
     form = %GameSession{} |> Ecto.Changeset.change() |> Component.to_form()

@@ -20,8 +20,8 @@ defmodule KadiWeb.Router do
   scope "/", KadiWeb do
     pipe_through :browser
 
-    get "/", GameController, :index
-    resources "/games", GameController, except: [:delete, :show]
+    live "/", LobbyLive, :index
+    resources "/games", GameController, except: [:index, :delete, :show]
     live "/games/:game_id", GameLive, :show
   end
 
