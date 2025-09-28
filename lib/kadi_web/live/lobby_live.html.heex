@@ -23,16 +23,16 @@
         <div class="flex justify-between items-center">
           <div>
             <h2 class="text-lg font-semibold text-gray-700">
-              Game <%= game.short_code %>
+              Game {game.short_code}
             </h2>
             <p class="text-sm text-gray-500">
-              Created by: <%= game.created_by.email %>
+              Created by: {game.created_by.email}
             </p>
             <p class="text-sm text-gray-500">
-              Started: <%= game.inserted_at |> Calendar.strftime("%b %d, %Y %H:%M") %>
+              Started: {game.inserted_at |> Calendar.strftime("%b %d, %Y %H:%M")}
             </p>
             <p class="text-sm text-gray-500">
-              Players: <%= game.player_count %>/4
+              Players: {game.player_count}/4
             </p>
           </div>
           <.link

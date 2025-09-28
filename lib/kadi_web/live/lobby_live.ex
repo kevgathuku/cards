@@ -17,16 +17,17 @@ defmodule KadiWeb.LobbyLive do
 
     case CardGames.create_game_session(socket.assigns.current_player, %{short_code: short_code}) do
       {:ok, game_session} ->
-
         {:noreply,
          socket
          |> put_flash(:info, "Game Session created!")
          |> redirect(to: ~p"/games/#{game_session.id}")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        error_msg = changeset.errors
-                    |> Enum.map(fn {field, {msg, _}} -> "#{field}: #{msg}" end)
-                    |> Enum.join(", ")
+        error_msg =
+          changeset.errors
+          |> Enum.map(fn {field, {msg, _}} -> "#{field}: #{msg}" end)
+          |> Enum.join(", ")
+
         {:noreply, put_flash(socket, :error, "Failed to create game: #{error_msg}")}
     end
   end

@@ -11,7 +11,7 @@ defmodule Kadi.Games.Supervisor do
       # Registry to keep track of Game server sessions
       {Kadi.Registry, name: Kadi.Registry},
       # Dynamic supervisor to monitor game instances
-      {DynamicSupervisor, name: Kadi.GameSupervisor, strategy: :one_for_one},
+      {DynamicSupervisor, name: Kadi.GameSupervisor, strategy: :one_for_one}
     ]
 
     # restart all if either the registry or dynamic supervisor dies

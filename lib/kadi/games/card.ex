@@ -15,7 +15,10 @@ defmodule Kadi.Games.Card do
     |> cast(attrs, [:suit, :rank])
     |> validate_required([:suit, :rank])
     |> validate_inclusion(:suit, ["hearts", "diamonds", "clubs", "spades"])
-    |> validate_inclusion(:rank, Enum.map(2..10, &to_string/1) ++ ["jack", "queen", "king", "ace"])
+    |> validate_inclusion(
+      :rank,
+      Enum.map(2..10, &to_string/1) ++ ["jack", "queen", "king", "ace"]
+    )
     |> unique_constraint([:suit, :rank])
   end
 end
