@@ -8,33 +8,49 @@ defmodule Kadi.CardGames do
 
   import Ecto.Query, warn: false
   alias Kadi.{Repo}
-  alias Kadi.Games.{Card, Deck, DeckCard, GameSession}
+  alias Kadi.Games.{Card, Deck, DeckCard, GameSession, GameSessionPlayer}
 
   @doc """
   Returns the state of a specific game, with the game creator preloaded
   """
   def get_game_session(game_id) do
     case Repo.get(GameSession, game_id) do
-      game_session when not is_nil(game_session) -> {:ok, game_session |> Repo.preload(:created_by)}
-      _ -> {:error, :not_found}
+      game_session when not is_nil(game_session) ->
+        {:ok, game_session |> Repo.preload(:created_by)}
+
+      _ ->
+        {:error, :not_found}
     end
   end
 
   @doc """
-  Returns a specific player's games, fetching by the player ID
+  Returns all the Game Sessions that the player is a part of
   """
   def list_user_games(player_id) do
+    # Get game_session_ids where player is a participant
+    participant_query =
+      from gsp in GameSessionPlayer,
+        where: gsp.player_id == ^player_id,
+        select: gsp.game_session_id
+
     query =
       from gs in GameSession,
-        where: gs.created_by_id == ^player_id,
+        where: gs.id in subquery(participant_query),
         preload: [:created_by],
         order_by: [desc: gs.inserted_at]
 
     games = Repo.all(query)
 
-    # Temporarily set player_count to 1 (creator only) until participant tracking is implemented
+    # Get the number of players in the Player's Game Sessions
     Enum.map(games, fn game ->
-      Map.merge(game, %{player_count: 1})
+      player_count =
+        Repo.aggregate(
+          from(gsp in GameSessionPlayer, where: gsp.game_session_id == ^game.id),
+          :count,
+          :id
+        )
+
+      Map.merge(game, %{player_count: player_count})
     end)
   end
 
@@ -42,16 +58,34 @@ defmodule Kadi.CardGames do
   Creates a new game session, with the player creating the game passed in
   """
   def create_game_session(player, attrs \\ %{}) do
-   %GameSession{}
-    |> GameSession.changeset(Map.merge(attrs, %{created_by_id: player.id}))
-    |> Repo.insert()
-    |> case do
-      {:ok, game_session} ->
-        {:ok, deck} = create_deck_for_session(game_session)
-        {:ok, game_session |> Repo.preload(:created_by) }
+    Repo.transaction(fn ->
+      {:ok, game_session} =
+        %GameSession{}
+        |> GameSession.changeset(Map.merge(attrs, %{created_by_id: player.id}))
+        |> Repo.insert()
 
-      error -> error
-    end
+      # Add creator as participant
+      {:ok, _} =
+        %GameSessionPlayer{}
+        |> GameSessionPlayer.changeset(%{game_session_id: game_session.id, player_id: player.id})
+        |> Repo.insert()
+
+      # Create deck for the session
+      {:ok, _deck} = create_deck_for_session(game_session)
+
+      game_session |> Repo.preload(:created_by)
+    end)
+  end
+
+  @doc """
+  Add a player to an existing Game Session
+  """
+  def join_game_session(player, game_session_id) do
+    game_session = Repo.get!(GameSession, game_session_id)
+
+    %GameSessionPlayer{}
+    |> GameSessionPlayer.changeset(%{game_session_id: game_session.id, player_id: player.id})
+    |> Repo.insert()
   end
 
   @doc """
@@ -76,7 +110,13 @@ defmodule Kadi.CardGames do
           end
 
         # Create deck_cards entries, assigning an initial order
-        deck_card_attrs = %{deck_id: deck.id, card_id: card.id, location_type: "deck", order_index: order_index}
+        deck_card_attrs = %{
+          deck_id: deck.id,
+          card_id: card.id,
+          location_type: "deck",
+          order_index: order_index
+        }
+
         {:ok, _deck_card} = Repo.insert(DeckCard.changeset(%DeckCard{}, deck_card_attrs))
       end)
     end)

@@ -14,8 +14,7 @@ defmodule KadiWeb.GameLive do
       {:ok, game_session} ->
         {:noreply,
          socket
-         |> assign(:game_session, game_session)
-        }
+         |> assign(:game_session, game_session)}
 
       {:error, :not_found} ->
         {:noreply,
