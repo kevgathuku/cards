@@ -15,7 +15,7 @@ defmodule KadiWeb.PlayerSessionControllerTest do
         })
 
       assert get_session(conn, :player_token)
-      assert redirected_to(conn) == ~p"/"
+      assert redirected_to(conn) == ~p"/lobby"
 
       # Now do a logged in request and assert on the menu
       conn = get(conn, ~p"/")
@@ -36,7 +36,7 @@ defmodule KadiWeb.PlayerSessionControllerTest do
         })
 
       assert conn.resp_cookies["_kadi_web_player_remember_me"]
-      assert redirected_to(conn) == ~p"/"
+      assert redirected_to(conn) == ~p"/lobby"
     end
 
     test "logs the player in with return to", %{conn: conn, player: player} do
@@ -65,7 +65,7 @@ defmodule KadiWeb.PlayerSessionControllerTest do
           }
         })
 
-      assert redirected_to(conn) == ~p"/"
+      assert redirected_to(conn) == ~p"/lobby"
       assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Account created successfully"
     end
 

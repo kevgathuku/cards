@@ -93,7 +93,7 @@ defmodule KadiWeb.PlayerResetPasswordLiveTest do
 
       {:ok, conn} =
         lv
-        |> element(~s|main a:fl-contains("Log in")|)
+        |> element("main a", "Log in")
         |> render_click()
         |> follow_redirect(conn, ~p"/players/log_in")
 
@@ -108,7 +108,7 @@ defmodule KadiWeb.PlayerResetPasswordLiveTest do
 
       {:ok, conn} =
         lv
-        |> element(~s|main a:fl-contains("Register")|)
+        |> element("main a", "Register")
         |> render_click()
         |> follow_redirect(conn, ~p"/players/register")
 
