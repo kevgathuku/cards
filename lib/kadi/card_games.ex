@@ -81,11 +81,15 @@ defmodule Kadi.CardGames do
   Add a player to an existing Game Session
   """
   def join_game_session(player, game_session_id) do
-    game_session = Repo.get!(GameSession, game_session_id)
+    case Repo.get(GameSession, game_session_id) do
+      nil ->
+        {:error, :not_found}
 
-    %GameSessionPlayer{}
-    |> GameSessionPlayer.changeset(%{game_session_id: game_session.id, player_id: player.id})
-    |> Repo.insert()
+      game_session ->
+        %GameSessionPlayer{}
+        |> GameSessionPlayer.changeset(%{game_session_id: game_session.id, player_id: player.id})
+        |> Repo.insert()
+    end
   end
 
   @doc """
