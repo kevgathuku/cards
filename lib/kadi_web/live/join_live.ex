@@ -1,8 +1,9 @@
 defmodule KadiWeb.JoinLive do
   use KadiWeb, :live_view
 
+  import Ecto.Query, warn: false
   alias Kadi.{CardGames, Repo}
-  alias Kadi.Games.GameSession
+  alias Kadi.Games.{GameSession, GameSessionPlayer}
 
   @impl true
   def mount(_params, _session, socket) do
@@ -24,10 +25,13 @@ defmodule KadiWeb.JoinLive do
             {:noreply, redirect(socket, to: ~p"/games/#{game_session.id}")}
 
           {:error, changeset} ->
-            # If already joined (unique constraint), still redirect
-            if Enum.any?(changeset.errors, fn {_, {msg, _}} ->
-                 String.contains?(msg, "has already been taken")
-               end) do
+            # Pre-check if player has already joined the game session
+            player_check_query =
+              from gsp in GameSessionPlayer,
+                where:
+                  gsp.game_session_id == ^game_session.id and gsp.player_id == ^current_player.id
+
+            if Repo.exists?(player_check_query) do
               {:noreply, redirect(socket, to: ~p"/games/#{game_session.id}")}
             else
               error_msg =
