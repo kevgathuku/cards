@@ -3,8 +3,10 @@ defmodule Kadi.Repo.Migrations.AlterDeckCardsAddLocationPosition do
 
   def change do
     alter table(:deck_cards) do
-      add :location_type, :string, null: false  # New: "deck", "played_stack", "player_hand"
-      add :order_index, :integer  # Nullable, used for "deck" and "played_stack"
+      # New: "deck", "played_stack", "player_hand"
+      add :location_type, :string, null: false
+      # Nullable, used for "deck" and "played_stack"
+      add :order_index, :integer
     end
 
     # Update indexes if needed

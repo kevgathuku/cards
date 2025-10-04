@@ -6,8 +6,10 @@ defmodule Kadi.Games.DeckCard do
     belongs_to :deck, Kadi.Games.Deck
     belongs_to :card, Kadi.Games.Card
     belongs_to :player, Kadi.Accounts.Player
-    field :location_type, :string  # "deck", "played_stack", "player_hand"
-    field :order_index, :integer  # Order for deck/played_stack, null for player_hand
+    # "deck", "played_stack", "player_hand"
+    field :location_type, :string
+    # Order for deck/played_stack, null for player_hand
+    field :order_index, :integer
 
     timestamps(type: :utc_datetime)
   end

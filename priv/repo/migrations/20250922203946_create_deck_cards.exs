@@ -14,7 +14,8 @@ defmodule Kadi.Repo.Migrations.CreateDeckCards do
       timestamps(type: :utc_datetime)
     end
 
-    create unique_index(:deck_cards, [:deck_id, :card_id])  # One card per deck
+    # One card per deck
+    create unique_index(:deck_cards, [:deck_id, :card_id])
     create index(:deck_cards, [:deck_id])
     create index(:deck_cards, [:card_id])
     create index(:deck_cards, [:player_id])

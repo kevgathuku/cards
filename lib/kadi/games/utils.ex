@@ -2,6 +2,11 @@ defmodule Kadi.Utils do
   alias Kadi.Games.Poker.Card
   require Logger
 
+  @chars Enum.to_list(?A..?Z)
+         |> Enum.reject(&(&1 in [?I, ?O]))
+         |> Enum.map(&<<&1>>)
+         |> Enum.concat(Enum.map(1..9, &Integer.to_string/1))
+
   def create_deck() do
     numbers = [
       :two,
@@ -166,5 +171,22 @@ defmodule Kadi.Utils do
   # Find the intersection of two lists, providing the larger one first
   def intersection(larger, smaller) do
     Enum.filter(larger, fn larger_item -> Enum.member?(smaller, larger_item) end)
+  end
+
+  @doc """
+    Generate a random character string with a default length of 6
+    Valid characters are A-Z, excluding I and O, and the numbers 1-9
+
+    ## Examples
+      iex> six = generate_short_code()
+      iex> String.length(six)
+      6
+
+      iex> five = generate_short_code(5)
+      iex> String.length(five)
+      5
+  """
+  def generate_short_code(length \\ 6) do
+    for _ <- 1..length, into: "", do: Enum.random(@chars)
   end
 end

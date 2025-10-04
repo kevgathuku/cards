@@ -73,6 +73,8 @@ defmodule KadiWeb.Router do
       live "/lobby", LobbyLive, :index
       # Game session
       live "/games/:game_id", GameLive, :show
+      # Join game session
+      live "/join", JoinLive, :index
     end
   end
 

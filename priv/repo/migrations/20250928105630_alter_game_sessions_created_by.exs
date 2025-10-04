@@ -3,7 +3,8 @@ defmodule Kadi.Repo.Migrations.AlterGameSessionsCreatedBy do
 
   def change do
     alter table(:game_sessions) do
-      remove :created_by  # Remove the string field
+      # Remove the string field
+      remove :created_by
       add :created_by_id, references(:players, on_delete: :restrict), null: false
     end
 
