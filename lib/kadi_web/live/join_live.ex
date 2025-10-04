@@ -55,6 +55,14 @@ defmodule KadiWeb.JoinLive do
           Join Game
         </button>
       </.form>
+      <div class="mx-auto max-w-xs px-8">
+        <.link
+          navigate={~p"/lobby"}
+          class="mt-10 block w-full rounded-md bg-green-700 px-3 py-2 text-center text-sm font-semibold text-white focus-visible:outline border border-green-700 hover:bg-green-800 focus:ring-4"
+        >
+          Back to Lobby
+        </.link>
+      </div>
     </div>
     """
   end
