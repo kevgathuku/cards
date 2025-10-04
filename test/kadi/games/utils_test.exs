@@ -183,4 +183,12 @@ defmodule Kadi.Games.UtilsTest do
       assert is_valid_suit_or_number?(last_played, hand)
     end
   end
+
+  test "generate_short_code" do
+    default_length_code = generate_short_code()
+    short_length_code = generate_short_code(5)
+
+    assert String.length(default_length_code) == 6
+    assert String.length(short_length_code) == 5
+  end
 end

@@ -1,6 +1,7 @@
 defmodule KadiWeb.LobbyLive do
   use KadiWeb, :live_view
   alias Kadi.CardGames
+  alias Kadi.Utils
 
   on_mount {KadiWeb.PlayerAuth, :mount_current_player}
 
@@ -13,7 +14,7 @@ defmodule KadiWeb.LobbyLive do
 
   @impl true
   def handle_event("create_game", _params, socket) do
-    short_code = Ecto.UUID.generate()
+    short_code = Utils.generate_short_code()
 
     case CardGames.create_game_session(socket.assigns.current_player, %{short_code: short_code}) do
       {:ok, game_session} ->
