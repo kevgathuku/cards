@@ -10,8 +10,13 @@ defmodule Kadi.CardGames do
   alias Kadi.{Repo}
   alias Kadi.Games.{Card, Deck, DeckCard, GameSession, GameSessionPlayer}
 
+  @suits ~w(hearts diamonds clubs spades)
+  @ranks Enum.map(2..10, &to_string/1) ++ ~w(jack queen king ace)
+
   @doc """
   Returns the state of a specific game, with the game creator preloaded
+
+  Takes the Game ID as a parameter to find the Game
   """
   def get_game_session(game_id) do
     case Repo.get(GameSession, game_id) do
@@ -92,20 +97,15 @@ defmodule Kadi.CardGames do
     end
   end
 
-  @doc """
-  Creates deck for a newly created game session, with the game session being passed in
-  """
-  def create_deck_for_session(game_session) do
+  ## Takes a GameSession and adds a deck and DeckCards to the session
+  defp create_deck_for_session(game_session) do
     {:ok, deck} = Repo.insert(Deck.changeset(%Deck{}, %{game_session_id: game_session.id}))
 
-    suits = ~w(hearts diamonds clubs spades)
-    ranks = Enum.map(2..10, &to_string/1) ++ ~w(jack queen king ace)
     order_indices = Enum.shuffle(1..52)
-
-    all_cards = for suit <- suits, rank <- ranks, do: %{suit: suit, rank: rank}
+    cards = generate_cards_attrs()
 
     Repo.transaction(fn ->
-      Enum.zip([all_cards, order_indices])
+      Enum.zip([cards, order_indices])
       |> Enum.each(fn {card_attrs, order_index} ->
         {:ok, card} =
           case Repo.get_by(Card, card_attrs) do
@@ -127,5 +127,9 @@ defmodule Kadi.CardGames do
 
     # Optionally shuffle and record event
     {:ok, deck}
+  end
+
+  defp generate_cards_attrs() do
+    for suit <- @suits, rank <- @ranks, do: %{suit: suit, rank: rank}
   end
 end
