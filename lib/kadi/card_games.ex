@@ -97,9 +97,7 @@ defmodule Kadi.CardGames do
     end
   end
 
-  @doc """
-  Creates deck for a newly created game session, with the game session being passed in
-  """
+  ## Takes a GameSession and adds a deck and DeckCards to the session
   defp create_deck_for_session(game_session) do
     {:ok, deck} = Repo.insert(Deck.changeset(%Deck{}, %{game_session_id: game_session.id}))
 
