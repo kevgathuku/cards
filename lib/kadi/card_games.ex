@@ -55,7 +55,7 @@ defmodule Kadi.CardGames do
           :id
         )
 
-      Map.merge(game, %{player_count: player_count})
+      Map.put(game, :player_count, player_count)
     end)
   end
 
