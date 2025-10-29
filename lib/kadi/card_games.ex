@@ -63,6 +63,8 @@ defmodule Kadi.CardGames do
   Creates a new game session, with the player creating the game passed in
   """
   def create_game_session(player, attrs \\ %{}) do
+    attrs = Map.put_new(attrs, :status, "lobby")
+
     Repo.transaction(fn ->
       {:ok, game_session} =
         %GameSession{}
