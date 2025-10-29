@@ -53,6 +53,7 @@ defmodule Kadi.CardGamesTest do
 
       assert game_session.short_code == "New Game"
       assert game_session.created_by_id == player.id
+      assert game_session.status == "lobby"
 
       # Check that the creator is a participant
       participants =

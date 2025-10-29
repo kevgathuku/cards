@@ -55,7 +55,7 @@ defmodule Kadi.CardGames do
           :id
         )
 
-      Map.merge(game, %{player_count: player_count})
+      Map.put(game, :player_count, player_count)
     end)
   end
 
@@ -66,7 +66,7 @@ defmodule Kadi.CardGames do
     Repo.transaction(fn ->
       {:ok, game_session} =
         %GameSession{}
-        |> GameSession.changeset(Map.merge(attrs, %{created_by_id: player.id}))
+        |> GameSession.changeset(Map.merge(attrs, %{created_by_id: player.id, status: "lobby"}))
         |> Repo.insert()
 
       # Add creator as participant
