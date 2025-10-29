@@ -40,6 +40,9 @@
             <p class="text-sm text-gray-500">
               Players: {game.player_count}/4
             </p>
+            <p class="text-sm text-gray-500">
+              Status: {game.status}
+            </p>
           </div>
           <.link
             navigate={~p"/games/#{game.id}"}
