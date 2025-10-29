@@ -4,3 +4,7 @@
   <p>Status: {@game_session.status}</p>
   <p>Current Player: {@current_player.email}</p>
 </.header>
+
+<%= if @game_session.status == "lobby" and @current_player.id == @game_session.created_by_id do %>
+  <button phx-click="start_game" class="mt-4 block w-40 rounded-md bg-teal-50 px-3 py-2 text-center text-sm font-semibold text-green-700 border border-green-700 hover:text-white hover:bg-green-700 focus:ring-4">Start Game</button>
+<% end %>
