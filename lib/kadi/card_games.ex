@@ -8,6 +8,7 @@ defmodule Kadi.CardGames do
 
   import Ecto.Query, warn: false
   alias Kadi.{Repo}
+  alias Kadi.Accounts.Player
   alias Kadi.Games.{Card, Deck, DeckCard, GameSession, GameSessionPlayer}
 
   @suits ~w(hearts diamonds clubs spades)
@@ -131,5 +132,65 @@ defmodule Kadi.CardGames do
 
   defp generate_cards_attrs() do
     for suit <- @suits, rank <- @ranks, do: %{suit: suit, rank: rank}
+  end
+
+  @doc """
+  Starts a game session, deals cards to players and changes the status to "live"
+  """
+  def start_game(game_session) do
+    players = get_game_session_players(game_session.id)
+    player_count = Enum.count(players)
+
+    if player_count >= 2 do
+      Repo.transaction(fn ->
+        # Change game status
+        game_session = 
+          game_session
+          |> GameSession.changeset(%{status: "live"})
+          |> Repo.update!()
+
+        # Deal cards
+        deal_cards_to_players(game_session, players)
+
+        game_session
+      end)
+    else
+      {:error, :not_enough_players}
+    end
+  end
+
+  defp get_game_session_players(game_session_id) do
+    query =
+      from gsp in GameSessionPlayer,
+        where: gsp.game_session_id == ^game_session_id,
+        select: gsp.player_id
+
+    Repo.all(from p in Player, where: p.id in subquery(query))
+  end
+
+  defp deal_cards_to_players(game_session, players) do
+    deck = Repo.get_by!(Deck, game_session_id: game_session.id)
+    player_count = Enum.count(players)
+    limit = player_count * 4
+
+    cards_to_deal = 
+      Repo.all(
+        from dc in DeckCard, 
+        where: dc.deck_id == ^deck.id and dc.location_type == "deck",
+        order_by: [asc: :order_index],
+        limit: ^limit
+      )
+
+    Enum.with_index(players) |> Enum.each(fn {player, i} ->
+      start_index = i * 4
+      end_index = start_index + 3
+      player_cards = Enum.slice(cards_to_deal, start_index..end_index)
+
+      Enum.each(player_cards, fn card ->
+        card
+        |> DeckCard.changeset(%{location_type: "player_hand", player_id: player.id, order_index: nil})
+        |> Repo.update()
+      end)
+    end)
   end
 end
