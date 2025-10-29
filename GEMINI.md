@@ -27,3 +27,5 @@ To run the test suite, use the following command:
 ```bash
 mix test
 ```
+
+It is recommended to run the tests before committing any changes to ensure that everything is working correctly.
