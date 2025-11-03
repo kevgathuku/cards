@@ -8,6 +8,7 @@ defmodule Kadi.CardGames do
 
   import Ecto.Query, warn: false
   alias Kadi.{Repo}
+  alias Kadi.Accounts.Player
   alias Kadi.Games.{Card, Deck, DeckCard, GameSession, GameSessionPlayer}
 
   @suits ~w(hearts diamonds clubs spades)
@@ -131,5 +132,123 @@ defmodule Kadi.CardGames do
 
   defp generate_cards_attrs() do
     for suit <- @suits, rank <- @ranks, do: %{suit: suit, rank: rank}
+  end
+
+  @doc """
+  Starts a game session, deals cards to players and changes the status to "live"
+  """
+  def start_game(game_session) do
+    players = get_game_session_players(game_session.id)
+
+    if Enum.count(players) < 2 do
+      {:error, :not_enough_players}
+    else
+      do_start_game(game_session, players)
+    end
+  end
+
+  defp do_start_game(game_session, players) do
+    game_session = game_session |> Repo.preload(deck: [deck_cards: :card])
+    deck_cards = game_session.deck.deck_cards
+
+    # Select a random player to start the turn
+    random_player = Enum.random(players)
+
+    multi =
+      Ecto.Multi.new()
+      |> Ecto.Multi.update(
+        :game_session,
+        GameSession.changeset(game_session, %{
+          status: "live",
+          current_turn_player_id: random_player.id
+        })
+      )
+
+    with {:ok, dealt_card_changesets, remaining_cards} <- deal_cards(players, deck_cards),
+         {:ok, start_card_changeset, _final_cards} <- select_start_card(remaining_cards) do
+      all_card_changesets = dealt_card_changesets ++ [start_card_changeset]
+
+      multi_with_cards =
+        Enum.reduce(all_card_changesets, multi, fn changeset, acc_multi ->
+          Ecto.Multi.update(acc_multi, "card_#{changeset.data.id}", changeset)
+        end)
+
+      case Repo.transaction(multi_with_cards) do
+        {:ok, %{game_session: updated_game_session}} ->
+          KadiWeb.Endpoint.broadcast(
+            "game:" <> to_string(updated_game_session.id),
+            "game_updated",
+            %{game_session: updated_game_session}
+          )
+
+          {:ok, updated_game_session}
+
+        {:error, _failed_op, failed_value, _changes_so_far} ->
+          {:error, failed_value}
+      end
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp deal_cards(players, deck_cards) do
+    # Sort by randomized order_index to ensure non-sequential distribution
+    cards_in_deck =
+      deck_cards
+      |> Enum.filter(&(&1.location_type == "deck"))
+      |> Enum.sort_by(& &1.order_index)
+
+    cards_to_deal_count = Enum.count(players) * 4
+
+    if Enum.count(cards_in_deck) < cards_to_deal_count do
+      {:error, :not_enough_cards_in_deck}
+    else
+      {cards_to_deal, remaining_cards} = Enum.split(cards_in_deck, cards_to_deal_count)
+
+      changesets =
+        Enum.with_index(players)
+        |> Enum.flat_map(fn {player, i} ->
+          start_index = i * 4
+          end_index = start_index + 3
+          player_cards = Enum.slice(cards_to_deal, start_index..end_index)
+
+          Enum.map(player_cards, fn card ->
+            DeckCard.changeset(card, %{
+              location_type: "player_hand",
+              player_id: player.id,
+              order_index: nil
+            })
+          end)
+        end)
+
+      {:ok, changesets, remaining_cards}
+    end
+  end
+
+  defp select_start_card(deck_cards) do
+    special_ranks = ["2", "3", "jack", "queen", "king", "ace"]
+    shuffled_cards = Enum.shuffle(deck_cards)
+
+    start_card =
+      Enum.find(shuffled_cards, fn deck_card ->
+        deck_card.card.rank not in special_ranks
+      end)
+
+    if start_card do
+      changeset = DeckCard.changeset(start_card, %{location_type: "played_stack", order_index: 1})
+      remaining_cards = List.delete(deck_cards, start_card)
+      {:ok, changeset, remaining_cards}
+    else
+      {:error, :no_valid_start_card_found}
+    end
+  end
+
+  defp get_game_session_players(game_session_id) do
+    query =
+      from gsp in GameSessionPlayer,
+        where: gsp.game_session_id == ^game_session_id,
+        select: gsp.player_id
+
+    Repo.all(from p in Player, where: p.id in subquery(query))
   end
 end

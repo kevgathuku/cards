@@ -29,8 +29,6 @@ defmodule Kadi.Games.DeckCard do
 
   defp validate_location_and_order(changeset) do
     location_type = get_field(changeset, :location_type)
-    player_id = get_field(changeset, :player_id)
-    order_index = get_field(changeset, :order_index)
 
     case location_type do
       "player_hand" ->

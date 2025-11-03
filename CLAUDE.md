@@ -76,3 +76,10 @@ Cards are stored in the database using the `Kadi.Games.Card` schema:
 ```
 
 Card locations are tracked through the `deck_cards` join table with a `location_type` field.
+
+## Active Technologies
+- Elixir 1.14+ (OTP 25+) + Phoenix 1.7, Phoenix LiveView, Ecto 3.x (002-randomize-player-cards)
+- PostgreSQL (via Ecto) - `deck_cards` table with `order_index` column (002-randomize-player-cards)
+
+## Recent Changes
+- 002-randomize-player-cards: Added Elixir 1.14+ (OTP 25+) + Phoenix 1.7, Phoenix LiveView, Ecto 3.x
