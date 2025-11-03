@@ -222,5 +222,25 @@ defmodule Kadi.CardGamesTest do
 
       assert played_deck_card.order_index == 1
     end
+
+    test "assigns a random player as current_turn_player", %{player: player} do
+      player2 = player_fixture(%{email: "player2@example.com"})
+      player3 = player_fixture(%{email: "player3@example.com"})
+
+      {:ok, game_session} =
+        CardGames.create_game_session(player, %{short_code: "turn-player-test"})
+
+      CardGames.join_game_session(player2, game_session.id)
+      CardGames.join_game_session(player3, game_session.id)
+
+      {:ok, started_game_session} = CardGames.start_game(game_session)
+
+      # Verify a current turn player was assigned
+      assert started_game_session.current_turn_player_id != nil
+
+      # Verify the assigned player is one of the players in the game
+      player_ids = [player.id, player2.id, player3.id]
+      assert started_game_session.current_turn_player_id in player_ids
+    end
   end
 end

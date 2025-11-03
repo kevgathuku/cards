@@ -151,9 +151,18 @@ defmodule Kadi.CardGames do
     game_session = game_session |> Repo.preload(deck: [deck_cards: :card])
     deck_cards = game_session.deck.deck_cards
 
+    # Select a random player to start the turn
+    random_player = Enum.random(players)
+
     multi =
       Ecto.Multi.new()
-      |> Ecto.Multi.update(:game_session, GameSession.changeset(game_session, %{status: "live"}))
+      |> Ecto.Multi.update(
+        :game_session,
+        GameSession.changeset(game_session, %{
+          status: "live",
+          current_turn_player_id: random_player.id
+        })
+      )
 
     with {:ok, dealt_card_changesets, remaining_cards} <- deal_cards(players, deck_cards),
          {:ok, start_card_changeset, _final_cards} <- select_start_card(remaining_cards) do

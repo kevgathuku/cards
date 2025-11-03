@@ -2,7 +2,6 @@ defmodule KadiWeb.GameLive do
   use KadiWeb, :live_view
 
   alias Kadi.CardGames
-  alias Kadi.Games.GameSession
 
   @impl true
   def mount(_params, _session, socket) do
@@ -11,7 +10,8 @@ defmodule KadiWeb.GameLive do
        game_session: nil,
        player_hand: [],
        played_pile: [],
-       deck_size: 0
+       deck_size: 0,
+       current_turn_player: nil
      )}
   end
 
@@ -61,7 +61,7 @@ defmodule KadiWeb.GameLive do
 
     game_session =
       game_session
-      |> Kadi.Repo.preload(deck: [deck_cards: :card])
+      |> Kadi.Repo.preload([:current_turn_player, deck: [deck_cards: :card]])
 
     all_deck_cards = game_session.deck.deck_cards
 
@@ -82,7 +82,8 @@ defmodule KadiWeb.GameLive do
       game_session: game_session,
       player_hand: player_hand,
       played_pile: played_pile,
-      deck_size: deck_size
+      deck_size: deck_size,
+      current_turn_player: game_session.current_turn_player
     )
   end
 end

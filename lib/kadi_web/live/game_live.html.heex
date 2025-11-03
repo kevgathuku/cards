@@ -10,6 +10,17 @@
 <% end %>
 
 <%= if @game_session.status == "live" do %>
+  <%= if @current_turn_player do %>
+    <div class="mt-4 p-4 bg-blue-100 border border-blue-300 rounded-lg text-center">
+      <p class="text-lg font-semibold">
+        Current Turn: <span class="text-blue-700">{@current_turn_player.email}</span>
+      </p>
+      <%= if @current_turn_player.id == @current_player.id do %>
+        <p class="text-sm text-blue-600 mt-1">It's your turn!</p>
+      <% end %>
+    </div>
+  <% end %>
+
   <div class="mt-8 p-4 border rounded-lg">
     <h2 class="text-xl font-bold mb-4">Game Board</h2>
     <div class="flex space-x-8">
