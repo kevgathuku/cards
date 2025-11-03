@@ -19,6 +19,10 @@ defmodule KadiWeb.GameLive do
   def handle_params(%{"game_id" => game_id}, _uri, socket) do
     case CardGames.get_game_session(game_id) do
       {:ok, game_session} ->
+        if connected?(socket) do
+          Phoenix.PubSub.subscribe(Kadi.PubSub, "game:#{game_id}")
+        end
+
         socket = assign_game_state(socket, game_session)
         {:noreply, socket}
 
