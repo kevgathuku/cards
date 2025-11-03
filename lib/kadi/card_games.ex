@@ -192,7 +192,12 @@ defmodule Kadi.CardGames do
   end
 
   defp deal_cards(players, deck_cards) do
-    cards_in_deck = Enum.filter(deck_cards, &(&1.location_type == "deck"))
+    # Sort by randomized order_index to ensure non-sequential distribution
+    cards_in_deck =
+      deck_cards
+      |> Enum.filter(&(&1.location_type == "deck"))
+      |> Enum.sort_by(& &1.order_index)
+
     cards_to_deal_count = Enum.count(players) * 4
 
     if Enum.count(cards_in_deck) < cards_to_deal_count do
