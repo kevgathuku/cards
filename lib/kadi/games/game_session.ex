@@ -8,6 +8,7 @@ defmodule Kadi.Games.GameSession do
     field :short_code, :string
     field :status, :string, default: "lobby"
     belongs_to :created_by, Kadi.Accounts.Player
+    has_one :deck, Kadi.Games.Deck
 
     timestamps(type: :utc_datetime)
   end

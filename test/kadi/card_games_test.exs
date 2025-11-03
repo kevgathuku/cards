@@ -105,7 +105,10 @@ defmodule Kadi.CardGamesTest do
   describe "start_game/1" do
     test "starts a game, deals cards, and changes status to live", %{player: player} do
       player2 = player_fixture(%{email: "player2@example.com"})
-      {:ok, game_session} = CardGames.create_game_session(player, %{short_code: "start-game-test"})
+
+      {:ok, game_session} =
+        CardGames.create_game_session(player, %{short_code: "start-game-test"})
+
       CardGames.join_game_session(player2, game_session.id)
 
       {:ok, started_game_session} = CardGames.start_game(game_session)
@@ -113,38 +116,111 @@ defmodule Kadi.CardGamesTest do
       assert started_game_session.status == "live"
 
       # Check cards for player 1
-      player1_cards = 
+      player1_cards =
         Repo.all(
           from dc in Kadi.Games.DeckCard,
             where: dc.player_id == ^player.id and dc.location_type == "player_hand"
         )
+
       assert Enum.count(player1_cards) == 4
 
       # Check cards for player 2
-      player2_cards = 
+      player2_cards =
         Repo.all(
           from dc in Kadi.Games.DeckCard,
             where: dc.player_id == ^player2.id and dc.location_type == "player_hand"
         )
+
       assert Enum.count(player2_cards) == 4
 
       # Check remaining cards in deck
-      deck_cards = 
+      deck_cards =
         Repo.all(
           from dc in Kadi.Games.DeckCard,
-            join: d in Kadi.Games.Deck, on: dc.deck_id == d.id,
+            join: d in Kadi.Games.Deck,
+            on: dc.deck_id == d.id,
             where: d.game_session_id == ^started_game_session.id and dc.location_type == "deck"
         )
-      assert Enum.count(deck_cards) == 44
+
+      assert Enum.count(deck_cards) == 43
     end
 
     test "returns an error if there are not enough players", %{player: player} do
-      {:ok, game_session} = CardGames.create_game_session(player, %{short_code: "not-enough-players"})
+      {:ok, game_session} =
+        CardGames.create_game_session(player, %{short_code: "not-enough-players"})
 
       assert CardGames.start_game(game_session) == {:error, :not_enough_players}
 
       refreshed_game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
       assert refreshed_game_session.status == "lobby"
+    end
+
+    test "assigns exactly one card to the played_stack", %{player: player} do
+      player2 = player_fixture(%{email: "player2@example.com"})
+
+      {:ok, game_session} =
+        CardGames.create_game_session(player, %{short_code: "played-stack-test"})
+
+      CardGames.join_game_session(player2, game_session.id)
+
+      {:ok, started_game_session} = CardGames.start_game(game_session)
+
+      played_stack_cards =
+        Repo.all(
+          from dc in Kadi.Games.DeckCard,
+            join: d in Kadi.Games.Deck,
+            on: dc.deck_id == d.id,
+            where:
+              d.game_session_id == ^started_game_session.id and dc.location_type == "played_stack"
+        )
+
+      assert Enum.count(played_stack_cards) == 1
+    end
+
+    test "ensures the card in played_stack is not a special card", %{player: player} do
+      player2 = player_fixture(%{email: "player2@example.com"})
+
+      {:ok, game_session} =
+        CardGames.create_game_session(player, %{short_code: "special-card-test"})
+
+      CardGames.join_game_session(player2, game_session.id)
+
+      {:ok, started_game_session} = CardGames.start_game(game_session)
+
+      [played_deck_card] =
+        Repo.all(
+          from dc in Kadi.Games.DeckCard,
+            join: d in Kadi.Games.Deck,
+            on: dc.deck_id == d.id,
+            where:
+              d.game_session_id == ^started_game_session.id and dc.location_type == "played_stack",
+            preload: [:card]
+        )
+
+      special_ranks = ["2", "3", "jack", "queen", "king", "ace"]
+      refute played_deck_card.card.rank in special_ranks
+    end
+
+    test "sets the order_index for the starting card", %{player: player} do
+      player2 = player_fixture(%{email: "player2@example.com"})
+
+      {:ok, game_session} =
+        CardGames.create_game_session(player, %{short_code: "order-index-test"})
+
+      CardGames.join_game_session(player2, game_session.id)
+
+      {:ok, started_game_session} = CardGames.start_game(game_session)
+
+      [played_deck_card] =
+        Repo.all(
+          from dc in Kadi.Games.DeckCard,
+            join: d in Kadi.Games.Deck,
+            on: dc.deck_id == d.id,
+            where:
+              d.game_session_id == ^started_game_session.id and dc.location_type == "played_stack"
+        )
+
+      assert played_deck_card.order_index == 1
     end
   end
 end

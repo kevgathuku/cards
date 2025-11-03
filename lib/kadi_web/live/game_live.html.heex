@@ -6,5 +6,44 @@
 </.header>
 
 <%= if @game_session.status == "lobby" and @current_player.id == @game_session.created_by_id do %>
-  <button phx-click="start_game" class="mt-4 block w-40 rounded-md bg-teal-50 px-3 py-2 text-center text-sm font-semibold text-green-700 border border-green-700 hover:text-white hover:bg-green-700 focus:ring-4">Start Game</button>
+  <.button phx-click="start_game">Start Game</.button>
+<% end %>
+
+<%= if @game_session.status == "live" do %>
+  <div class="mt-8 p-4 border rounded-lg">
+    <h2 class="text-xl font-bold mb-4">Game Board</h2>
+    <div class="flex space-x-8">
+      
+<!-- Played Pile -->
+      <div class="w-1/2">
+        <h3 class="text-lg font-semibold">Played Pile</h3>
+        <div class="mt-2 p-4 border-dashed border-2 border-gray-300 rounded-lg h-32 flex items-center justify-center">
+          <%= if top_card = List.last(@played_pile) do %>
+            <span>{top_card.card.rank} of {top_card.card.suit}</span>
+          <% else %>
+            <span class="text-gray-500">Empty</span>
+          <% end %>
+        </div>
+      </div>
+      
+<!-- Deck -->
+      <div class="w-1/2">
+        <h3 class="text-lg font-semibold">Deck</h3>
+        <div class="mt-2 p-4 border-dashed border-2 border-gray-300 rounded-lg h-32 flex items-center justify-center">
+          <span class="text-gray-700">~{@deck_size} cards left</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-8 p-4 border rounded-lg">
+    <h2 class="text-xl font-bold mb-4">Your Hand</h2>
+    <div class="flex space-x-4">
+      <%= for dc <- @player_hand do %>
+        <div class="p-4 border rounded-md shadow-sm bg-white">
+          {dc.card.rank} of {dc.card.suit}
+        </div>
+      <% end %>
+    </div>
+  </div>
 <% end %>

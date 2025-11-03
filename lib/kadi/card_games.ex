@@ -139,23 +139,93 @@ defmodule Kadi.CardGames do
   """
   def start_game(game_session) do
     players = get_game_session_players(game_session.id)
-    player_count = Enum.count(players)
 
-    if player_count >= 2 do
-      Repo.transaction(fn ->
-        # Change game status
-        game_session = 
-          game_session
-          |> GameSession.changeset(%{status: "live"})
-          |> Repo.update!()
-
-        # Deal cards
-        deal_cards_to_players(game_session, players)
-
-        game_session
-      end)
-    else
+    if Enum.count(players) < 2 do
       {:error, :not_enough_players}
+    else
+      do_start_game(game_session, players)
+    end
+  end
+
+  defp do_start_game(game_session, players) do
+    game_session = game_session |> Repo.preload(deck: [deck_cards: :card])
+    deck_cards = game_session.deck.deck_cards
+
+    multi =
+      Ecto.Multi.new()
+      |> Ecto.Multi.update(:game_session, GameSession.changeset(game_session, %{status: "live"}))
+
+    with {:ok, dealt_card_changesets, remaining_cards} <- deal_cards(players, deck_cards),
+         {:ok, start_card_changeset, _final_cards} <- select_start_card(remaining_cards) do
+      all_card_changesets = dealt_card_changesets ++ [start_card_changeset]
+
+      multi_with_cards =
+        Enum.reduce(all_card_changesets, multi, fn changeset, acc_multi ->
+          Ecto.Multi.update(acc_multi, "card_#{changeset.data.id}", changeset)
+        end)
+
+      case Repo.transaction(multi_with_cards) do
+        {:ok, %{game_session: updated_game_session}} ->
+          KadiWeb.Endpoint.broadcast(
+            "game:" <> to_string(updated_game_session.id),
+            "game_updated",
+            %{game_session: updated_game_session}
+          )
+
+          {:ok, updated_game_session}
+
+        {:error, _failed_op, failed_value, _changes_so_far} ->
+          {:error, failed_value}
+      end
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp deal_cards(players, deck_cards) do
+    cards_in_deck = Enum.filter(deck_cards, &(&1.location_type == "deck"))
+    cards_to_deal_count = Enum.count(players) * 4
+
+    if Enum.count(cards_in_deck) < cards_to_deal_count do
+      {:error, :not_enough_cards_in_deck}
+    else
+      {cards_to_deal, remaining_cards} = Enum.split(cards_in_deck, cards_to_deal_count)
+
+      changesets =
+        Enum.with_index(players)
+        |> Enum.flat_map(fn {player, i} ->
+          start_index = i * 4
+          end_index = start_index + 3
+          player_cards = Enum.slice(cards_to_deal, start_index..end_index)
+
+          Enum.map(player_cards, fn card ->
+            DeckCard.changeset(card, %{
+              location_type: "player_hand",
+              player_id: player.id,
+              order_index: nil
+            })
+          end)
+        end)
+
+      {:ok, changesets, remaining_cards}
+    end
+  end
+
+  defp select_start_card(deck_cards) do
+    special_ranks = ["2", "3", "jack", "queen", "king", "ace"]
+    shuffled_cards = Enum.shuffle(deck_cards)
+
+    start_card =
+      Enum.find(shuffled_cards, fn deck_card ->
+        deck_card.card.rank not in special_ranks
+      end)
+
+    if start_card do
+      changeset = DeckCard.changeset(start_card, %{location_type: "played_stack", order_index: 1})
+      remaining_cards = List.delete(deck_cards, start_card)
+      {:ok, changeset, remaining_cards}
+    else
+      {:error, :no_valid_start_card_found}
     end
   end
 
@@ -166,31 +236,5 @@ defmodule Kadi.CardGames do
         select: gsp.player_id
 
     Repo.all(from p in Player, where: p.id in subquery(query))
-  end
-
-  defp deal_cards_to_players(game_session, players) do
-    deck = Repo.get_by!(Deck, game_session_id: game_session.id)
-    player_count = Enum.count(players)
-    limit = player_count * 4
-
-    cards_to_deal = 
-      Repo.all(
-        from dc in DeckCard, 
-        where: dc.deck_id == ^deck.id and dc.location_type == "deck",
-        order_by: [asc: :order_index],
-        limit: ^limit
-      )
-
-    Enum.with_index(players) |> Enum.each(fn {player, i} ->
-      start_index = i * 4
-      end_index = start_index + 3
-      player_cards = Enum.slice(cards_to_deal, start_index..end_index)
-
-      Enum.each(player_cards, fn card ->
-        card
-        |> DeckCard.changeset(%{location_type: "player_hand", player_id: player.id, order_index: nil})
-        |> Repo.update()
-      end)
-    end)
   end
 end
