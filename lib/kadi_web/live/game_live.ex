@@ -55,7 +55,12 @@ defmodule KadiWeb.GameLive do
   end
 
   @impl true
-  def handle_info({:game_updated, %{game_session: updated_game_session}}, socket) do
+  def handle_info(%Phoenix.Socket.Broadcast{event: "game_updated", payload: %{game_session: nil}}, socket) do
+    # Handle invalid game_session gracefully - keep existing state
+    {:noreply, socket}
+  end
+
+  def handle_info(%Phoenix.Socket.Broadcast{event: "game_updated", payload: %{game_session: updated_game_session}}, socket) do
     socket = assign_game_state(socket, updated_game_session)
     {:noreply, socket}
   end
