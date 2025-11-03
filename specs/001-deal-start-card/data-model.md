@@ -26,6 +26,8 @@ This field is central to the feature's implementation. It tracks where a card is
     -   `"player_hand"`: The card is in a player's hand (will also require a `player_id` foreign key on the `deck_cards` table).
     -   `"played_stack"`: The card is in the pile of played cards.
 
+-   **`current_turn_player_id`**: `integer` (Foreign Key to `players` table). Identifies the player whose turn it currently is.
+
 -   **`order_index`**: For cards in the `played_stack`, this integer field will be used to maintain the order of play. The highest `order_index` represents the top card of the pile.
 
 ## 3. Implementation Strategy

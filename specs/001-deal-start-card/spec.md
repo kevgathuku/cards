@@ -36,6 +36,7 @@ As a player, when the game starts, I want to see my assigned cards, the first ca
 - **FR-005**: The user interface MUST render a view of the played cards pile, initialized with the valid starting card.
 - **FR-006**: The user interface MUST render a visual representation of the drawing deck.
 - **FR-007**: The system MUST maintain the order of cards in the played stack, with the most recently played card being identifiable.
+- **FR-008**: The system MUST assign the turn to a player when the game starts.
 
 ### Key Entities *(include if feature involves data)*
 
