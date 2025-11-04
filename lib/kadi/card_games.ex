@@ -253,6 +253,7 @@ defmodule Kadi.CardGames do
     query =
       from gsp in GameSessionPlayer,
         where: gsp.game_session_id == ^game_session_id,
+        order_by: [asc: gsp.inserted_at],
         select: gsp.player_id
 
     Repo.all(from p in Player, where: p.id in subquery(query))
