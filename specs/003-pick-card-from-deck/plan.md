@@ -197,43 +197,27 @@ def draw_card_from_deck(game_session, player_id)
 - Design decisions documented in spec.md and clarifications.md
 - Function contract defined above (to be added to card_games.ex)
 
-### Phase 2: Task Breakdown
+### Phase 2: Task Breakdown ✅ COMPLETE
 
-**Status**: ⏳ Ready - Run `/speckit.tasks` to generate [tasks.md](./tasks.md)
+**Status**: ✅ Complete - [tasks.md](./tasks.md) generated
 
-**Expected Tasks** (refined based on clarifications):
-1. ✅ ~~Research existing turn order mechanism~~ (Complete via clarify)
-2. **FIX**: Add ordering to `get_game_session_players/1` (critical bug)
-3. **IMPLEMENT**: `get_next_player/2` helper function (pure, testable)
-4. **IMPLEMENT**: `draw_card_from_deck/2` in CardGames context
-   - Validate player's turn
-   - Validate deck not empty
-   - Select card with lowest order_index
-   - Update card location in transaction
-   - Calculate next player
-   - Update current_turn_player_id
-   - Broadcast game_updated
-5. **IMPLEMENT**: `handle_event("draw_card", ...)` in GameLive
-   - No direct socket update (wait for broadcast)
-   - Handle error responses
-6. **UPDATE**: game_live.html.heex
-   - Add "Draw Card" button with `phx-disable-with`
-   - Conditional visibility: `@current_turn_player.id == @current_player.id and @deck_size > 0`
-7. **TEST**: Unit tests for `draw_card_from_deck/2`
-   - Happy path (2, 3, 4 players)
-   - Turn wrapping (last player → first player)
-   - Error: not your turn
-   - Error: deck empty
-8. **TEST**: Unit tests for `get_next_player/2`
-   - 2 players (wrap around)
-   - 4 players (sequential and wrap)
-9. **TEST**: Integration tests in GameLiveTest
-   - Draw card flow with broadcast
-   - Button visibility (deck empty, wrong turn)
-   - Multiple players see updated state
-10. **TEST**: Performance test (ensure <500ms)
-11. **VERIFY**: Run full test suite
-12. **DOCUMENT**: Update CLAUDE.md if needed
+**Task Summary**:
+- **Total Tasks**: 12 discrete, actionable tasks
+- **Estimated Time**: 6-8 hours
+- **Phases**: 5 (Foundation → Implementation → UI → Testing → Verification)
+- **Critical Path**: Tasks 1.1 → 1.2 → 2.1 (must be sequential)
+- **Parallel Work**: After Task 2.1, UI and testing tasks can run in parallel
+
+**Key Deliverables**:
+- ✅ Complete code implementations for all functions
+- ✅ 12+ test cases with full test code
+- ✅ Clear acceptance criteria for each task
+- ✅ Dependency graph showing task relationships
+- ✅ Performance benchmarks (<500ms requirement)
+
+**First Task**: Task 1.1 - Fix `get_game_session_players/1` ordering bug (15 min, critical)
+
+See [tasks.md](./tasks.md) for full breakdown.
 
 ## Risk Assessment
 
