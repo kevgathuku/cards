@@ -143,7 +143,6 @@ defmodule KadiWeb.GameLiveTest do
       Process.sleep(50)
 
       # The LiveView should have processed the message and updated its state
-      # Verify it's still alive and rendering
       html_after = render(view)
       assert html_after =~ player1.email
     end
@@ -240,6 +239,30 @@ defmodule KadiWeb.GameLiveTest do
       # Verify both views are still responsive
       assert render(view1) != nil
       assert render(view2) != nil
+    end
+
+    test "displays other players' hands correctly", %{
+      player1: player1,
+      game_session: game_session
+    } do
+      conn1 = log_in_player(build_conn(), player1)
+
+      # Mount the LiveView for player1
+      {:ok, view, _html} = live(conn1, ~p"/games/#{game_session.id}")
+
+      # Start the game
+      render_click(view, "start_game")
+
+      # Give the LiveView a moment to process the message
+      Process.sleep(100)
+
+      # The LiveView should have processed the message and updated its state
+      html_after = render(view)
+
+      # Assert that the other players' hands are displayed
+      assert html_after =~ "player2@example.com"
+      assert html_after =~ "4 cards"
+      assert html_after =~ "player3@example.com"
     end
   end
 

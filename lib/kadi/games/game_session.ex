@@ -10,6 +10,8 @@ defmodule Kadi.Games.GameSession do
     belongs_to :created_by, Kadi.Accounts.Player
     belongs_to :current_turn_player, Kadi.Accounts.Player
     has_one :deck, Kadi.Games.Deck
+    has_many :game_session_players, Kadi.Games.GameSessionPlayer
+    many_to_many :players, Kadi.Accounts.Player, join_through: "game_session_players"
 
     timestamps(type: :utc_datetime)
   end
