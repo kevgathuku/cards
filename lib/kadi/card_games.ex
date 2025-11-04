@@ -175,13 +175,19 @@ defmodule Kadi.CardGames do
 
       case Repo.transaction(multi_with_cards) do
         {:ok, %{game_session: updated_game_session}} ->
+          # Reload to get fresh deck_cards with updated locations
+          reloaded_game_session =
+            GameSession
+            |> Repo.get!(updated_game_session.id)
+            |> Repo.preload(:created_by)
+
           KadiWeb.Endpoint.broadcast(
-            "game:" <> to_string(updated_game_session.id),
+            "game:" <> to_string(reloaded_game_session.id),
             "game_updated",
-            %{game_session: updated_game_session}
+            %{game_session: reloaded_game_session}
           )
 
-          {:ok, updated_game_session}
+          {:ok, reloaded_game_session}
 
         {:error, _failed_op, failed_value, _changes_so_far} ->
           {:error, failed_value}

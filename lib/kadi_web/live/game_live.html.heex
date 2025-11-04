@@ -57,4 +57,16 @@
       <% end %>
     </div>
   </div>
+
+  <div id="other-players" class="mt-8 p-4 border rounded-lg">
+    <h2 class="text-xl font-bold mb-4">Other Players</h2>
+    <div class="flex space-x-4">
+      <%= for player <- @other_players_hands do %>
+        <div class="p-4 border rounded-md shadow-sm bg-gray-200">
+          <p class="font-semibold"><%= player.email %></p>
+          <p><%= player.hand_size %> cards</p>
+        </div>
+      <% end %>
+    </div>
+  </div>
 <% end %>

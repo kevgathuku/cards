@@ -11,7 +11,8 @@ defmodule KadiWeb.GameLive do
        player_hand: [],
        played_pile: [],
        deck_size: 0,
-       current_turn_player: nil
+       current_turn_player: nil,
+       other_players_hands: []
      )}
   end
 
@@ -70,7 +71,11 @@ defmodule KadiWeb.GameLive do
 
     game_session =
       game_session
-      |> Kadi.Repo.preload([:current_turn_player, deck: [deck_cards: :card]])
+      |> Kadi.Repo.preload([
+        :current_turn_player,
+        game_session_players: :player,
+        deck: [deck_cards: :card]
+      ])
 
     all_deck_cards = game_session.deck.deck_cards
 
@@ -79,6 +84,25 @@ defmodule KadiWeb.GameLive do
         all_deck_cards,
         &(&1.location_type == "player_hand" and &1.player_id == current_player_id)
       )
+
+    other_players =
+      game_session.game_session_players
+      |> Enum.map(& &1.player)
+      |> Enum.filter(&(&1.id != current_player_id))
+
+    other_players_hands =
+      Enum.map(other_players, fn player ->
+        hand_size =
+          Enum.count(
+            all_deck_cards,
+            &(&1.location_type == "player_hand" and &1.player_id == player.id)
+          )
+
+        %{
+          email: player.email,
+          hand_size: hand_size
+        }
+      end)
 
     played_pile =
       all_deck_cards
@@ -92,7 +116,8 @@ defmodule KadiWeb.GameLive do
       player_hand: player_hand,
       played_pile: played_pile,
       deck_size: deck_size,
-      current_turn_player: game_session.current_turn_player
+      current_turn_player: game_session.current_turn_player,
+      other_players_hands: other_players_hands
     )
   end
 end
