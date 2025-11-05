@@ -209,10 +209,10 @@ defmodule Kadi.CardGames do
 
       iex> draw_card_from_deck(game_session, player.id)
       {:ok, %GameSession{}}
-      
+
       iex> draw_card_from_deck(game_session, wrong_player.id)
       {:error, :not_your_turn}
-      
+
       iex> draw_card_from_deck(empty_deck_game, player.id)
       {:error, :deck_empty}
   """
@@ -246,7 +246,7 @@ defmodule Kadi.CardGames do
                 |> Enum.filter(&(&1.location_type == "deck"))
                 |> Enum.sort_by(& &1.order_index)
 
-              if length(recycled_deck_cards) > 0 do
+              unless Enum.empty?(recycled_deck_cards) do
                 # Retry draw (will broadcast after success)
                 draw_card_from_deck(recycled_game_session, player_id)
               else
@@ -320,7 +320,7 @@ defmodule Kadi.CardGames do
 
       iex> recycle_played_stack(game_session)
       {:ok, %GameSession{}}
-      
+
       iex> recycle_played_stack(one_card_game)
       {:error, :insufficient_cards_to_recycle}
   """
@@ -368,7 +368,7 @@ defmodule Kadi.CardGames do
       changesets
       |> Enum.with_index()
       |> Enum.reduce(Ecto.Multi.new(), fn {changeset, idx}, multi ->
-        Ecto.Multi.update(multi, "card_#{idx}", changeset)
+        Ecto.Multi.update(multi, String.to_atom("recycle_card_#{idx}"), changeset)
       end)
 
     case Repo.transaction(multi) do
@@ -454,7 +454,7 @@ defmodule Kadi.CardGames do
   #     iex> players = [player1, player2, player3]
   #     iex> get_next_player(players, player2.id)
   #     player3
-  #     
+  #
   #     iex> get_next_player(players, player3.id)
   #     player1  # wraps around
   defp get_next_player(players, current_player_id) do
