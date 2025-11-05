@@ -4,7 +4,7 @@
 
 ## Summary
 
-Enable players to draw a card from the deck during their turn. The card with the lowest `order_index` in the deck is moved to the player's hand, and the turn automatically advances to the next player. Players can draw once OR play once per turn (not both). The "Draw Card" button is hidden when the deck is empty.
+Enable players to draw a card from the deck during their turn. The card with the lowest `order_index` in the deck is moved to the player's hand (with `order_index` reset to `nil`), and the turn automatically advances to the next player. Players can draw once OR play once per turn (not both). The "Draw Card" button is hidden when the deck is empty.
 
 **Technical Approach**: Add `draw_card_from_deck/2` function in `Kadi.CardGames` context, create LiveView event handler, validate player turn, update card location and turn order in atomic transaction, broadcast updates to all players. Button disabled during operation, UI updates only via broadcast.
 

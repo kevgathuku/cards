@@ -116,7 +116,7 @@ As a player, when the deck is empty, I want the "Draw Card" button to be hidden 
 2. Validate player's turn: `game_session.current_turn_player_id == player_id`
 3. Validate deck not empty: `deck_cards WHERE location_type = 'deck'` count > 0
 4. Find next card in deck: `SELECT * FROM deck_cards WHERE location_type = 'deck' ORDER BY order_index LIMIT 1`
-5. Update card location: `UPDATE deck_cards SET location_type = 'player_hand', player_id = ? WHERE id = ?`
+5. Update card location: `UPDATE deck_cards SET location_type = 'player_hand', player_id = ?, order_index = NULL WHERE id = ?`
 6. Calculate next player in turn order (by `game_session_players.inserted_at`, wrap around)
 7. Update game session: `UPDATE game_sessions SET current_turn_player_id = ? WHERE id = ?`
 8. Broadcast `game_updated` event to all players
