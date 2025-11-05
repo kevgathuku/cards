@@ -143,7 +143,7 @@ defmodule Kadi.CardGamesTest do
         )
 
       # 52 (total cards) - 8 (4 cards × 2 players) - 1 (start card) = 43
-      assert Enum.count(deck_cards) == 52 - (2 * 4) - 1
+      assert Enum.count(deck_cards) == 52 - 2 * 4 - 1
     end
 
     test "returns an error if there are not enough players", %{player: player} do

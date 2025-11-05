@@ -73,9 +73,10 @@ defmodule KadiWeb.GameLiveTest do
 
       # Verify the test process received the broadcast (via Endpoint.broadcast, wrapped in Phoenix.Socket.Broadcast)
       assert_receive %Phoenix.Socket.Broadcast{
-        event: "game_updated",
-        payload: %{game_session: updated_game_session}
-      }, 1000
+                       event: "game_updated",
+                       payload: %{game_session: updated_game_session}
+                     },
+                     1000
 
       # Verify the payload structure
       assert updated_game_session.id == game_session.id
@@ -132,7 +133,9 @@ defmodule KadiWeb.GameLiveTest do
       {:ok, view, _html} = live(conn, ~p"/games/#{game_session.id}")
 
       # Manually send game_updated message to the LiveView process (as Phoenix.Socket.Broadcast)
-      updated_game_session = Kadi.Repo.preload(game_session, [:current_turn_player, deck: [deck_cards: :card]])
+      updated_game_session =
+        Kadi.Repo.preload(game_session, [:current_turn_player, deck: [deck_cards: :card]])
+
       send(view.pid, %Phoenix.Socket.Broadcast{
         topic: "game:#{game_session.id}",
         event: "game_updated",
@@ -200,7 +203,8 @@ defmodule KadiWeb.GameLiveTest do
 
       # At this point, no subscription should exist yet
       # (Phoenix.LiveView handles the WebSocket upgrade after initial HTTP response)
-      assert conn.status == 200 or conn.status == 302  # May redirect if not authenticated properly
+      # May redirect if not authenticated properly
+      assert conn.status == 200 or conn.status == 302
     end
 
     test "cards are dealt to the players", %{
@@ -222,7 +226,7 @@ defmodule KadiWeb.GameLiveTest do
 
       # Get the updated game state
       updated_game_session = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
-      updated_game_session = Kadi.Repo.preload(updated_game_session, [deck: [deck_cards: :card]])
+      updated_game_session = Kadi.Repo.preload(updated_game_session, deck: [deck_cards: :card])
 
       # Verify cards were dealt
       player1_cards =
