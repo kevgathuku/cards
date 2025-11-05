@@ -209,10 +209,10 @@ defmodule Kadi.CardGames do
 
       iex> draw_card_from_deck(game_session, player.id)
       {:ok, %GameSession{}}
-      
+
       iex> draw_card_from_deck(game_session, wrong_player.id)
       {:error, :not_your_turn}
-      
+
       iex> draw_card_from_deck(empty_deck_game, player.id)
       {:error, :deck_empty}
   """
@@ -234,7 +234,29 @@ defmodule Kadi.CardGames do
 
       case deck_cards do
         [] ->
-          {:error, :deck_empty}
+          # Try recycling before returning error
+          case recycle_played_stack(game_session) do
+            {:ok, recycled_game_session} ->
+              # Guard: verify deck has cards after recycle
+              recycled_game_session =
+                Repo.preload(recycled_game_session, [deck: [deck_cards: :card]], force: true)
+
+              recycled_deck_cards =
+                recycled_game_session.deck.deck_cards
+                |> Enum.filter(&(&1.location_type == "deck"))
+                |> Enum.sort_by(& &1.order_index)
+
+              if Enum.empty?(recycled_deck_cards) do
+                {:error, :deck_empty_after_recycle}
+              else
+                # Retry draw (will broadcast after success)
+                draw_card_from_deck(recycled_game_session, player_id)
+              end
+
+            {:error, reason} ->
+              # Cannot recycle - return error
+              {:error, reason}
+          end
 
         [card_to_draw | _] ->
           # 4. Get all players in order and calculate next player
@@ -281,6 +303,82 @@ defmodule Kadi.CardGames do
               {:error, failed_value}
           end
       end
+    end
+  end
+
+  @doc """
+  Recycles cards from the played stack back into the deck.
+
+  Takes all cards from played_stack except the topmost card, shuffles them,
+  assigns new order_index values (1..N), and moves them to deck location.
+
+  Minimum 2 cards required in played stack (1 to recycle + 1 topmost to keep).
+
+  Returns `{:ok, updated_game_session}` or `{:error, reason}`.
+
+  ## Examples
+
+      iex> recycle_played_stack(game_session)
+      {:ok, %GameSession{}}
+
+      iex> recycle_played_stack(one_card_game)
+      {:error, :insufficient_cards_to_recycle}
+  """
+  def recycle_played_stack(game_session) do
+    # 1. Preload associations
+    game_session = Repo.preload(game_session, deck: [deck_cards: :card])
+
+    # 2. Get played cards
+    played_cards =
+      game_session.deck.deck_cards
+      |> Enum.filter(&(&1.location_type == "played_stack"))
+
+    # 3. Validate minimum cards
+    case length(played_cards) do
+      0 -> {:error, :no_cards_in_played_stack}
+      1 -> {:error, :insufficient_cards_to_recycle}
+      _ -> do_recycle(game_session, played_cards)
+    end
+  end
+
+  defp do_recycle(game_session, played_cards) do
+    # 1. Identify topmost card (keep visible)
+    topmost_card = Enum.max_by(played_cards, & &1.order_index)
+
+    # 2. Get recyclable cards (all except topmost)
+    recyclable_cards = Enum.reject(played_cards, &(&1.id == topmost_card.id))
+
+    # 3. Shuffle and assign indices
+    num_cards = length(recyclable_cards)
+    shuffled_indices = Enum.shuffle(1..num_cards)
+
+    # 4. Create changesets
+    changesets =
+      Enum.zip(recyclable_cards, shuffled_indices)
+      |> Enum.map(fn {card, index} ->
+        DeckCard.changeset(card, %{
+          location_type: "deck",
+          order_index: index,
+          player_id: nil
+        })
+      end)
+
+    # 5. Build and execute transaction
+    multi =
+      changesets
+      |> Enum.with_index()
+      |> Enum.reduce(Ecto.Multi.new(), fn {changeset, idx}, multi ->
+        Ecto.Multi.update(multi, String.to_atom("recycle_card_#{idx}"), changeset)
+      end)
+
+    case Repo.transaction(multi) do
+      {:ok, _results} ->
+        # 6. Reload and return (NO BROADCAST - parent will handle)
+        reloaded = Repo.get!(GameSession, game_session.id)
+        {:ok, reloaded}
+
+      {:error, _op, failed_value, _changes} ->
+        {:error, failed_value}
     end
   end
 
@@ -356,7 +454,7 @@ defmodule Kadi.CardGames do
   #     iex> players = [player1, player2, player3]
   #     iex> get_next_player(players, player2.id)
   #     player3
-  #     
+  #
   #     iex> get_next_player(players, player3.id)
   #     player1  # wraps around
   defp get_next_player(players, current_player_id) do
