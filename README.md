@@ -9,6 +9,7 @@ A multiplayer online card game platform built with Elixir and Phoenix LiveView, 
 - [Install Elixir](https://elixir-lang.org/install.html) (version 1.14+)
 - Clone the repo: `git clone https://github.com/yourusername/kadi.git`
 - Run `mix setup` to install and setup dependencies
+- Run `.githooks/install.sh` to install git hooks (optional but recommended)
 - Run `mix test` for a basic sanity check
 
 ### Running the Application
@@ -213,6 +214,20 @@ mix test --warnings-as-errors
 # Run specific test at line number
 mix test test/kadi/card_games_test.exs:42
 ```
+
+### Git Hooks
+
+The project includes a pre-commit hook that automatically runs `mix format` on staged Elixir and Phoenix files.
+
+**Installation**:
+```bash
+.githooks/install.sh
+```
+
+This ensures code is properly formatted before commits. The hook will:
+- Run `mix format` on staged `.ex`, `.exs`, and `.heex` files
+- Prevent commit if formatting changes are needed
+- Show which files need to be re-staged after formatting
 
 ---
 
