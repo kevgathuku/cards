@@ -167,7 +167,8 @@ def draw_card_from_deck(game_session, player_id) do
             :deck_card,
             DeckCard.changeset(card_to_draw, %{
               location_type: "player_hand",
-              player_id: player_id
+              player_id: player_id,
+              order_index: nil
             })
           )
           |> Ecto.Multi.update(
@@ -209,6 +210,7 @@ end
 - ✅ Validates deck not empty (returns `{:error, :deck_empty}`)
 - ✅ Selects card with lowest `order_index`
 - ✅ Updates card location to `"player_hand"` with `player_id`
+- ✅ Resets card `order_index` to `nil` when moving to player hand
 - ✅ Calculates next player using `get_next_player/2`
 - ✅ Updates `current_turn_player_id` to next player
 - ✅ Uses `Ecto.Multi` for atomic transaction

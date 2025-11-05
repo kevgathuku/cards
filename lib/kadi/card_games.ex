@@ -248,7 +248,8 @@ defmodule Kadi.CardGames do
               :deck_card,
               DeckCard.changeset(card_to_draw, %{
                 location_type: "player_hand",
-                player_id: player_id
+                player_id: player_id,
+                order_index: nil
               })
             )
             |> Ecto.Multi.update(
