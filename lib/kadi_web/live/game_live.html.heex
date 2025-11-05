@@ -17,6 +17,13 @@
       </p>
       <%= if @current_turn_player.id == @current_player.id do %>
         <p class="text-sm text-blue-600 mt-1">It's your turn!</p>
+
+        <%!-- Draw Card Button - Only visible when it's player's turn AND deck has cards --%>
+        <%= if @deck_size > 0 do %>
+          <.button phx-click="draw_card" phx-disable-with="Drawing..." class="mt-2">
+            Draw Card
+          </.button>
+        <% end %>
       <% end %>
     </div>
   <% end %>
