@@ -234,7 +234,29 @@ defmodule Kadi.CardGames do
 
       case deck_cards do
         [] ->
-          {:error, :deck_empty}
+          # Try recycling before returning error
+          case recycle_played_stack(game_session) do
+            {:ok, recycled_game_session} ->
+              # Guard: verify deck has cards after recycle
+              recycled_game_session =
+                Repo.preload(recycled_game_session, [deck: [deck_cards: :card]], force: true)
+
+              recycled_deck_cards =
+                recycled_game_session.deck.deck_cards
+                |> Enum.filter(&(&1.location_type == "deck"))
+                |> Enum.sort_by(& &1.order_index)
+
+              if length(recycled_deck_cards) > 0 do
+                # Retry draw (will broadcast after success)
+                draw_card_from_deck(recycled_game_session, player_id)
+              else
+                {:error, :deck_empty_after_recycle}
+              end
+
+            {:error, reason} ->
+              # Cannot recycle - return error
+              {:error, reason}
+          end
 
         [card_to_draw | _] ->
           # 4. Get all players in order and calculate next player
