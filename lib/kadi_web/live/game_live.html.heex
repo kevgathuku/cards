@@ -17,6 +17,13 @@
       </p>
       <%= if @current_turn_player.id == @current_player.id do %>
         <p class="text-sm text-blue-600 mt-1">It's your turn!</p>
+
+        <%!-- Draw Card Button - Only visible when it's player's turn AND deck has cards --%>
+        <%= if @deck_size > 0 do %>
+          <.button phx-click="draw_card" phx-disable-with="Drawing..." class="mt-2">
+            Draw Card
+          </.button>
+        <% end %>
       <% end %>
     </div>
   <% end %>
@@ -53,6 +60,18 @@
       <%= for dc <- @player_hand do %>
         <div class="p-4 border rounded-md shadow-sm bg-white">
           {dc.card.rank} of {dc.card.suit}
+        </div>
+      <% end %>
+    </div>
+  </div>
+
+  <div id="other-players" class="mt-8 p-4 border rounded-lg">
+    <h2 class="text-xl font-bold mb-4">Other Players</h2>
+    <div class="flex space-x-4">
+      <%= for player <- @other_players_hands do %>
+        <div class="p-4 border rounded-md shadow-sm bg-gray-200">
+          <p class="font-semibold">{player.email}</p>
+          <p>{player.hand_size} cards</p>
         </div>
       <% end %>
     </div>

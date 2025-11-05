@@ -73,9 +73,10 @@ defmodule KadiWeb.GameLiveTest do
 
       # Verify the test process received the broadcast (via Endpoint.broadcast, wrapped in Phoenix.Socket.Broadcast)
       assert_receive %Phoenix.Socket.Broadcast{
-        event: "game_updated",
-        payload: %{game_session: updated_game_session}
-      }, 1000
+                       event: "game_updated",
+                       payload: %{game_session: updated_game_session}
+                     },
+                     1000
 
       # Verify the payload structure
       assert updated_game_session.id == game_session.id
@@ -132,7 +133,9 @@ defmodule KadiWeb.GameLiveTest do
       {:ok, view, _html} = live(conn, ~p"/games/#{game_session.id}")
 
       # Manually send game_updated message to the LiveView process (as Phoenix.Socket.Broadcast)
-      updated_game_session = Kadi.Repo.preload(game_session, [:current_turn_player, deck: [deck_cards: :card]])
+      updated_game_session =
+        Kadi.Repo.preload(game_session, [:current_turn_player, deck: [deck_cards: :card]])
+
       send(view.pid, %Phoenix.Socket.Broadcast{
         topic: "game:#{game_session.id}",
         event: "game_updated",
@@ -143,7 +146,6 @@ defmodule KadiWeb.GameLiveTest do
       Process.sleep(50)
 
       # The LiveView should have processed the message and updated its state
-      # Verify it's still alive and rendering
       html_after = render(view)
       assert html_after =~ player1.email
     end
@@ -201,7 +203,8 @@ defmodule KadiWeb.GameLiveTest do
 
       # At this point, no subscription should exist yet
       # (Phoenix.LiveView handles the WebSocket upgrade after initial HTTP response)
-      assert conn.status == 200 or conn.status == 302  # May redirect if not authenticated properly
+      # May redirect if not authenticated properly
+      assert conn.status == 200 or conn.status == 302
     end
 
     test "cards are dealt to the players", %{
@@ -223,7 +226,7 @@ defmodule KadiWeb.GameLiveTest do
 
       # Get the updated game state
       updated_game_session = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
-      updated_game_session = Kadi.Repo.preload(updated_game_session, [deck: [deck_cards: :card]])
+      updated_game_session = Kadi.Repo.preload(updated_game_session, deck: [deck_cards: :card])
 
       # Verify cards were dealt
       player1_cards =
@@ -240,6 +243,30 @@ defmodule KadiWeb.GameLiveTest do
       # Verify both views are still responsive
       assert render(view1) != nil
       assert render(view2) != nil
+    end
+
+    test "displays other players' hands correctly", %{
+      player1: player1,
+      game_session: game_session
+    } do
+      conn1 = log_in_player(build_conn(), player1)
+
+      # Mount the LiveView for player1
+      {:ok, view, _html} = live(conn1, ~p"/games/#{game_session.id}")
+
+      # Start the game
+      render_click(view, "start_game")
+
+      # Give the LiveView a moment to process the message
+      Process.sleep(100)
+
+      # The LiveView should have processed the message and updated its state
+      html_after = render(view)
+
+      # Assert that the other players' hands are displayed
+      assert html_after =~ "player2@example.com"
+      assert html_after =~ "4 cards"
+      assert html_after =~ "player3@example.com"
     end
   end
 
@@ -277,6 +304,140 @@ defmodule KadiWeb.GameLiveTest do
       # Should redirect to lobby with error message
       assert redirect_path == "/lobby"
       assert flash["error"] == "Game not found"
+    end
+  end
+
+  describe "draw card action" do
+    setup do
+      player1 = player_fixture()
+      player2 = player_fixture(%{email: "player2@example.com"})
+
+      {:ok, game_session} =
+        CardGames.create_game_session(player1, %{short_code: "draw-live-test"})
+
+      {:ok, _} = CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      %{player1: player1, player2: player2, game_session: game_session}
+    end
+
+    test "player can draw card on their turn", %{
+      player1: player1,
+      game_session: game_session
+    } do
+      # Ensure it's player1's turn
+      game_session =
+        if game_session.current_turn_player_id != player1.id do
+          Kadi.Games.GameSession.changeset(game_session, %{current_turn_player_id: player1.id})
+          |> Kadi.Repo.update!()
+        else
+          game_session
+        end
+
+      conn = log_in_player(build_conn(), player1)
+      {:ok, view, _html} = live(conn, ~p"/games/#{game_session.id}")
+
+      # Get initial hand size
+      initial_html = render(view)
+      # Should show "Draw Card" button
+      assert initial_html =~ "Draw Card"
+
+      # Click draw card
+      render_click(view, "draw_card")
+      Process.sleep(100)
+
+      # Verify button is still there (turn advances so button disappears for this player)
+      updated_html = render(view)
+
+      # Should not show button anymore since turn advanced
+      refute updated_html =~ "Draw Card"
+    end
+
+    test "draw card button hidden when not player's turn", %{
+      player1: player1,
+      player2: player2,
+      game_session: game_session
+    } do
+      # Ensure it's player2's turn
+      game_session =
+        Kadi.Games.GameSession.changeset(game_session, %{current_turn_player_id: player2.id})
+        |> Kadi.Repo.update!()
+
+      conn = log_in_player(build_conn(), player1)
+      {:ok, _view, html} = live(conn, ~p"/games/#{game_session.id}")
+
+      # Should NOT show "Draw Card" button
+      refute html =~ "Draw Card"
+    end
+
+    test "draw card button hidden when deck is empty", %{
+      player1: player1,
+      game_session: game_session
+    } do
+      # Empty the deck
+      game_session = Kadi.Repo.preload(game_session, deck: :deck_cards)
+
+      # Get the max order_index from played_stack to avoid conflicts
+      max_played_index =
+        game_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "played_stack"))
+        |> Enum.map(& &1.order_index)
+        |> Enum.max(fn -> 0 end)
+
+      game_session.deck.deck_cards
+      |> Enum.filter(&(&1.location_type == "deck"))
+      |> Enum.with_index(max_played_index + 1)
+      |> Enum.each(fn {dc, index} ->
+        Kadi.Games.DeckCard.changeset(dc, %{
+          location_type: "played_stack",
+          order_index: index
+        })
+        |> Kadi.Repo.update!()
+      end)
+
+      game_session =
+        Kadi.Games.GameSession.changeset(game_session, %{current_turn_player_id: player1.id})
+        |> Kadi.Repo.update!()
+
+      conn = log_in_player(build_conn(), player1)
+      {:ok, _view, html} = live(conn, ~p"/games/#{game_session.id}")
+
+      # Should NOT show "Draw Card" button
+      refute html =~ "Draw Card"
+    end
+
+    test "multiple players see updated state after draw", %{
+      player1: player1,
+      player2: player2,
+      game_session: game_session
+    } do
+      game_session =
+        Kadi.Games.GameSession.changeset(game_session, %{current_turn_player_id: player1.id})
+        |> Kadi.Repo.update!()
+
+      conn1 = log_in_player(build_conn(), player1)
+      conn2 = log_in_player(build_conn(), player2)
+
+      {:ok, view1, _html1} = live(conn1, ~p"/games/#{game_session.id}")
+      {:ok, view2, _html2} = live(conn2, ~p"/games/#{game_session.id}")
+
+      # Player1 draws card
+      render_click(view1, "draw_card")
+      Process.sleep(100)
+
+      # Both views should update
+      html1 = render(view1)
+      html2 = render(view2)
+
+      # Current turn should have changed to player2
+      assert html1 =~ player2.email
+      assert html2 =~ player2.email
+
+      # Player2 should now see the "Draw Card" button
+      assert html2 =~ "Draw Card"
+
+      # Player1 should NOT see the button
+      refute html1 =~ "Draw Card"
     end
   end
 end

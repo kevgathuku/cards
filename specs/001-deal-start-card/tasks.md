@@ -51,14 +51,12 @@ The feature will be implemented in a single phase focused on User Story 1, as it
 - [X] T011 [US1] In `lib/kadi_web/live/game_live.ex`, update the `mount/3` function to correctly derive `@player_hand`, `@played_pile`, and `@deck_size` from the `game_session`'s preloaded associations.
 - [X] T012 [US1] In `lib/kadi_web/live/game_live.ex`, implement the `handle_info/2` function for the `"game_updated"` event to refresh the socket assigns and update the view.
 - [X] T020 [US1] Modify `assign_game_state/2` in `lib/kadi_web/live/game_live.ex` to sort `@played_pile` by `order_index`.
-- [X] T027 [US1] In `lib/kadi_web/live/game_live.ex`, update `assign_game_state` to preload `current_turn_player` and assign `@current_turn_player`.
-
+    - [X] T027 [US1] In `lib/kadi_web/live/game_live.ex`, update `assign_game_state` to preload `current_turn_player` and assign `@current_turn_player`.
 ### Frontend: Template
 
 - [X] T013 [P] [US1] In `lib/kadi_web/live/game_live.html.heex`, add UI to render the top card of the played pile (where `location_type` is `"played_stack"`).
 - [X] T014 [P] [US1] In `lib/kadi_web/live/game_live.html.heex`, add UI to render a representation of the draw deck, displaying the value of `@deck_size`.
-- [X] T028 [P] [US1] In `lib/kadi_web/live/game_live.html.heex`, add UI to display whose turn it is.
-
+    - [X] T028 [P] [US1] In `lib/kadi_web/live/game_live.html.heex`, add UI to display whose turn it is.
 ---
 
 ## Phase 3: Polish & Verification

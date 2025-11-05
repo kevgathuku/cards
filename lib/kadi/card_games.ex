@@ -175,19 +175,112 @@ defmodule Kadi.CardGames do
 
       case Repo.transaction(multi_with_cards) do
         {:ok, %{game_session: updated_game_session}} ->
+          # Reload to get fresh deck_cards with updated locations
+          reloaded_game_session =
+            GameSession
+            |> Repo.get!(updated_game_session.id)
+            |> Repo.preload(:created_by)
+
           KadiWeb.Endpoint.broadcast(
-            "game:" <> to_string(updated_game_session.id),
+            "game:" <> to_string(reloaded_game_session.id),
             "game_updated",
-            %{game_session: updated_game_session}
+            %{game_session: reloaded_game_session}
           )
 
-          {:ok, updated_game_session}
+          {:ok, reloaded_game_session}
 
         {:error, _failed_op, failed_value, _changes_so_far} ->
           {:error, failed_value}
       end
     else
       {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Draws a card from the deck for the specified player.
+
+  Validates that it's the player's turn, moves one card from deck to player's hand,
+  advances turn to next player (by join order), and broadcasts update.
+
+  Returns `{:ok, updated_game_session}` or `{:error, reason}`.
+
+  ## Examples
+
+      iex> draw_card_from_deck(game_session, player.id)
+      {:ok, %GameSession{}}
+      
+      iex> draw_card_from_deck(game_session, wrong_player.id)
+      {:error, :not_your_turn}
+      
+      iex> draw_card_from_deck(empty_deck_game, player.id)
+      {:error, :deck_empty}
+  """
+  def draw_card_from_deck(game_session, player_id) do
+    # 1. Preload necessary associations
+    game_session =
+      game_session
+      |> Repo.preload([:created_by, deck: [deck_cards: :card]])
+
+    # 2. Validate player's turn
+    if game_session.current_turn_player_id != player_id do
+      {:error, :not_your_turn}
+    else
+      # 3. Get deck cards and validate not empty
+      deck_cards =
+        game_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "deck"))
+        |> Enum.sort_by(& &1.order_index)
+
+      case deck_cards do
+        [] ->
+          {:error, :deck_empty}
+
+        [card_to_draw | _] ->
+          # 4. Get all players in order and calculate next player
+          players = get_game_session_players(game_session.id)
+          next_player = get_next_player(players, player_id)
+
+          # 5. Build transaction
+          multi =
+            Ecto.Multi.new()
+            |> Ecto.Multi.update(
+              :deck_card,
+              DeckCard.changeset(card_to_draw, %{
+                location_type: "player_hand",
+                player_id: player_id,
+                order_index: nil
+              })
+            )
+            |> Ecto.Multi.update(
+              :game_session,
+              GameSession.changeset(game_session, %{
+                current_turn_player_id: next_player.id
+              })
+            )
+
+          # 6. Execute transaction
+          case Repo.transaction(multi) do
+            {:ok, %{game_session: updated_game_session}} ->
+              # 7. Reload with all associations
+              reloaded_game_session =
+                GameSession
+                |> Repo.get!(updated_game_session.id)
+                |> Repo.preload(:created_by)
+
+              # 8. Broadcast update
+              KadiWeb.Endpoint.broadcast(
+                "game:" <> to_string(reloaded_game_session.id),
+                "game_updated",
+                %{game_session: reloaded_game_session}
+              )
+
+              {:ok, reloaded_game_session}
+
+            {:error, _failed_op, failed_value, _changes} ->
+              {:error, failed_value}
+          end
+      end
     end
   end
 
@@ -247,8 +340,28 @@ defmodule Kadi.CardGames do
     query =
       from gsp in GameSessionPlayer,
         where: gsp.game_session_id == ^game_session_id,
+        order_by: [asc: gsp.inserted_at],
         select: gsp.player_id
 
     Repo.all(from p in Player, where: p.id in subquery(query))
+  end
+
+  # Returns the next player in turn order after the current player.
+  #
+  # Players are ordered by join time (inserted_at), and the order wraps around
+  # (last player → first player).
+  #
+  # ## Examples
+  #
+  #     iex> players = [player1, player2, player3]
+  #     iex> get_next_player(players, player2.id)
+  #     player3
+  #     
+  #     iex> get_next_player(players, player3.id)
+  #     player1  # wraps around
+  defp get_next_player(players, current_player_id) do
+    current_index = Enum.find_index(players, &(&1.id == current_player_id))
+    next_index = rem(current_index + 1, length(players))
+    Enum.at(players, next_index)
   end
 end

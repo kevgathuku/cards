@@ -11,7 +11,8 @@ defmodule KadiWeb.GameLive do
        player_hand: [],
        played_pile: [],
        deck_size: 0,
-       current_turn_player: nil
+       current_turn_player: nil,
+       other_players_hands: []
      )}
   end
 
@@ -55,12 +56,42 @@ defmodule KadiWeb.GameLive do
   end
 
   @impl true
-  def handle_info(%Phoenix.Socket.Broadcast{event: "game_updated", payload: %{game_session: nil}}, socket) do
+  def handle_event("draw_card", _params, socket) do
+    game_session = socket.assigns.game_session
+    current_player = socket.assigns.current_player
+
+    case CardGames.draw_card_from_deck(game_session, current_player.id) do
+      {:ok, _updated_game_session} ->
+        # Don't update socket directly - wait for broadcast
+        {:noreply, socket}
+
+      {:error, :not_your_turn} ->
+        {:noreply, put_flash(socket, :error, "It's not your turn")}
+
+      {:error, :deck_empty} ->
+        {:noreply, put_flash(socket, :error, "No cards left in deck")}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Error: #{reason}")}
+    end
+  end
+
+  @impl true
+  def handle_info(
+        %Phoenix.Socket.Broadcast{event: "game_updated", payload: %{game_session: nil}},
+        socket
+      ) do
     # Handle invalid game_session gracefully - keep existing state
     {:noreply, socket}
   end
 
-  def handle_info(%Phoenix.Socket.Broadcast{event: "game_updated", payload: %{game_session: updated_game_session}}, socket) do
+  def handle_info(
+        %Phoenix.Socket.Broadcast{
+          event: "game_updated",
+          payload: %{game_session: updated_game_session}
+        },
+        socket
+      ) do
     socket = assign_game_state(socket, updated_game_session)
     {:noreply, socket}
   end
@@ -70,7 +101,11 @@ defmodule KadiWeb.GameLive do
 
     game_session =
       game_session
-      |> Kadi.Repo.preload([:current_turn_player, deck: [deck_cards: :card]])
+      |> Kadi.Repo.preload([
+        :current_turn_player,
+        game_session_players: :player,
+        deck: [deck_cards: :card]
+      ])
 
     all_deck_cards = game_session.deck.deck_cards
 
@@ -79,6 +114,25 @@ defmodule KadiWeb.GameLive do
         all_deck_cards,
         &(&1.location_type == "player_hand" and &1.player_id == current_player_id)
       )
+
+    other_players =
+      game_session.game_session_players
+      |> Enum.map(& &1.player)
+      |> Enum.filter(&(&1.id != current_player_id))
+
+    other_players_hands =
+      Enum.map(other_players, fn player ->
+        hand_size =
+          Enum.count(
+            all_deck_cards,
+            &(&1.location_type == "player_hand" and &1.player_id == player.id)
+          )
+
+        %{
+          email: player.email,
+          hand_size: hand_size
+        }
+      end)
 
     played_pile =
       all_deck_cards
@@ -92,7 +146,8 @@ defmodule KadiWeb.GameLive do
       player_hand: player_hand,
       played_pile: played_pile,
       deck_size: deck_size,
-      current_turn_player: game_session.current_turn_player
+      current_turn_player: game_session.current_turn_player,
+      other_players_hands: other_players_hands
     )
   end
 end

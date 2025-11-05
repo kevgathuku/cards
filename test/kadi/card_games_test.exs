@@ -143,7 +143,7 @@ defmodule Kadi.CardGamesTest do
         )
 
       # 52 (total cards) - 8 (4 cards × 2 players) - 1 (start card) = 43
-      assert Enum.count(deck_cards) == 52 - (2 * 4) - 1
+      assert Enum.count(deck_cards) == 52 - 2 * 4 - 1
     end
 
     test "returns an error if there are not enough players", %{player: player} do
@@ -397,6 +397,140 @@ defmodule Kadi.CardGamesTest do
 
       assert sequential_pattern_count < 4,
              "Too many games with sequential patterns: #{sequential_pattern_count}/20 (expected <4)"
+    end
+  end
+
+  describe "draw_card_from_deck/2" do
+    setup do
+      player1 = player_fixture()
+      player2 = player_fixture(%{email: "player2@example.com"})
+      player3 = player_fixture(%{email: "player3@example.com"})
+
+      {:ok, game_session} =
+        CardGames.create_game_session(player1, %{short_code: "draw-test"})
+
+      {:ok, _} = CardGames.join_game_session(player2, game_session.id)
+      {:ok, _} = CardGames.join_game_session(player3, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      %{
+        player1: player1,
+        player2: player2,
+        player3: player3,
+        game_session: game_session
+      }
+    end
+
+    test "successfully draws a card when it's player's turn", %{
+      game_session: game_session
+    } do
+      current_player_id = game_session.current_turn_player_id
+
+      {:ok, updated_session} =
+        CardGames.draw_card_from_deck(game_session, current_player_id)
+
+      # Reload to check database state
+      updated_session = Kadi.Repo.preload(updated_session, deck: [deck_cards: :card])
+
+      # Player should have one more card
+      player_cards =
+        updated_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "player_hand" && &1.player_id == current_player_id))
+
+      # Started with 4, drew 1
+      assert length(player_cards) == 5
+
+      # Turn should have advanced
+      assert updated_session.current_turn_player_id != current_player_id
+    end
+
+    test "advances turn to next player in sequence (2 players)", %{
+      player1: player1,
+      player2: player2
+    } do
+      {:ok, game_session} =
+        CardGames.create_game_session(player1, %{short_code: "two-player"})
+
+      {:ok, _} = CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      first_player_id = game_session.current_turn_player_id
+
+      {:ok, updated_session} =
+        CardGames.draw_card_from_deck(game_session, first_player_id)
+
+      second_player_id = updated_session.current_turn_player_id
+
+      # Turn should advance to other player
+      assert second_player_id != first_player_id
+      assert second_player_id in [player1.id, player2.id]
+    end
+
+    test "turn wraps around from last player to first", %{
+      game_session: game_session
+    } do
+      # Draw cards until we cycle through all players
+      session = game_session
+      seen_order = []
+
+      # Draw 3 times to complete one full cycle
+      {session, seen_order} =
+        Enum.reduce(1..3, {session, seen_order}, fn _, {sess, order} ->
+          current_id = sess.current_turn_player_id
+          {:ok, updated_sess} = CardGames.draw_card_from_deck(sess, current_id)
+          reloaded = Kadi.Repo.get!(Kadi.Games.GameSession, updated_sess.id)
+          {reloaded, order ++ [current_id]}
+        end)
+
+      # After 3 draws, should be back to first player
+      assert session.current_turn_player_id == hd(seen_order)
+    end
+
+    test "returns error when it's not player's turn", %{
+      game_session: game_session,
+      player2: player2,
+      player3: player3
+    } do
+      current_player_id = game_session.current_turn_player_id
+
+      # Find a player who is NOT the current turn player
+      wrong_player_id =
+        if current_player_id == player2.id, do: player3.id, else: player2.id
+
+      assert {:error, :not_your_turn} =
+               CardGames.draw_card_from_deck(game_session, wrong_player_id)
+    end
+
+    test "returns error when deck is empty" do
+      player = player_fixture()
+
+      {:ok, game_session} =
+        CardGames.create_game_session(player, %{short_code: "empty-deck"})
+
+      # Manually empty the deck for testing
+      game_session = Kadi.Repo.preload(game_session, deck: :deck_cards)
+
+      Enum.each(game_session.deck.deck_cards, fn dc ->
+        Kadi.Games.DeckCard.changeset(dc, %{
+          location_type: "player_hand",
+          player_id: player.id,
+          order_index: nil
+        })
+        |> Kadi.Repo.update!()
+      end)
+
+      game_session =
+        Kadi.Games.GameSession.changeset(game_session, %{
+          status: "live",
+          current_turn_player_id: player.id
+        })
+        |> Kadi.Repo.update!()
+
+      # Reload to get updated associations
+      game_session = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
+
+      assert {:error, :deck_empty} =
+               CardGames.draw_card_from_deck(game_session, player.id)
     end
   end
 end
