@@ -158,6 +158,18 @@ This document establishes the core principles and standards for the Kadi card ga
 - **No breaking changes**: Database migrations must be backward-compatible
 - **Performance impact**: Consider and document performance implications
 
+### 6.4 Database Safety During Development
+- **Never reset development database**: Do NOT run `mix ecto.reset` when working on tasks or making verifications
+- **No destructive commands**: Avoid `mix ecto.drop` or similar commands on development database
+- **Development data preservation**: The local database may contain important user/development data
+- **Use test environment for destructive operations**: Run `MIX_ENV=test mix ecto.reset` for testing database changes
+- **Verification methods**:
+  - Run existing test suite: `mix test`
+  - Add new test cases for verification
+  - Create temporary data programmatically in isolated scripts
+  - Use transactions that can be rolled back
+- **Exception**: Only reset development database with explicit approval or when absolutely necessary
+
 ---
 
 ## 7. Documentation Requirements
@@ -196,4 +208,11 @@ This document establishes the core principles and standards for the Kadi card ga
 
 This constitution is a living document. All contributors must follow these principles. Exceptions require explicit discussion and documentation. Propose amendments via pull requests with clear rationale.
 
-**Version**: 1.0.0 | **Ratified**: 2025-11-03 | **Last Amended**: 2025-11-03
+**Version**: 1.1.0 | **Ratified**: 2025-11-03 | **Last Amended**: 2025-11-05
+
+## Amendment History
+
+### Version 1.1.0 (2025-11-05)
+- Added Section 6.4: Database Safety During Development
+- Established guidelines to prevent accidental data loss during development
+- Clarified when and how to use destructive database commands

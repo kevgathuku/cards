@@ -30,6 +30,13 @@ mix test test/path/to/test.exs:42  # Run specific test at line 42
 mix ecto.reset   # Drop, recreate, migrate, and seed database
 ```
 
+**⚠️ WARNING: Avoid running destructive database commands during development**
+- **DO NOT** run `mix ecto.reset` when working on tasks or making verifications
+- **DO NOT** run `mix ecto.drop` or similar destructive commands
+- The local database may contain important development data
+- Use test database for destructive operations: `MIX_ENV=test mix ecto.reset`
+- For verifying features, use test suite or create temporary data programmatically
+
 ## Architecture
 
 ### Database-Driven Game State
@@ -60,6 +67,26 @@ The application uses a persistent database approach for managing game state:
 ## Testing
 
 Tests use Ecto Sandbox (`:manual` mode) for database isolation. Most tests are async-capable where appropriate.
+
+## Development Guidelines
+
+### Database Safety
+- **Never reset or drop the development database** when working on tasks
+- Development database may contain important user data
+- For testing destructive operations:
+  - Use the test suite: `mix test`
+  - Use test environment: `MIX_ENV=test mix ecto.reset`
+  - Create temporary data programmatically in scripts
+- Verification should be done through:
+  - Running existing tests
+  - Adding new test cases
+  - Creating temporary test data in isolated transactions
+
+### Code Changes
+- Make minimal, surgical changes to accomplish the task
+- Run tests after changes: `mix test`
+- Use git pre-commit hooks to ensure formatting
+- Follow existing patterns in the codebase
 
 ## Phoenix LiveView Integration
 
