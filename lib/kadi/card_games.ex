@@ -284,6 +284,82 @@ defmodule Kadi.CardGames do
     end
   end
 
+  @doc """
+  Recycles cards from the played stack back into the deck.
+
+  Takes all cards from played_stack except the topmost card, shuffles them,
+  assigns new order_index values (1..N), and moves them to deck location.
+
+  Minimum 2 cards required in played stack (1 to recycle + 1 topmost to keep).
+
+  Returns `{:ok, updated_game_session}` or `{:error, reason}`.
+
+  ## Examples
+
+      iex> recycle_played_stack(game_session)
+      {:ok, %GameSession{}}
+      
+      iex> recycle_played_stack(one_card_game)
+      {:error, :insufficient_cards_to_recycle}
+  """
+  def recycle_played_stack(game_session) do
+    # 1. Preload associations
+    game_session = Repo.preload(game_session, deck: [deck_cards: :card])
+
+    # 2. Get played cards
+    played_cards =
+      game_session.deck.deck_cards
+      |> Enum.filter(&(&1.location_type == "played_stack"))
+
+    # 3. Validate minimum cards
+    case length(played_cards) do
+      0 -> {:error, :no_cards_in_played_stack}
+      1 -> {:error, :insufficient_cards_to_recycle}
+      _ -> do_recycle(game_session, played_cards)
+    end
+  end
+
+  defp do_recycle(game_session, played_cards) do
+    # 1. Identify topmost card (keep visible)
+    topmost_card = Enum.max_by(played_cards, & &1.order_index)
+
+    # 2. Get recyclable cards (all except topmost)
+    recyclable_cards = Enum.reject(played_cards, &(&1.id == topmost_card.id))
+
+    # 3. Shuffle and assign indices
+    num_cards = length(recyclable_cards)
+    shuffled_indices = Enum.shuffle(1..num_cards)
+
+    # 4. Create changesets
+    changesets =
+      Enum.zip(recyclable_cards, shuffled_indices)
+      |> Enum.map(fn {card, index} ->
+        DeckCard.changeset(card, %{
+          location_type: "deck",
+          order_index: index,
+          player_id: nil
+        })
+      end)
+
+    # 5. Build and execute transaction
+    multi =
+      changesets
+      |> Enum.with_index()
+      |> Enum.reduce(Ecto.Multi.new(), fn {changeset, idx}, multi ->
+        Ecto.Multi.update(multi, "card_#{idx}", changeset)
+      end)
+
+    case Repo.transaction(multi) do
+      {:ok, _results} ->
+        # 6. Reload and return (NO BROADCAST - parent will handle)
+        reloaded = Repo.get!(GameSession, game_session.id)
+        {:ok, reloaded}
+
+      {:error, _op, failed_value, _changes} ->
+        {:error, failed_value}
+    end
+  end
+
   defp deal_cards(players, deck_cards) do
     # Sort by randomized order_index to ensure non-sequential distribution
     cards_in_deck =
