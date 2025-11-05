@@ -56,6 +56,27 @@ defmodule KadiWeb.GameLive do
   end
 
   @impl true
+  def handle_event("draw_card", _params, socket) do
+    game_session = socket.assigns.game_session
+    current_player = socket.assigns.current_player
+
+    case CardGames.draw_card_from_deck(game_session, current_player.id) do
+      {:ok, _updated_game_session} ->
+        # Don't update socket directly - wait for broadcast
+        {:noreply, socket}
+
+      {:error, :not_your_turn} ->
+        {:noreply, put_flash(socket, :error, "It's not your turn")}
+
+      {:error, :deck_empty} ->
+        {:noreply, put_flash(socket, :error, "No cards left in deck")}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Error: #{reason}")}
+    end
+  end
+
+  @impl true
   def handle_info(
         %Phoenix.Socket.Broadcast{event: "game_updated", payload: %{game_session: nil}},
         socket
