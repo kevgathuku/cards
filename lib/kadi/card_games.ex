@@ -246,11 +246,11 @@ defmodule Kadi.CardGames do
                 |> Enum.filter(&(&1.location_type == "deck"))
                 |> Enum.sort_by(& &1.order_index)
 
-              unless Enum.empty?(recycled_deck_cards) do
+              if Enum.empty?(recycled_deck_cards) do
+                {:error, :deck_empty_after_recycle}
+              else
                 # Retry draw (will broadcast after success)
                 draw_card_from_deck(recycled_game_session, player_id)
-              else
-                {:error, :deck_empty_after_recycle}
               end
 
             {:error, reason} ->
