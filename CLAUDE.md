@@ -9,28 +9,33 @@ Kadi is a multiplayer online card game platform built with Elixir and Phoenix Li
 ## Development Commands
 
 ### Setup
+
 ```bash
 mix setup    # Full setup: deps, database, assets
 ```
 
 ### Running the Application
+
 ```bash
 mix phx.server          # Start server at localhost:4000
 iex -S mix phx.server   # Start with IEx console for debugging
 ```
 
 ### Testing
+
 ```bash
 mix test                      # Run all tests
 mix test test/path/to/test.exs:42  # Run specific test at line 42
 ```
 
 ### Database
+
 ```bash
 mix ecto.reset   # Drop, recreate, migrate, and seed database
 ```
 
 **⚠️ WARNING: Avoid running destructive database commands during development**
+
 - **DO NOT** run `mix ecto.reset` when working on tasks or making verifications
 - **DO NOT** run `mix ecto.drop` or similar destructive commands
 - The local database may contain important development data
@@ -44,12 +49,14 @@ mix ecto.reset   # Drop, recreate, migrate, and seed database
 The application uses a persistent database approach for managing game state:
 
 **`Kadi.CardGames`** context (lib/kadi/card_games.ex):
+
 - PostgreSQL database via Ecto
 - Manages GameSessions, Players, Decks, and Cards
 - Handles player joins, card dealing, session management
 - Game status transitions: "lobby" → "live"
 
 **Database Schema:**
+
 - `game_sessions`: Core game session records with status field
 - `game_session_players`: Join table for players in games
 - `decks`: One deck per game session
@@ -71,6 +78,7 @@ Tests use Ecto Sandbox (`:manual` mode) for database isolation. Most tests are a
 ## Development Guidelines
 
 ### Database Safety
+
 - **Never reset or drop the development database** when working on tasks
 - Development database may contain important user data
 - For testing destructive operations:
@@ -83,6 +91,7 @@ Tests use Ecto Sandbox (`:manual` mode) for database isolation. Most tests are a
   - Creating temporary test data in isolated transactions
 
 ### Code Changes
+
 - Make minimal, surgical changes to accomplish the task
 - Run tests after changes: `mix test`
 - Use git pre-commit hooks to ensure formatting
@@ -98,6 +107,7 @@ Tests use Ecto Sandbox (`:manual` mode) for database isolation. Most tests are a
 ## Card Representation
 
 Cards are stored in the database using the `Kadi.Games.Card` schema:
+
 ```elixir
 %Kadi.Games.Card{suit: "hearts", rank: "5"}
 ```
@@ -105,8 +115,6 @@ Cards are stored in the database using the `Kadi.Games.Card` schema:
 Card locations are tracked through the `deck_cards` join table with a `location_type` field.
 
 ## Active Technologies
+
 - Elixir 1.14+ (OTP 25+) + Phoenix 1.7, Phoenix LiveView, Ecto 3.x (002-randomize-player-cards)
 - PostgreSQL (via Ecto) - `deck_cards` table with `order_index` column (002-randomize-player-cards)
-
-## Recent Changes
-- 002-randomize-player-cards: Added Elixir 1.14+ (OTP 25+) + Phoenix 1.7, Phoenix LiveView, Ecto 3.x

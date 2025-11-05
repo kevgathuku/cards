@@ -1,6 +1,6 @@
-# CLAUDE.md
+# GEMINI.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Google Gemini AI when working with code in this repository.
 
 ## Project Overview
 
@@ -26,9 +26,18 @@ mix test test/path/to/test.exs:42  # Run specific test at line 42
 ```
 
 ### Database
+
 ```bash
 mix ecto.reset   # Drop, recreate, migrate, and seed database
 ```
+
+**⚠️ WARNING: Avoid running destructive database commands during development**
+
+- **DO NOT** run `mix ecto.reset` when working on tasks or making verifications
+- **DO NOT** run `mix ecto.drop` or similar destructive commands
+- The local database may contain important development data
+- Use test database for destructive operations: `MIX_ENV=test mix ecto.reset`
+- For verifying features, use test suite or create temporary data programmatically
 
 ## Architecture
 
@@ -61,6 +70,28 @@ The application uses a persistent database approach for managing game state:
 
 Tests use Ecto Sandbox (`:manual` mode) for database isolation. Most tests are async-capable where appropriate.
 
+## Development Guidelines
+
+### Database Safety
+
+- **Never reset or drop the development database** when working on tasks
+- Development database may contain important user data
+- For testing destructive operations:
+  - Use the test suite: `mix test`
+  - Use test environment: `MIX_ENV=test mix ecto.reset`
+  - Create temporary data programmatically in scripts
+- Verification should be done through:
+  - Running existing tests
+  - Adding new test cases
+  - Creating temporary test data in isolated transactions
+
+### Code Changes
+
+- Make minimal, surgical changes to accomplish the task
+- Run tests after changes: `mix test`
+- Use git pre-commit hooks to ensure formatting
+- Follow existing patterns in the codebase
+
 ## Phoenix LiveView Integration
 
 - Server-side rendering with WebSocket updates
@@ -76,3 +107,53 @@ Cards are stored in the database using the `Kadi.Games.Card` schema:
 ```
 
 Card locations are tracked through the `deck_cards` join table with a `location_type` field.
+
+## Active Technologies
+
+- Elixir 1.14+ (OTP 25+) + Phoenix 1.7, Phoenix LiveView, Ecto 3.x
+- PostgreSQL (via Ecto) - `deck_cards` table with `order_index` column
+
+## Player Actions & Turn Management
+
+The game implements turn-based gameplay where players can:
+- **Draw a card from deck**: Players can draw one card during their turn, which automatically advances the turn to the next player
+- **Play cards from hand**: Play valid card combinations onto the played pile
+- Turn order is determined by join time (`game_session_players.inserted_at`), wrapping around from last to first player
+
+## Key Implementation Patterns
+
+### Broadcast-Only Updates
+LiveView handlers often do NOT update socket state directly. Instead:
+1. Handler calls context function (e.g., `CardGames.draw_card_from_deck/2`)
+2. Context function performs database transaction
+3. Context broadcasts `game_updated` event via PubSub
+4. LiveView `handle_info` receives broadcast and updates socket
+5. This ensures all connected players receive updates simultaneously
+
+Example:
+```elixir
+def handle_event("draw_card", _params, socket) do
+  case CardGames.draw_card_from_deck(game_session, player_id) do
+    {:ok, _updated} -> {:noreply, socket}  # Don't update - wait for broadcast
+    {:error, reason} -> {:noreply, put_flash(socket, :error, reason)}
+  end
+end
+
+def handle_info({:game_updated, game_session}, socket) do
+  {:noreply, assign_game_state(socket, game_session)}  # Update from broadcast
+end
+```
+
+### Atomic Transactions
+Game state changes use `Ecto.Multi` for atomicity:
+```elixir
+Ecto.Multi.new()
+|> Ecto.Multi.update(:card, card_changeset)
+|> Ecto.Multi.update(:game_session, session_changeset)
+|> Repo.transaction()
+```
+
+### Turn Order Calculation
+- Players ordered by `game_session_players.inserted_at ASC`
+- Helper function `get_next_player/2` wraps around using `rem/2`
+- Turn stored in `game_sessions.current_turn_player_id`
