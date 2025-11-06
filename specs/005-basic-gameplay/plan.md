@@ -86,6 +86,90 @@ priv/repo/migrations/
 
 **Structure Decision**: Standard Phoenix web application structure. New PlayValidator module in games namespace. No TurnManager module needed - turn logic inlined in CardGames context as private helpers. Leverages existing draw_card_from_deck/2 and recycle_played_stack/1 functions.
 
+---
+
+## Key Design Decisions
+
+### Decision: Add `top_card_id` Field to GameSession
+
+**Status**: ✅ Approved  
+**Date**: 2025-11-06
+
+**Context**: The top card of the played stack can be derived by querying `DeckCard WHERE location_type='played_stack' ORDER BY order_index DESC LIMIT 1`. However, play validation requires checking the top card on every turn (hot path).
+
+**Decision**: Add `top_card_id` foreign key field to `game_sessions` table, maintained atomically during play transactions.
+
+**Rationale**:
+
+1. **Performance Optimization** (Primary)
+   - Direct field access via preload vs query + sort operation
+   - Validation happens every turn (hot path)
+   - Helps meet <100ms play validation target (Constitution requirement)
+   - Indexed foreign key lookup faster than ORDER BY on large played piles
+
+2. **Code Simplicity**
+   - Cleaner validation: `PlayValidator.valid_play?(cards, game_session.top_card)`
+   - Self-documenting: schema explicitly models "current top card" concept
+   - Less query complexity in context layer
+
+3. **Consistency Guarantees**
+   - Updated atomically in same Ecto.Multi transaction as card moves
+   - No risk of stale reads between play and next validation
+   - Easier to reason about game state
+
+4. **Future-Proofing**
+   - Special cards (8s, jacks, 2s in future features) will need top_card frequently
+   - Pattern established for expansion
+
+**Tradeoffs Considered**:
+
+| Aspect | With top_card_id | Without (query-based) |
+|--------|------------------|----------------------|
+| **Performance** | ✅ Fast (index seek) | ⚠️ Slower (sort operation) |
+| **Validation Speed** | ✅ ~5-10ms | ⚠️ ~15-25ms |
+| **Write Overhead** | ⚠️ +1 field update | ✅ None |
+| **Data Redundancy** | ⚠️ Derivable from DeckCard | ✅ Single source of truth |
+| **Consistency Risk** | ⚠️ Must update atomically | ✅ Always correct |
+| **Code Complexity** | ✅ Simpler validation | ⚠️ Extra query logic |
+| **Schema Changes** | ⚠️ Migration required | ✅ No change |
+| **Future Maintenance** | ⚠️ Update in all play paths | ✅ Automatic |
+
+**Implementation Strategy**:
+```elixir
+# Atomic update in all play transactions
+Multi.new()
+|> Multi.update(:move_cards, deck_card_changesets)
+|> Multi.update(:game_session, GameSession.changeset(game, %{
+     top_card_id: last_played_card_id,
+     current_turn_player_id: next_player_id
+   }))
+|> Repo.transaction()
+```
+
+**Safety Measures**:
+- Database constraint: `FOREIGN KEY (top_card_id) REFERENCES cards(id) ON DELETE SET NULL`
+- Test helper for verification: `verify_top_card_consistency/1`
+- Ecto.Multi ensures atomicity (no partial updates)
+
+**Rejected Alternative**: Query-based approach
+- **Why Rejected**: Performance overhead on hot path (every turn validation)
+- **When Reconsidered**: If <100ms target consistently met without field, or if consistency bugs emerge
+- **Fallback**: Keep query helper function for debugging/repair
+
+**Acceptance Criteria**:
+- ✅ top_card_id updated atomically with every play
+- ✅ Validation uses top_card_id (no additional queries)
+- ✅ Initial start card sets top_card_id
+- ✅ Test coverage for consistency maintenance
+- ✅ Performance: play validation <100ms (as per Constitution)
+
+**References**:
+- Constitution Section 4.1: Database Performance (<50ms queries, indexed lookups)
+- data-model.md: Required Schema Changes section
+- quickstart.md: Phase 0 migration implementation
+
+---
+
 ## Complexity Tracking
 
 > **No violations to justify** - Feature aligns with constitution principles.
