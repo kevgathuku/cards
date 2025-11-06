@@ -5,6 +5,17 @@
 **Status**: Draft  
 **Input**: User description: "Implement the actual gameplay from the users. We are going to start with the regular cards - 4,5,6,7,9,10 then implement the rest later. As a general rule, the card played should match the suit or number of the last card on the played stack. For example, if the last card played has a suit of diamonds, the user can play another card matching the suit. Additionally if the last card played is a 4, then another 4 can be played and it will be valid. The regular cards can be played as just one card, or can be played as a combination. For example, if a player holds 4 of diamonds, and 4 of hearts, and the last card played is 5H (Five of hearts), the user can play both the 4H(four of hearts) and the 4D(four of diamonds) together and it counts as a valid play. Alternatively they can play just the 4H and it will also be a valid play. Implement the functionality to parse the cards a user plays and start with matching the regular cards for now, and validating if it is a valid hand. If valid, the cards are added to the stack in the order they were played i.e. the last card played remains on top of the played stack, removed from the player's cards and the turn passes to the next player"
 
+## Clarifications
+
+### Session 2025-11-06
+
+- Q: When it is a player's turn and they have no valid cards to play, what should happen? → A: Player must draw a card from the deck, then the turn moves to the next player
+- Q: When a player has no valid cards to play and must draw from the deck, but the deck is empty, what should happen? → A: Trigger recycling of the played stack into the deck (excluding top card)
+- Q: After a player draws a card from the deck (when they have no valid play), should they be allowed to immediately play the newly drawn card if it's valid, or must they wait until their next turn? → A: Player must wait until their next turn to play the drawn card
+- Q: When a player wants to play cards (either single or combo), how should they indicate which card(s) they want to play? → A: Click/tap to select cards from hand interface, then submit selection. Backend communication uses compact text notation (e.g., "4H" or "4H 4D")
+- Q: Should the card notation text input be case-insensitive or case-insensitive? → A: Case-insensitive
+- Q: When the played stack is recycled into the deck (when deck is empty), should the cards be shuffled randomly or placed in a specific order? → A: Shuffle randomly for unpredictability
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Play Single Matching Card (Priority: P1)
@@ -55,14 +66,34 @@ A player attempts to play one or more cards that do not meet the validation rule
 
 ---
 
+### User Story 4 - Draw Card When No Valid Play (Priority: P1)
+
+A player on their turn has no valid cards to play. The system allows the player to draw a card from the deck, adds it to their hand, and advances the turn to the next player. The drawn card cannot be played immediately and must wait until the player's next turn.
+
+**Why this priority**: Essential for game progression when a player cannot play. Without this, games would stall. This is a core mechanic equal in importance to playing cards.
+
+**Independent Test**: Can be fully tested by setting up a game state where a player has no cards matching the top card, executing a draw action, and verifying a card moved from deck to hand and turn advanced without allowing immediate play.
+
+**Acceptance Scenarios**:
+
+1. **Given** the top card is 5 of Hearts, and player has only 9 of Clubs and 10 of Diamonds (no matching cards), **When** player draws from the deck, **Then** one card is added to player's hand from the deck and turn passes to next player
+2. **Given** the deck has 3 cards remaining, and player cannot play any cards, **When** player draws from the deck, **Then** the deck has 2 cards remaining, player's hand increases by 1 card, and turn advances
+3. **Given** the deck is empty, and player cannot play any cards, **When** player attempts to draw, **Then** the played stack (excluding top card) is recycled into the deck, player draws one card from the newly filled deck, and turn advances
+4. **Given** player draws a 5 of Diamonds and the top card is 5 of Hearts, **When** the draw action completes, **Then** the turn advances to next player without allowing the player to immediately play the 5 of Diamonds
+
+---
+
 ### Edge Cases
 
-- What happens when a player has no valid cards to play?
+- When a player has no valid cards to play, they must draw a card from the deck
+- When the deck is empty and a player needs to draw, the played stack (excluding the top card) is recycled into the deck before drawing
+- Players select cards by clicking/tapping them in the UI; backend receives compact card notation
+- Backend card notation parsing is case-insensitive (both "4H" and "4h" are valid)
 - How does the system handle a player attempting to play cards they don't have in their hand?
 - What happens if a player tries to play cards in rapid succession before turn updates?
 - How does the system handle simultaneous plays from multiple players?
 - What happens when the played stack is empty (first play of the game)?
-- How does the system handle malformed input (invalid card representations)?
+- How does the system handle malformed card notation from the UI (should not occur with proper UI validation)?
 
 ## Requirements *(mandatory)*
 
@@ -80,8 +111,18 @@ A player attempts to play one or more cards that do not meet the validation rule
 - **FR-010**: System MUST NOT advance the turn when a play is rejected
 - **FR-011**: System MUST NOT modify the player's hand when a play is rejected
 - **FR-012**: System MUST provide feedback to the player when a play is rejected, indicating the reason
-- **FR-013**: System MUST parse user input representing one or more cards to play
-- **FR-014**: System MUST validate that the player actually has the cards they are attempting to play in their hand
+- **FR-013**: System MUST provide a user interface allowing players to select cards from their hand by clicking/tapping
+- **FR-014**: System MUST communicate selected cards to the backend using card notation format (e.g., "4H" for single card, "4H 4D" for combo)
+- **FR-015**: System MUST validate that the player actually has the cards they are attempting to play in their hand
+- **FR-016**: System MUST allow a player to draw a card from the deck when they have no valid cards to play
+- **FR-017**: System MUST add the drawn card to the player's hand
+- **FR-018**: System MUST advance the turn to the next player after a player draws a card
+- **FR-019**: System MUST recycle the played stack (excluding the top card) into the deck when the deck is empty and a player needs to draw
+- **FR-020**: System MUST randomly shuffle the recycled cards when creating a new deck from the played stack
+- **FR-021**: System MUST NOT allow a player to play a newly drawn card in the same turn it was drawn
+- **FR-022**: Backend MUST accept card notation in the format: number followed by suit letter (4H, 5D, 6C, 7S, 9H, 10D, etc.) where H=Hearts, D=Diamonds, C=Clubs, S=Spades
+- **FR-023**: Backend MUST accept multiple cards separated by spaces for combo plays (e.g., "4H 4D 4C")
+- **FR-024**: Backend MUST parse card notation in a case-insensitive manner (e.g., "4H", "4h", and "4H" are all valid)
 
 ### Key Entities
 
@@ -90,6 +131,7 @@ A player attempts to play one or more cards that do not meet the validation rule
 - **Played Stack**: An ordered collection of cards that have been played. The top card (most recently played) determines what cards can be played next
 - **Player Hand**: A collection of cards that a player currently holds
 - **Turn**: Represents which player is currently allowed to play. Advances sequentially through players
+- **Deck**: An ordered collection of undealt cards that players draw from when they cannot play. Can be replenished by recycling the played stack (excluding top card) when empty
 
 ## Success Criteria *(mandatory)*
 
@@ -101,3 +143,4 @@ A player attempts to play one or more cards that do not meet the validation rule
 - **SC-004**: Game state is correctly updated after each play within 100 milliseconds (cards moved, turn advanced)
 - **SC-005**: Players can complete a full round of turns (all players play once) with correct turn progression 100% of the time
 - **SC-006**: System handles edge cases (empty stack, no valid cards, malformed input) without crashing or corrupting game state
+- **SC-007**: Players can draw cards when they have no valid plays, with the deck correctly replenishing from the played stack when empty 100% of the time
