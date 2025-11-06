@@ -42,6 +42,7 @@ This document establishes the core principles and standards for the Kadi card ga
 ### 1.6 Schema Verification Before Data Model Changes
 - **Read actual schema files**: ALWAYS read the relevant schema files in `lib/*/` before proposing data model changes
 - **Verify migrations**: Check `priv/repo/migrations/` to understand existing schema modifications
+- **Review documentation**: Consult `docs/database-relationships.md` for cascade behavior, ordering conventions, and relationship patterns
 - **Validate assumptions**: Never assume field names, data types, or validation rules—inspect the actual code
 - **Document what exists**: In data model documentation, accurately represent the current implementation before proposing changes
 - **Check validation rules**: Review Ecto changeset validations, constraints, and custom validation functions
