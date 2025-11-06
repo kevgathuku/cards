@@ -32,6 +32,24 @@ This document establishes the core principles and standards for the Kadi card ga
 - **Test file location**: Mirror source structure in `test/` directory
 - **No "god modules"**: Break up modules that exceed ~300 lines or have too many responsibilities
 
+### 1.5 Feature Reuse and Integration
+- **Check existing features**: ALWAYS review `specs/` directory for previously implemented features before creating new implementations
+- **Reuse before rebuild**: If functionality exists in a prior feature (001, 002, 003, etc.), reference and extend it rather than reimplementing
+- **Feature dependencies**: Document dependencies on previous features in spec clarifications and implementation plan
+- **Backward compatibility**: New features must not break existing feature implementations
+- **Integration over duplication**: When adding to existing flows, integrate with existing context functions rather than creating parallel implementations
+
+### 1.6 Schema Verification Before Data Model Changes
+- **Read actual schema files**: ALWAYS read the relevant schema files in `lib/*/` before proposing data model changes
+- **Verify migrations**: Check `priv/repo/migrations/` to understand existing schema modifications
+- **Validate assumptions**: Never assume field names, data types, or validation rules—inspect the actual code
+- **Document what exists**: In data model documentation, accurately represent the current implementation before proposing changes
+- **Check validation rules**: Review Ecto changeset validations, constraints, and custom validation functions
+- **Understand relationships**: Verify actual `belongs_to`, `has_many`, and association configurations
+- **Migration prerequisites**: Identify what migrations are truly needed vs. what already exists
+- **Schema-first planning**: When designing features, start by reading current schema to align new features with existing structure
+- **Prevent duplication**: Schema review prevents adding fields that already exist or reimplementing existing tracking mechanisms
+
 ---
 
 ## 2. Testing Standards
@@ -208,9 +226,15 @@ This document establishes the core principles and standards for the Kadi card ga
 
 This constitution is a living document. All contributors must follow these principles. Exceptions require explicit discussion and documentation. Propose amendments via pull requests with clear rationale.
 
-**Version**: 1.1.0 | **Ratified**: 2025-11-03 | **Last Amended**: 2025-11-05
+**Version**: 1.2.0 | **Ratified**: 2025-11-03 | **Last Amended**: 2025-11-06
 
 ## Amendment History
+
+### Version 1.2.0 (2025-11-06)
+- Added Section 1.6: Schema Verification Before Data Model Changes
+- Established mandatory schema review process before proposing data model changes
+- Prevents documentation drift from actual implementation
+- Requires reading schema files and migrations to validate assumptions
 
 ### Version 1.1.0 (2025-11-05)
 - Added Section 6.4: Database Safety During Development

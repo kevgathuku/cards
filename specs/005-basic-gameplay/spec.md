@@ -15,6 +15,28 @@
 - Q: When a player wants to play cards (either single or combo), how should they indicate which card(s) they want to play? → A: Click/tap to select cards from hand interface, then submit selection. Backend communication uses compact text notation (e.g., "4H" or "4H 4D")
 - Q: Should the card notation text input be case-insensitive or case-insensitive? → A: Case-insensitive
 - Q: When the played stack is recycled into the deck (when deck is empty), should the cards be shuffled randomly or placed in a specific order? → A: Shuffle randomly for unpredictability
+- Q: Should card identifiers use compact notation (4H) or UUIDs, and should the backend receive cards as a list or space-separated string? → A: Use compact notation format "4H" (number + suit letter). Backend receives cards as a JSON array/list (e.g., ["4H"] or ["4H", "4D"]), NOT space-separated strings
+- Q: When a player attempts an invalid play, what level of error detail should the system provide? → A: Specific error codes with user-friendly messages (e.g., "WRONG_SUIT: The card doesn't match the suit or number")
+- Q: How should the system prevent race conditions when multiple players attempt to play simultaneously? → A: Database-level turn validation via GameSession.current_turn_player_id (primary safeguard), with client-side UI disabling (hide/disable play buttons when not your turn) as additional UX safeguard
+- Q: When a player selects cards in the UI but doesn't submit them, what should happen to the selection state? → A: Auto-clear selection when turn changes (selection cleared if turn advances to another player)
+- Q: What should happen if the backend receives malformed or invalid card notation from the frontend? → A: Return validation error with specific code (e.g., "INVALID_CARD_NOTATION: '4X' is not a valid card")
+- Q: When a player loses connection and reconnects during a game, how should the UI recover and display the current game state? → A: Full state sync on reconnection (LiveView automatically reloads complete game state including current turn, all hands, played stack on mount)
+- Q: When playing multiple cards in a combo, in what order should they be added to the played stack? → A: Array order is play order (first card in array goes down first, last card in array becomes top card)
+- Q: How is the played stack tracked in the data model? → A: The played stack is already tracked through the existing DeckCard model with location_type='played_stack' and order_index for ordering
+
+## Feature Dependencies
+
+This feature builds upon and integrates with:
+
+- **003-pick-card-from-deck** ✅ COMPLETE
+  - **Reuses**: `CardGames.draw_card_from_deck/2` - Handles drawing a card when player has no valid play
+  - **Integration Point**: When player has no valid cards to play, invoke this existing function instead of reimplementing
+  
+- **004-recycle-played-stack** ✅ COMPLETE
+  - **Reuses**: `CardGames.recycle_played_stack/1` - Automatically triggered by `draw_card_from_deck/2` when deck is empty
+  - **Integration Point**: No direct call needed - recycling happens automatically within the draw flow
+
+**Important**: Do NOT reimplement drawing or recycling logic. Use existing context functions from features 003 and 004.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -44,9 +66,9 @@ A player on their turn plays multiple cards of the same number from their hand, 
 
 **Acceptance Scenarios**:
 
-1. **Given** the top card is 5 of Hearts, and player has 4 of Hearts and 4 of Diamonds in hand, **When** player plays both 4H and 4D together, **Then** both cards are added to the played stack (with 4D on top), removed from player's hand, and turn passes to next player
-2. **Given** the top card is 6 of Clubs, and player has three 6s (Diamonds, Hearts, Spades) in hand, **When** player plays all three 6s together, **Then** all three cards are added to the played stack in played order, removed from player's hand, and turn passes to next player
-3. **Given** the top card is 9 of Spades, and player has 7 of Spades, 7 of Hearts, and 7 of Clubs in hand, **When** player plays all three 7s together, **Then** all three cards are added to the played stack (with the last 7 played on top), removed from player's hand, and turn passes to next player
+1. **Given** the top card is 5 of Hearts, and player has 4 of Hearts and 4 of Diamonds in hand, **When** player plays both 4H and 4D together (in array order ["4H", "4D"]), **Then** both cards are added to the played stack with 4H first and 4D on top, removed from player's hand, and turn passes to next player
+2. **Given** the top card is 6 of Clubs, and player has three 6s (Diamonds, Hearts, Spades) in hand, **When** player plays all three 6s together (in array order ["6D", "6H", "6S"]), **Then** all three cards are added to the played stack in array order with 6S on top, removed from player's hand, and turn passes to next player
+3. **Given** the top card is 9 of Spades, and player has 7 of Spades, 7 of Hearts, and 7 of Clubs in hand, **When** player plays all three 7s together (in array order ["7S", "7H", "7C"]), **Then** all three cards are added to the played stack in array order with 7C on top, removed from player's hand, and turn passes to next player
 
 ---
 
@@ -93,36 +115,38 @@ A player on their turn has no valid cards to play. The system allows the player 
 - What happens if a player tries to play cards in rapid succession before turn updates?
 - How does the system handle simultaneous plays from multiple players?
 - What happens when the played stack is empty (first play of the game)?
-- How does the system handle malformed card notation from the UI (should not occur with proper UI validation)?
+- How does the system handle malformed card notation from the UI (backend validates and returns INVALID_CARD_NOTATION error)?
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: System MUST validate that at least one card in a play matches either the suit OR the number of the top card on the played stack
-- **FR-002**: System MUST accept plays of single regular cards (4, 5, 6, 7, 9, 10) that match the top card's suit or number
-- **FR-003**: System MUST accept plays of multiple cards only when all cards have the same number
+- **FR-001**: System MUST validate that it is the requesting player's turn by checking GameSession.current_turn_player_id before processing any play action
+- **FR-002**: System MUST validate that at least one card in a play matches either the suit OR the number of the top card on the played stack
+- **FR-003**: System MUST accept plays of single regular cards (4, 5, 6, 7, 9, 10) that match the top card's suit or number
 - **FR-004**: System MUST validate that in a multi-card play, at least one card matches the top card's suit or number
 - **FR-005**: System MUST reject plays where cards have different numbers
 - **FR-006**: System MUST reject plays where no card matches the top card's suit or number
-- **FR-007**: System MUST add played cards to the played stack in the order they were played, with the last card becoming the new top card
+- **FR-007**: System MUST add played cards to the played stack in the order they were played, with the last card becoming the new top card (for combos: first card in array goes down first, last card in array becomes top card)
 - **FR-008**: System MUST remove successfully played cards from the player's hand
 - **FR-009**: System MUST advance the turn to the next player after a successful play
 - **FR-010**: System MUST NOT advance the turn when a play is rejected
 - **FR-011**: System MUST NOT modify the player's hand when a play is rejected
-- **FR-012**: System MUST provide feedback to the player when a play is rejected, indicating the reason
+- **FR-012**: System MUST provide feedback to the player when a play is rejected, using specific error codes paired with user-friendly messages (e.g., "NOT_YOUR_TURN: Please wait for your turn", "WRONG_SUIT: The card doesn't match the suit or number", "MIXED_NUMBERS: All cards in a combo must have the same number")
 - **FR-013**: System MUST provide a user interface allowing players to select cards from their hand by clicking/tapping
-- **FR-014**: System MUST communicate selected cards to the backend using card notation format (e.g., "4H" for single card, "4H 4D" for combo)
-- **FR-015**: System MUST validate that the player actually has the cards they are attempting to play in their hand
-- **FR-016**: System MUST allow a player to draw a card from the deck when they have no valid cards to play
-- **FR-017**: System MUST add the drawn card to the player's hand
-- **FR-018**: System MUST advance the turn to the next player after a player draws a card
-- **FR-019**: System MUST recycle the played stack (excluding the top card) into the deck when the deck is empty and a player needs to draw
-- **FR-020**: System MUST randomly shuffle the recycled cards when creating a new deck from the played stack
-- **FR-021**: System MUST NOT allow a player to play a newly drawn card in the same turn it was drawn
-- **FR-022**: Backend MUST accept card notation in the format: number followed by suit letter (4H, 5D, 6C, 7S, 9H, 10D, etc.) where H=Hearts, D=Diamonds, C=Clubs, S=Spades
-- **FR-023**: Backend MUST accept multiple cards separated by spaces for combo plays (e.g., "4H 4D 4C")
-- **FR-024**: Backend MUST parse card notation in a case-insensitive manner (e.g., "4H", "4h", and "4H" are all valid)
+- **FR-014**: System MUST hide or disable play action buttons in the UI when it is not the player's turn (as additional UX safeguard beyond server-side validation)
+- **FR-015**: System MUST communicate selected cards to the backend using card notation format as a JSON array/list (e.g., ["4H"] for single card, ["4H", "4D"] for combo)
+- **FR-016**: System MUST validate that the player actually has the cards they are attempting to play in their hand
+- **FR-017**: System MUST allow a player to draw a card from the deck when they have no valid cards to play
+- **FR-018**: System MUST add the drawn card to the player's hand
+- **FR-019**: System MUST advance the turn to the next player after a player draws a card
+- **FR-020**: System MUST recycle the played stack (excluding the top card) into the deck when the deck is empty and a player needs to draw
+- **FR-021**: System MUST randomly shuffle the recycled cards when creating a new deck from the played stack
+- **FR-022**: System MUST NOT allow a player to play a newly drawn card in the same turn it was drawn
+- **FR-023**: Backend MUST accept card notation in the format: number followed by suit letter (4H, 5D, 6C, 7S, 9H, 10D, etc.) where H=Hearts, D=Diamonds, C=Clubs, S=Spades
+- **FR-024**: Backend MUST accept card lists as JSON arrays (e.g., ["4H", "4D", "4C"]) for combo plays, NOT space-separated strings
+- **FR-025**: Backend MUST parse card notation in a case-insensitive manner (e.g., "4H", "4h", and "4H" are all valid)
+- **FR-026**: Backend MUST validate card notation format and return specific error codes for malformed notation (e.g., "INVALID_CARD_NOTATION: '4X' is not a valid card" for invalid suit, "INVALID_CARD_NOTATION: '99H' is not a valid card number" for invalid number)
 
 ### Key Entities
 
@@ -144,3 +168,5 @@ A player on their turn has no valid cards to play. The system allows the player 
 - **SC-005**: Players can complete a full round of turns (all players play once) with correct turn progression 100% of the time
 - **SC-006**: System handles edge cases (empty stack, no valid cards, malformed input) without crashing or corrupting game state
 - **SC-007**: Players can draw cards when they have no valid plays, with the deck correctly replenishing from the played stack when empty 100% of the time
+- **SC-008**: UI automatically clears card selection state when turn changes to another player 100% of the time
+- **SC-009**: When a player reconnects after network disconnection, the UI displays the current accurate game state (current turn, all hands, played stack) within 2 seconds 100% of the time
