@@ -8,6 +8,17 @@
 
 This document defines the event contracts between the LiveView frontend and backend for gameplay actions. All events use Phoenix LiveView's event handling mechanism with server-side validation.
 
+## Card Notation Protocol
+
+**Format**: JSON array of strings (even for single card)
+- Single card: `["4H"]`
+- Combo: `["4H", "4D", "4S"]`
+- Case-insensitive: "4h" = "4H"
+- Rank notation: "4", "5", "6", "7", "9", "10" (regular cards for this feature)
+- Suit notation: "H" (hearts), "D" (diamonds), "C" (clubs), "S" (spades)
+
+📖 **Reference**: See `spec.md` clarification #1 for complete notation details
+
 ---
 
 ## Event: `select_card`
@@ -63,12 +74,15 @@ This document defines the event contracts between the LiveView frontend and back
 **Handler**: `handle_event("play_cards", payload, socket)`
 
 **Validation** (Server-Side):
+
+📖 **Implementation**: See `quickstart.md` Phase 1 for PlayValidator module
+
 1. Card notation format is valid (e.g., "4H", "5D", "10C")
 2. Player is current player (turn validation via GameSession.current_turn_player_id)
 3. Player has all specified cards in hand
 4. Cards meet play validation rules (PlayValidator)
-   - Single card: Matches suit OR number of top card
-   - Multiple cards: All same number AND at least one matches top card
+   - Single card: Matches suit OR rank of top card
+   - Multiple cards: All same rank AND at least one matches top card
 
 **Success Response**:
 ```elixir

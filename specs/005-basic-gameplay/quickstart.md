@@ -8,6 +8,8 @@
 
 This guide provides a step-by-step implementation path for the basic gameplay mechanics. Follow phases sequentially to maintain testability and incremental progress.
 
+**Important Note**: The helper functions `get_game_session_players/1` and `get_next_player/2` shown at the end of Phase 3 are the correct implementations that should be added in Phase 2. They use the actual schema fields (`current_turn_player_id`, `inserted_at`) rather than non-existent fields.
+
 ---
 
 ## Prerequisites
@@ -33,6 +35,11 @@ mix test  # Ensure existing tests pass
 ### Phase 0: Database Schema Review (15 minutes)
 
 **Current State**: The played stack is **already tracked** through the existing `DeckCard` model.
+
+📖 **Reference**: See `docs/database-relationships.md` for:
+- Deck card ordering conventions (order_index semantics: lower = top of deck, higher = top of played stack)
+- Cascade behavior for deletions
+- Existing relationships and validation constraints
 
 #### Step 1: Review Existing Schema
 
@@ -128,6 +135,13 @@ mix test  # Existing tests should still pass
 ---
 
 ### Phase 1: Play Validation Module (2 hours)
+
+📖 **Reference**: See `data-model.md` section "Validation Rules" for:
+- Single card matching logic (FR-002)
+- Combo validation rules (FR-003, FR-004)
+- Player hand validation (FR-015)
+
+📖 **See Also**: `spec.md` clarifications #3 (combo ordering), #4 (case sensitivity)
 
 #### Step 1: Create PlayValidator Module
 
@@ -315,47 +329,43 @@ mix test test/kadi/games/play_validator_test.exs
 
 ---
 
-### Phase 2: Turn Manager Module (1 hour)
+### Phase 2: Turn Helper Functions (30 minutes)
 
-#### Step 1: Create TurnManager Module
+⚠️ **NOTE**: No separate TurnManager module needed. Turn logic is simple enough
+to implement inline in CardGames context functions.
 
-```bash
-touch lib/kadi/games/turn_manager.ex
-```
+📖 **Reference**: See `research.md` section 2 for turn management decisions
+
+**Implementation**: Turn logic is implemented as private helper functions in the CardGames context.
+
+#### Step 1: Add Turn Helpers to CardGames Context
 
 ```elixir
-# lib/kadi/games/turn_manager.ex
-defmodule Kadi.Games.TurnManager do
-  @moduledoc """
-  Manages turn progression and validation.
-  """
+# lib/kadi/card_games.ex (add to existing module)
 
-  alias Kadi.Games.GameSession
+# Helper: Get players ordered by join time (determines turn order)
+defp get_game_session_players(game_session_id) do
+  from(gsp in GameSessionPlayer,
+    where: gsp.game_session_id == ^game_session_id,
+    order_by: [asc: gsp.inserted_at],  # Join order = turn order
+    preload: :player
+  )
+  |> Repo.all()
+end
 
-  @doc """
-  Gets the current player for the game session.
-  """
-  def current_player(%GameSession{} = game_session) do
-    game_session.game_session_players
-    |> Enum.find(&(&1.turn_order == game_session.current_turn))
-  end
+# Helper: Get next player in turn sequence
+defp get_next_player(players, current_player_id) do
+  current_index = Enum.find_index(players, &(&1.player_id == current_player_id))
+  next_index = rem(current_index + 1, length(players))
+  Enum.at(players, next_index).player
+end
 
-  @doc """
-  Checks if the given player can play in the current turn.
-  """
-  def can_play?(%GameSession{} = game_session, player_id) do
-    current = current_player(game_session)
-    current && current.player_id == player_id
-  end
-
-  @doc """
-  Advances to the next player's turn.
-  """
-  def next_turn(%GameSession{} = game_session) do
-    player_count = length(game_session.game_session_players)
-    next_turn_index = rem(game_session.current_turn + 1, player_count)
-    
-    %{game_session | current_turn: next_turn_index}
+# Helper: Validate it's player's turn
+defp validate_current_turn(game_session, player_id) do
+  if game_session.current_turn_player_id == player_id do
+    {:ok, :valid}
+  else
+    {:error, :not_your_turn}
   end
 end
 ```
@@ -363,98 +373,60 @@ end
 #### Step 2: Create Tests
 
 ```elixir
-# test/kadi/games/turn_manager_test.exs
-defmodule Kadi.Games.TurnManagerTest do
-  use Kadi.DataCase, async: true
+# test/kadi/card_games_test.exs (add to existing test module)
+
+describe "turn validation" do
+  test "play_cards/3 rejects play when not player's turn" do
+    game = create_game_with_players([player1, player2])
+    # Ensure player2 is current turn
+    {:ok, game} = CardGames.update_game_session(game, %{current_turn_player_id: player2.id})
+    
+    # player1 tries to play
+    result = CardGames.play_cards(game.id, player1.id, ["4H"])
+    
+    assert {:error, :not_your_turn} = result
+  end
   
-  alias Kadi.Games.{TurnManager, GameSession, GameSessionPlayer}
-
-  describe "current_player/1" do
-    test "returns player at current turn index" do
-      game_session = %GameSession{
-        current_turn: 1,
-        game_session_players: [
-          %GameSessionPlayer{turn_order: 0, player_id: "player-1"},
-          %GameSessionPlayer{turn_order: 1, player_id: "player-2"},
-          %GameSessionPlayer{turn_order: 2, player_id: "player-3"}
-        ]
-      }
-      
-      current = TurnManager.current_player(game_session)
-      assert current.player_id == "player-2"
-    end
-  end
-
-  describe "can_play?/2" do
-    test "returns true for current player" do
-      game_session = %GameSession{
-        current_turn: 0,
-        game_session_players: [
-          %GameSessionPlayer{turn_order: 0, player_id: "player-1"}
-        ]
-      }
-      
-      assert TurnManager.can_play?(game_session, "player-1")
-    end
-
-    test "returns false for other players" do
-      game_session = %GameSession{
-        current_turn: 0,
-        game_session_players: [
-          %GameSessionPlayer{turn_order: 0, player_id: "player-1"},
-          %GameSessionPlayer{turn_order: 1, player_id: "player-2"}
-        ]
-      }
-      
-      refute TurnManager.can_play?(game_session, "player-2")
-    end
-  end
-
-  describe "next_turn/1" do
-    test "increments turn" do
-      game_session = %GameSession{
-        current_turn: 0,
-        game_session_players: [
-          %GameSessionPlayer{turn_order: 0},
-          %GameSessionPlayer{turn_order: 1}
-        ]
-      }
-      
-      updated = TurnManager.next_turn(game_session)
-      assert updated.current_turn == 1
-    end
-
-    test "wraps around to first player" do
-      game_session = %GameSession{
-        current_turn: 2,
-        game_session_players: [
-          %GameSessionPlayer{turn_order: 0},
-          %GameSessionPlayer{turn_order: 1},
-          %GameSessionPlayer{turn_order: 2}
-        ]
-      }
-      
-      updated = TurnManager.next_turn(game_session)
-      assert updated.current_turn == 0
-    end
+  test "play_cards/3 accepts play when it's player's turn" do
+    game = create_game_with_players_and_start([player1, player2])
+    # Give player1 a valid card and set their turn
+    {:ok, game} = CardGames.update_game_session(game, %{
+      current_turn_player_id: player1.id,
+      top_card_id: five_hearts.id
+    })
+    
+    result = CardGames.play_cards(game.id, player1.id, [four_hearts.id])
+    
+    assert {:ok, updated_game} = result
+    # Turn should advance to player2
+    assert updated_game.current_turn_player_id == player2.id
   end
 end
 ```
 
 **Validation**:
 ```bash
-mix test test/kadi/games/turn_manager_test.exs
+mix test test/kadi/card_games_test.exs
 ```
 
 ---
 
 ### Phase 3: Context Functions (3 hours)
 
+📖 **Reference**: See `contracts/play_actions.md` for:
+- Event payloads (play_cards, draw_card)
+- Error codes and messages
+- State change specifications
+
+📖 **See Also**: 
+- `data-model.md` section "State Transitions" for atomic update patterns
+- `research.md` section 4 for Ecto.Multi rationale
+
 #### Extend CardGames Context
 
 ```elixir
 # lib/kadi/card_games.ex (add to existing module)
-alias Kadi.Games.{PlayValidator, TurnManager}
+alias Kadi.Games.PlayValidator
 
 @doc """
 Plays the specified cards for the player.
@@ -517,7 +489,7 @@ defp get_game_session_preloaded(id) do
 end
 
 defp validate_can_play(game_session, player_id) do
-  if TurnManager.can_play?(game_session, player_id) do
+  if game_session.current_turn_player_id == player_id do
     {:ok, :can_play}
   else
     {:error, :not_your_turn}
@@ -641,13 +613,20 @@ defp broadcast_game_update(game_session) do
 end
 ```
 
-Continue reading the quickstart guide...
-
 ---
 
 ### Phase 4: LiveView Integration (4 hours)
 
-See contracts/play_actions.md for detailed event handlers.
+📖 **Reference**: See `contracts/play_actions.md` for:
+- Complete event handler specifications
+- Request/response flow diagrams (lines 290-350)
+- Error handling patterns and error codes (lines 85-130)
+
+Implement these handlers:
+- `handle_event("select_card", ...)` - See contracts line 15-45
+- `handle_event("play_cards", ...)` - See contracts line 47-120
+- `handle_event("draw_card", ...)` - See contracts line 122-175
+- `handle_info({:game_updated, ...})` - See contracts line 230-265
 
 **Key Files**:
 - `lib/kadi_web/live/game_live/show.ex`
@@ -710,14 +689,14 @@ mix ecto.migrate
 
 ## Estimated Timeline
 
-- **Phase 0**: 30 minutes (database)
+- **Phase 0**: 15 minutes (database review)
 - **Phase 1**: 2 hours (validation module)
-- **Phase 2**: 1 hour (turn manager)
+- **Phase 2**: 30 minutes (turn helpers - inline)
 - **Phase 3**: 3 hours (context functions)
 - **Phase 4**: 4 hours (LiveView)
 - **Phase 5**: 2 hours (testing)
 
-**Total**: ~12.5 hours
+**Total**: ~12 hours
 
 ---
 

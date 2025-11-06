@@ -15,11 +15,11 @@ This document defines the data model for implementing basic gameplay mechanics. 
 **Source**: `lib/kadi/games/game_session.ex`
 
 **Attributes**:
-- `id` (UUID): Primary key
+- `id` (integer): Primary key (auto-incrementing)
 - `short_code` (string): Unique game identifier for joining
 - `status` (string): Enum - "lobby", "live" (NOT "waiting"/"in_progress"/"completed")
-- `current_turn_player_id` (UUID, nullable): Foreign key to Player (added in feature 003)
-- `created_by_id` (UUID): Foreign key to Player
+- `current_turn_player_id` (integer, nullable): Foreign key to Player (added in feature 003)
+- `created_by_id` (integer): Foreign key to Player
 - `inserted_at`, `updated_at` (utc_datetime timestamps)
 
 **Relationships**:
@@ -41,9 +41,9 @@ This document defines the data model for implementing basic gameplay mechanics. 
 **Source**: `lib/kadi/games/game_session_player.ex`
 
 **Attributes**:
-- `id` (UUID): Primary key
-- `game_session_id` (UUID): Foreign key
-- `player_id` (UUID): Foreign key
+- `id` (integer): Primary key (auto-incrementing)
+- `game_session_id` (integer): Foreign key
+- `player_id` (integer): Foreign key
 - `inserted_at`, `updated_at` (utc_datetime timestamps)
 
 **Relationships**:
@@ -63,7 +63,7 @@ This document defines the data model for implementing basic gameplay mechanics. 
 **Source**: `lib/kadi/games/card.ex`
 
 **Attributes**:
-- `id` (UUID): Primary key
+- `id` (integer): Primary key (auto-incrementing)
 - `suit` (string): "hearts", "diamonds", "clubs", "spades"
 - `rank` (string): "2" through "10", "jack", "queen", "king", "ace"
 - `inserted_at`, `updated_at` (utc_datetime timestamps)
@@ -84,8 +84,8 @@ This document defines the data model for implementing basic gameplay mechanics. 
 **Source**: `lib/kadi/games/deck.ex`
 
 **Attributes**:
-- `id` (UUID): Primary key
-- `game_session_id` (UUID): Foreign key
+- `id` (integer): Primary key (auto-incrementing)
+- `game_session_id` (integer): Foreign key
 - `inserted_at`, `updated_at` (utc_datetime timestamps)
 
 **Relationships**:
@@ -104,10 +104,10 @@ This document defines the data model for implementing basic gameplay mechanics. 
 **Source**: `lib/kadi/games/deck_card.ex`
 
 **Attributes**:
-- `id` (UUID): Primary key
-- `deck_id` (UUID): Foreign key
-- `card_id` (UUID): Foreign key
-- `player_id` (UUID, nullable): Foreign key to Player
+- `id` (integer): Primary key (auto-incrementing)
+- `deck_id` (integer): Foreign key
+- `card_id` (integer): Foreign key
+- `player_id` (integer, nullable): Foreign key to Player
 - `location_type` (string): Enum - "deck", "played_stack", "player_hand"
 - `order_index` (integer, nullable): Position in deck or played_stack
 - `inserted_at`, `updated_at` (utc_datetime timestamps)
@@ -169,24 +169,14 @@ end
 
 **Note**: Top card can also be queried via: "SELECT * FROM deck_cards WHERE location_type='played_stack' ORDER BY order_index DESC LIMIT 1"
 
+📖 **Reference**: See `docs/database-relationships.md` for:
+- Deck card ordering conventions (order_index semantics)
+- Played stack ordering (higher order_index = top card)
+- Validation rules for DeckCard.location_type
+
 **Usage**: Represents a player's action; validated before persisting state changes
 
----
-
-### CardNotation (Parser Output)
-
-**Definition**: Parsed from client input "4H 4D"
-
-```elixir
-defmodule Kadi.Games.CardNotation do
-  @type t :: %{
-    rank: String.t(),
-    suit: String.t()
-  }
-end
-```
-
-**Usage**: Intermediate format for mapping notation to Card entities
+**Note**: NO separate entity needed - plays are validated and immediately persisted as state changes to DeckCard records
 
 ---
 
@@ -194,17 +184,21 @@ end
 
 ```text
 GameSession (1)───(∞) GameSessionPlayer (∞)───(1) Player
-     │                       │
-     │                       └── hand: [Card IDs]
-     │
-     ├── current_turn: integer
-     ├── played_stack: [Card IDs]  (NEW)
-     ├── top_card_id: Card ID      (NEW)
+     │                       
+     ├── current_turn_player_id: integer  (references Player)
+     ├── top_card_id: integer             (NEW - references Card)
      │
      └───(1) Deck (1)───(∞) DeckCard (∞)───(1) Card
                                  │
-                                 └── position: integer
+                                 ├── location_type: "deck" | "played_stack" | "player_hand"
+                                 ├── order_index: integer (for deck/played_stack)
+                                 └── player_id: integer (for player_hand)
 ```
+
+**Note**: 
+- Player hands tracked via DeckCard WHERE location_type='player_hand' AND player_id={id}
+- Played stack tracked via DeckCard WHERE location_type='played_stack' ORDER BY order_index DESC
+- Deck cards tracked via DeckCard WHERE location_type='deck' ORDER BY order_index ASC
 
 ---
 
@@ -219,6 +213,8 @@ def valid_single_card?(card, top_card) do
   card.suit == top_card.suit or card.rank == top_card.rank
 end
 ```
+
+📖 **Reference**: See `spec.md` FR-002 for complete single card requirements
 
 **Rule: Combo Validation**
 ```elixir
@@ -236,24 +232,38 @@ defp same_number?(cards) do
 end
 ```
 
+📖 **Reference**: See `spec.md` FR-003, FR-004 for combo play requirements
+
 **Rule: Player Has Cards**
 ```elixir
 # FR-015: Validate player has cards in hand
-def player_has_cards?(player_hand, card_ids) do
-  hand_set = MapSet.new(player_hand)
+def player_has_cards?(player_id, deck_id, card_ids) do
+  # Query DeckCard to get player's hand
+  hand_card_ids = from(dc in DeckCard,
+    where: dc.deck_id == ^deck_id and 
+           dc.location_type == "player_hand" and 
+           dc.player_id == ^player_id,
+    select: dc.card_id
+  ) |> Repo.all()
+  
+  # Check if all played cards are in hand
+  hand_set = MapSet.new(hand_card_ids)
   cards_set = MapSet.new(card_ids)
   MapSet.subset?(cards_set, hand_set)
 end
 ```
 
+📖 **Reference**: See `spec.md` FR-015 for player validation requirements
+
 **Rule: Current Turn**
 ```elixir
 # Implicit: Only current player can play
 def is_current_player?(game_session, player_id) do
-  current_player = get_current_player(game_session)
-  current_player.id == player_id
+  game_session.current_turn_player_id == player_id
 end
 ```
+
+📖 **Reference**: See `spec.md` FR-008 for turn validation requirements
 
 ---
 
@@ -265,8 +275,8 @@ end
 Initial State (via DeckCard records):
   - Player hand: DeckCard[location_type='player_hand', player_id=P1] → [4H, 4D, 5S, 7C]
   - Played stack: DeckCard[location_type='played_stack'] → [..., 5H (order_index=3)]
-  - Top card: 5H (highest order_index in played_stack)
-  - Current turn: Player 1
+  - Top card: GameSession.top_card_id → 5H
+  - Current turn: GameSession.current_turn_player_id → P1
 
 Action: Play ["4H", "4D"]
 
@@ -279,17 +289,19 @@ Validation:
 State Update (Ecto.Multi):
   1. Update DeckCard for 4H: location_type = "played_stack", order_index = 4, player_id = nil
   2. Update DeckCard for 4D: location_type = "played_stack", order_index = 5, player_id = nil
-  3. Update GameSession: top_card_id = {4D id}, current_turn_player_id = {next player}
+  3. Update GameSession: top_card_id = {4D card id}, current_turn_player_id = {next player id}
   4. Broadcast game update
 
 Final State (via DeckCard records):
   - Player hand: DeckCard[location_type='player_hand', player_id=P1] → [5S, 7C]
   - Played stack: DeckCard[location_type='played_stack'] → [..., 5H (idx=3), 4H (idx=4), 4D (idx=5)]
-  - Top card: 4D (highest order_index=5 in played_stack)
-  - Current turn: Player 2
+  - Top card: GameSession.top_card_id → 4D
+  - Current turn: GameSession.current_turn_player_id → P2
 ```
 
 **Note**: Array order in payload ["4H", "4D"] determines order_index assignment (first card gets lower index, last card gets highest index and becomes top card)
+
+📖 **Reference**: See `docs/database-relationships.md` for order_index semantics
 
 ---
 
@@ -299,30 +311,32 @@ Final State (via DeckCard records):
 
 ```text
 Initial State:
-  - Player hand: [7C, 9S]
-  - Played stack: [..., 4H]
-  - Deck cards: 5
-  - Current turn: Player 1
+  - Player hand (via DeckCard): [7C, 9S]
+  - Played stack (via DeckCard): [..., 4H]
+  - Deck cards: 5 (location_type='deck')
+  - Current turn: GameSession.current_turn_player_id → P1
 
 Precondition: Player has no cards matching 4H
 
 Action: Draw card (via existing draw_card_from_deck/2)
 
 Validation (handled by existing function):
-  1. Check current turn → ✓
+  1. Check current turn → ✓ (current_turn_player_id == player_id)
   2. Check deck not empty → ✓
 
 State Update (handled by existing Ecto.Multi):
-  1. Get top card from deck (lowest order_index)
-  2. Update card: location_type = "player_hand", player_id = {player}
-  3. Update game_session: current_turn_player_id = {next_player}
+  1. Get top card from deck (lowest order_index where location_type='deck')
+  2. Update DeckCard: location_type = "player_hand", player_id = {player}, order_index = nil
+  3. Update GameSession: current_turn_player_id = {next_player id}
   4. Broadcast game update
 
 Final State:
-  - Player hand: [7C, 9S, {drawn card}]
-  - Deck cards: 4
-  - Current turn: Player 2
+  - Player hand (via DeckCard): [7C, 9S, {drawn card}]
+  - Deck cards: 4 (location_type='deck')
+  - Current turn: GameSession.current_turn_player_id → P2
 ```
+
+📖 **Reference**: See feature 003 (`draw_card_from_deck/2`) for existing implementation
 
 ---
 
@@ -332,10 +346,10 @@ Final State:
 
 ```text
 Initial State:
-  - Player hand: [7C, 9S]
-  - Played stack: [..., 4H, 5D, 6C]  (20+ cards)
-  - Deck cards: 0
-  - Current turn: Player 1
+  - Player hand (via DeckCard): [7C, 9S]
+  - Played stack (via DeckCard): [..., 4H, 5D, 6C]  (20+ cards with location_type='played_stack')
+  - Deck cards: 0 (location_type='deck')
+  - Current turn: GameSession.current_turn_player_id → P1
 
 Precondition: Player needs to draw but deck is empty
 
@@ -344,22 +358,24 @@ Action: Recycle and draw (automatic via draw_card_from_deck/2)
 State Update (handled by existing recycle_played_stack/1 then draw):
   1. Detect deck empty in draw_card_from_deck/2
   2. Call recycle_played_stack/1:
-     a. Get all played_stack cards except topmost (6C)
+     a. Get all played_stack DeckCards except topmost (highest order_index = 6C)
      b. Shuffle recycled cards (Enum.shuffle)
      c. Assign new order_index values (1..N in shuffled order)
-     d. Update cards: location_type = "deck", player_id = nil
+     d. Update DeckCards: location_type = "deck", player_id = nil
   3. Retry draw_card_from_deck/2 with recycled deck
-  4. Draw card and advance turn
+  4. Draw card and advance turn (update DeckCard and GameSession.current_turn_player_id)
   5. Single broadcast after complete flow
 
 Final State:
-  - Player hand: [7C, 9S, {drawn card}]
-  - Played stack: [6C]  (topmost card remains)
-  - Deck cards: 19
-  - Current turn: Player 2
+  - Player hand (via DeckCard): [7C, 9S, {drawn card}]
+  - Played stack (via DeckCard): [6C]  (topmost card remains)
+  - Deck cards: 19 (location_type='deck')
+  - Current turn: GameSession.current_turn_player_id → P2
 ```
 
 **Important**: Feature 005 does NOT reimplement draw or recycle logic - it integrates with existing features 003 and 004.
+
+📖 **Reference**: See feature 004 (`recycle_played_stack/1`) for existing implementation
 
 ---
 
@@ -370,18 +386,27 @@ Final State:
 ```sql
 -- GameSession lookups
 CREATE INDEX idx_game_sessions_status ON game_sessions(status);
+CREATE INDEX idx_game_sessions_top_card ON game_sessions(top_card_id);
 
--- GameSessionPlayer lookups
+-- GameSessionPlayer lookups  
 CREATE INDEX idx_game_session_players_game_id 
   ON game_session_players(game_session_id);
   
-CREATE INDEX idx_game_session_players_turn_order 
-  ON game_session_players(game_session_id, turn_order);
+CREATE INDEX idx_game_session_players_inserted_at 
+  ON game_session_players(game_session_id, inserted_at);
 
--- DeckCard ordering
-CREATE INDEX idx_deck_cards_position 
-  ON deck_cards(deck_id, position);
+-- DeckCard location and ordering
+CREATE INDEX idx_deck_cards_location 
+  ON deck_cards(deck_id, location_type, order_index);
+  
+CREATE INDEX idx_deck_cards_player_hand
+  ON deck_cards(deck_id, location_type, player_id) 
+  WHERE location_type = 'player_hand';
 ```
+
+**Note**: Turn order determined by `game_session_players.inserted_at` (join order), not a separate `turn_order` field
+
+📖 **Reference**: See `docs/database-relationships.md` for index performance considerations
 
 ### Query Optimization
 
@@ -389,9 +414,38 @@ CREATE INDEX idx_deck_cards_position
 ```elixir
 game_session
 |> Repo.preload([
-  :game_session_players,
+  :top_card,
+  :current_turn_player,
+  game_session_players: :player,
   deck: [deck_cards: :card]
 ])
+```
+
+**Get Player Hand** (efficient query):
+```elixir
+def get_player_hand(deck_id, player_id) do
+  from(dc in DeckCard,
+    where: dc.deck_id == ^deck_id and 
+           dc.location_type == "player_hand" and
+           dc.player_id == ^player_id,
+    preload: :card
+  )
+  |> Repo.all()
+end
+```
+
+**Get Top Card** (efficient query):
+```elixir
+def get_top_played_card(deck_id) do
+  from(dc in DeckCard,
+    where: dc.deck_id == ^deck_id and 
+           dc.location_type == "played_stack",
+    order_by: [desc: dc.order_index],
+    limit: 1,
+    preload: :card
+  )
+  |> Repo.one()
+end
 ```
 
 **Batch Operations**:
@@ -399,31 +453,12 @@ game_session
 # Use Ecto.Multi for atomic updates
 Multi.new()
 |> Multi.update(:game_session, game_changeset)
-|> Multi.update_all(:update_hand, hand_query, [])
-|> Multi.insert_all(:add_to_stack, DeckCard, stack_entries)
+|> Multi.update(:move_card_1, deck_card_changeset_1)
+|> Multi.update(:move_card_2, deck_card_changeset_2)
 |> Repo.transaction()
 ```
 
----
-
-## Migration Scripts
-
-### Add Played Stack to GameSession
-
-```elixir
-defmodule Kadi.Repo.Migrations.AddPlayedStackToGameSession do
-  use Ecto.Migration
-
-  def change do
-    alter table(:game_sessions) do
-      add :played_stack, {:array, :binary_id}, default: []
-      add :top_card_id, references(:cards, type: :binary_id)
-    end
-
-    create index(:game_sessions, [:top_card_id])
-  end
-end
-```
+📖 **Reference**: See Constitution section 4.1 for database performance requirements
 
 ---
 
@@ -433,37 +468,62 @@ end
 
 1. **Deck Conservation**: 
    ```
-   count(all_hands) + count(played_stack) + count(deck) = total_cards
+   count(location_type='player_hand') + 
+   count(location_type='played_stack') + 
+   count(location_type='deck') = 52
    ```
 
-2. **Turn Bounds**: 
+2. **Turn Player Exists**: 
    ```
-   0 <= current_turn < player_count
+   current_turn_player_id IN (SELECT player_id FROM game_session_players WHERE game_session_id = ?)
    ```
 
 3. **Top Card Consistency**:
    ```
-   top_card_id == List.last(played_stack)
+   top_card_id = (SELECT card_id FROM deck_cards 
+                  WHERE location_type='played_stack' 
+                  ORDER BY order_index DESC LIMIT 1)
    ```
 
 4. **Hand Validity**:
    ```
-   All card IDs in hand exist in cards table
+   All deck_cards with location_type='player_hand' must have valid player_id
+   ```
+
+5. **Order Index Uniqueness**:
+   ```
+   Within same deck and location_type, order_index values must be unique
    ```
 
 ### Enforcement
 
-- **Application level**: Validation in context functions
-- **Database level**: Foreign key constraints
+- **Application level**: Validation in context functions and PlayValidator
+- **Database level**: Foreign key constraints, unique constraints on (deck_id, location_type, order_index)
 - **Transaction level**: Ecto.Multi ensures atomicity
+
+📖 **Reference**: See `spec.md` for functional requirements that enforce these invariants
 
 ---
 
 ## Summary
 
-**Entities Modified**: GameSession (add played_stack, top_card_id)  
-**New Entities**: None (use existing schema)  
-**New Modules**: PlayValidator, TurnManager (logic only, no schema)  
-**Migrations Required**: 1 (add fields to game_sessions)
+**Entities Modified**: GameSession (add top_card_id field only)  
+**Entities Used**: GameSession, GameSessionPlayer, DeckCard, Card, Deck (all existing)
+**New Modules**: PlayValidator (logic only, no schema)  
+**Migrations Required**: 1 (add top_card_id to game_sessions)
+
+**Key Schema Facts**:
+- ✅ Played stack tracked via DeckCard.location_type='played_stack'
+- ✅ Player hands tracked via DeckCard.location_type='player_hand'  
+- ✅ Turn order tracked via GameSessionPlayer.inserted_at (join order)
+- ✅ Current turn tracked via GameSession.current_turn_player_id (UUID)
+- ✅ NO played_stack array needed
+- ✅ NO turn_order field needed
+- ✅ NO hand array needed
 
 **Ready for**: Contract definition and quickstart guide.
+
+📖 **References**:
+- `docs/database-relationships.md` - Schema relationships and ordering
+- `spec.md` - Functional requirements
+- `research.md` - Technical decisions
