@@ -161,33 +161,33 @@
 
 ### Card Selection UI
 
-- [ ] T048 [P] Add card_hand component with click handlers in lib/kadi_web/live/game_live/show.html.heex
-- [ ] T049 [P] Implement handle_event("select_card", ...) for card selection toggling in lib/kadi_web/live/game_live/show.ex
-- [ ] T050 [P] Add selected_cards to socket assigns in lib/kadi_web/live/game_live/show.ex
+- [X] T048 [P] Add card_hand component with click handlers in lib/kadi_web/live/game_live/show.html.heex
+- [X] T049 [P] Implement handle_event("select_card", ...) for card selection toggling in lib/kadi_web/live/game_live/show.ex
+- [X] T050 [P] Add selected_cards to socket assigns in lib/kadi_web/live/game_live/show.ex
 
 ### Play Cards Handler
 
-- [ ] T051 Implement handle_event("play_cards", ...) calling CardGames.play_cards/3 in lib/kadi_web/live/game_live/show.ex
-- [ ] T052 Add error handling with flash messages for all error codes in lib/kadi_web/live/game_live/show.ex
-- [ ] T053 Clear selected_cards on successful play or error in lib/kadi_web/live/game_live/show.ex
+- [X] T051 Implement handle_event("play_cards", ...) calling CardGames.play_cards/3 in lib/kadi_web/live/game_live/show.ex
+- [X] T052 Add error handling with flash messages for all error codes in lib/kadi_web/live/game_live/show.ex
+- [X] T053 Clear selected_cards on successful play or error in lib/kadi_web/live/game_live/show.ex
 
 ### Draw Card Handler
 
-- [ ] T054 [P] Implement handle_event("draw_card", ...) calling CardGames.draw_card/2 in lib/kadi_web/live/game_live/show.ex
-- [ ] T055 [P] Add "Draw Card" button visible only when player's turn in lib/kadi_web/live/game_live/show.html.heex
+- [X] T054 [P] Implement handle_event("draw_card", ...) calling CardGames.draw_card/2 in lib/kadi_web/live/game_live/show.ex
+- [X] T055 [P] Add "Draw Card" button visible only when player's turn in lib/kadi_web/live/game_live/show.html.heex
 
 ### Real-Time Updates
 
-- [ ] T056 Implement handle_info({:game_updated, ...}) for PubSub broadcasts in lib/kadi_web/live/game_live/show.ex
-- [ ] T057 Subscribe to game:#{id} PubSub topic in mount callback in lib/kadi_web/live/game_live/show.ex
-- [ ] T058 Auto-clear selected_cards when turn changes to another player in lib/kadi_web/live/game_live/show.ex
+- [X] T056 Implement handle_info({:game_updated, ...}) for PubSub broadcasts in lib/kadi_web/live/game_live/show.ex
+- [X] T057 Subscribe to game:#{id} PubSub topic in mount callback in lib/kadi_web/live/game_live/show.ex
+- [X] T058 Auto-clear selected_cards when turn changes to another player in lib/kadi_web/live/game_live/show.ex
 
 ### UI Elements
 
-- [ ] T059 [P] Add play/draw button visibility logic (hide when not player's turn) in lib/kadi_web/live/game_live/show.html.heex
-- [ ] T060 [P] Display current turn indicator in lib/kadi_web/live/game_live/show.html.heex
-- [ ] T061 [P] Display top card on played stack in lib/kadi_web/live/game_live/show.html.heex
-- [ ] T062 [P] Display player hand with selection state in lib/kadi_web/live/game_live/show.html.heex
+- [X] T059 [P] Add play/draw button visibility logic (hide when not player's turn) in lib/kadi_web/live/game_live/show.html.heex
+- [X] T060 [P] Display current turn indicator in lib/kadi_web/live/game_live/show.html.heex
+- [X] T061 [P] Display top card on played stack in lib/kadi_web/live/game_live/show.html.heex
+- [X] T062 [P] Display player hand with selection state in lib/kadi_web/live/game_live/show.html.heex
 
 ---
 

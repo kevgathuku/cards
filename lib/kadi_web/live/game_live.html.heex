@@ -56,9 +56,38 @@
 
   <div class="mt-8 p-4 border rounded-lg">
     <h2 class="text-xl font-bold mb-4">Your Hand</h2>
-    <div class="flex space-x-4">
+
+    <%= if @current_turn_player && @current_turn_player.id == @current_player.id do %>
+      <div class="mb-4">
+        <.button
+          phx-click="play_cards"
+          phx-disable-with="Playing..."
+          disabled={Enum.empty?(@selected_cards)}
+          class="mr-2"
+        >
+          Play Selected Cards ({length(@selected_cards)})
+        </.button>
+
+        <%= if not Enum.empty?(@selected_cards) do %>
+          <button
+            phx-click={JS.push("toggle_card", value: %{card_id: "clear_all"})}
+            class="text-sm text-gray-600 underline"
+            type="button"
+          >
+            Clear Selection
+          </button>
+        <% end %>
+      </div>
+    <% end %>
+
+    <div class="flex space-x-4 flex-wrap">
       <%= for dc <- @player_hand do %>
-        <div class="p-4 border rounded-md shadow-sm bg-white">
+        <% is_selected = dc.card_id in @selected_cards %>
+        <div
+          class={"p-4 border rounded-md shadow-sm cursor-pointer transition-all #{if is_selected, do: "bg-blue-100 border-blue-500 border-2 -translate-y-2", else: "bg-white hover:bg-gray-50"}"}
+          phx-click="toggle_card"
+          phx-value-card_id={dc.card_id}
+        >
           {dc.card.rank} of {dc.card.suit}
         </div>
       <% end %>
