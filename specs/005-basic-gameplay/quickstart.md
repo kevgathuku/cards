@@ -163,10 +163,10 @@ defmodule Kadi.Games.PlayValidator do
 
   @doc """
   Validates if the given cards can be played on the top card.
-  
+
   ## Rules
   - Single card: Must match suit OR rank
-  - Multiple cards: All must have same rank, at least one must match suit OR rank
+  - Multiple cards: All must have same rank, first card must match suit OR rank
   
   ## Examples
       iex> valid_play?([%Card{rank: "4", suit: "H"}], %Card{rank: "5", suit: "H"})
@@ -200,10 +200,10 @@ defmodule Kadi.Games.PlayValidator do
     cond do
       not same_rank?(cards) ->
         {:error, :different_ranks}
-        
-      not any_matches?(cards, top_card) ->
+
+      not first_card_matches?(cards, top_card) ->
         {:error, :no_match}
-        
+
       true ->
         {:ok, :valid}
     end
@@ -220,9 +220,11 @@ defmodule Kadi.Games.PlayValidator do
     |> length() == 1
   end
 
-  defp any_matches?(cards, top_card) do
-    Enum.any?(cards, &matches_suit_or_rank?(&1, top_card))
+  defp first_card_matches?([first_card | _rest], top_card) do
+    matches_suit_or_rank?(first_card, top_card)
   end
+
+  defp first_card_matches?([], _top_card), do: false
 
   @doc """
   Validates that player has all specified cards in their hand.

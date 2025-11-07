@@ -257,7 +257,7 @@ Multi.new()
 ## Success Criteria
 
 1. ✅ Players can play single cards matching suit or rank
-2. ✅ Players can play combo cards (same rank, at least one match)
+2. ✅ Players can play combo cards (same rank, first card must match)
 3. ✅ Players can draw when no valid play exists
 4. ✅ Deck automatically recycles when empty
 5. ✅ Turn advances after play or draw

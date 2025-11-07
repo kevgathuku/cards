@@ -44,7 +44,7 @@
 ✅ **PASS** - No [NEEDS CLARIFICATION] markers present. All requirements are fully specified with reasonable assumptions:
 - Regular cards defined as 4, 5, 6, 7, 9, 10
 - Matching rules clearly defined (suit OR number)
-- Combo play rules specified (all same number, at least one matches)
+- Combo play rules specified (all same number, first card must match)
 - Turn progression clearly stated (sequential, next player)
 
 ✅ **PASS** - All requirements are testable and unambiguous:

@@ -82,7 +82,7 @@ This document defines the event contracts between the LiveView frontend and back
 3. Player has all specified cards in hand
 4. Cards meet play validation rules (PlayValidator)
    - Single card: Matches suit OR rank of top card
-   - Multiple cards: All same rank AND at least one matches top card
+   - Multiple cards: All same rank AND first card must match top card
 
 **Success Response**:
 ```elixir
@@ -295,7 +295,7 @@ Phoenix.PubSub.broadcast(
 | `:not_your_turn` | Player attempted action out of turn | "NOT_YOUR_TURN: Please wait for your turn" |
 | `:wrong_suit` | No card matches suit or number | "WRONG_SUIT: The card doesn't match the suit or number" |
 | `:mixed_numbers` | Combo has different numbers | "MIXED_NUMBERS: All cards in a combo must have the same number" |
-| `:no_match` | Combo cards don't match top card | "NO_MATCH: At least one card must match the top card" |
+| `:no_match` | First card in combo doesn't match top card | "NO_MATCH: The first card must match the top card" |
 | `:cards_not_in_hand` | Player doesn't have specified cards | "CARDS_NOT_IN_HAND: You don't have those cards" |
 | `:invalid_card_notation` | Malformed card notation format | "INVALID_CARD_NOTATION: '{notation}' is not a valid card" |
 | `:deck_empty` | Deck is empty and cannot recycle | "DECK_EMPTY: Cannot draw, deck is empty" |

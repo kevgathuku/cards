@@ -38,14 +38,14 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Create PlayValidator module with valid_play?/2 function in lib/kadi/games/play_validator.ex
-- [ ] T006 [P] Implement validate_single_card/2 private function in lib/kadi/games/play_validator.ex
-- [ ] T007 [P] Implement validate_combo/2 private function in lib/kadi/games/play_validator.ex
-- [ ] T008 [P] Implement matches_suit_or_rank?/2 helper in lib/kadi/games/play_validator.ex
-- [ ] T009 [P] Implement same_rank?/1 helper in lib/kadi/games/play_validator.ex
-- [ ] T010 [P] Implement any_matches?/2 helper in lib/kadi/games/play_validator.ex
-- [ ] T011 [P] Implement player_has_cards?/2 function in lib/kadi/games/play_validator.ex
-- [ ] T012 Add turn helper functions (get_game_session_players/1, get_next_player/2, validate_current_turn/2) to lib/kadi/card_games.ex
+- [X] T005 Create PlayValidator module with valid_play?/2 function in lib/kadi/games/play_validator.ex
+- [X] T006 [P] Implement validate_single_card/2 private function in lib/kadi/games/play_validator.ex
+- [X] T007 [P] Implement validate_combo/2 private function in lib/kadi/games/play_validator.ex
+- [X] T008 [P] Implement matches_suit_or_rank?/2 helper in lib/kadi/games/play_validator.ex
+- [X] T009 [P] Implement same_rank?/1 helper in lib/kadi/games/play_validator.ex
+- [X] T010 [P] Implement first_card_matches?/2 helper in lib/kadi/games/play_validator.ex
+- [X] T011 [P] Implement player_has_cards?/2 function in lib/kadi/games/play_validator.ex
+- [X] T012 Add turn helper functions (get_game_session_players/1, get_next_player/2, validate_current_turn/2) to lib/kadi/card_games.ex
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -85,7 +85,7 @@
 
 ## Phase 4: User Story 2 - Play Multiple Matching Cards (Priority: P2)
 
-**Goal**: Player can play combo of cards with same rank where at least one matches top card
+**Goal**: Player can play combo of cards with same rank where first card matches top card
 
 **Independent Test**: Set up game with known top card (5H), player with multiple same-rank cards (4H, 4D), execute combo play, verify all cards moved in correct order and turn advanced
 

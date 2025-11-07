@@ -218,10 +218,10 @@ end
 
 **Rule: Combo Validation**
 ```elixir
-# FR-003, FR-004: Accept multiple cards with same number, at least one matches
-def valid_combo?(cards, top_card) do
-  same_number?(cards) and 
-  Enum.any?(cards, &valid_single_card?(&1, top_card))
+# FR-003, FR-004: Accept multiple cards with same number, first card must match
+def valid_combo?([first_card | _rest] = cards, top_card) do
+  same_number?(cards) and
+  valid_single_card?(first_card, top_card)
 end
 
 defp same_number?(cards) do
@@ -284,7 +284,7 @@ Validation:
   1. Parse notation → [Card{rank: "4", suit: "H"}, Card{rank: "4", suit: "D"}]
   2. Check player has cards → ✓ (query DeckCard where location_type='player_hand' AND player_id=P1)
   3. Check same number → ✓ (both "4")
-  4. Check at least one matches top card → ✓ (4H matches 5H by suit)
+  4. Check first card matches top card → ✓ (4H matches 5H by suit)
 
 State Update (Ecto.Multi):
   1. Update DeckCard for 4H: location_type = "played_stack", order_index = 4, player_id = nil

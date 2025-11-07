@@ -462,4 +462,29 @@ defmodule Kadi.CardGames do
     next_index = rem(current_index + 1, length(players))
     Enum.at(players, next_index)
   end
+
+  # Validates if the given player is the current turn player.
+  #
+  # ## Parameters
+  # - game_session: GameSession struct with current_turn_player_id
+  # - player_id: ID of the player attempting the action
+  #
+  # ## Returns
+  # - `:ok` if it's the player's turn
+  # - `{:error, :not_your_turn}` otherwise
+  #
+  # ## Examples
+  #
+  #     iex> validate_current_turn(game_session, current_player.id)
+  #     :ok
+  #
+  #     iex> validate_current_turn(game_session, other_player.id)
+  #     {:error, :not_your_turn}
+  defp validate_current_turn(game_session, player_id) do
+    if game_session.current_turn_player_id == player_id do
+      :ok
+    else
+      {:error, :not_your_turn}
+    end
+  end
 end
