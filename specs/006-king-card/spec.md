@@ -18,6 +18,14 @@
 - Q: Can multiple players be in "cardless" state simultaneously, or does entering cardless state trigger an immediate win check? → A: Yes, multiple cardless players allowed
 - Q: In a 2-player game, if one player is cardless and the other player is in normal play, does the cardless player's automatic draw still occur on their turn, or does the game have special handling? → A: Cardless draw works same as multi-player
 - Q: If a King somehow becomes the start card (e.g., due to a bug or future rule change), should the system actively prevent it or handle it gracefully? → A: Allow it (no direction change on start)
+- Q: After recycling, if no drawable cards remain (extremely unlikely), what happens to the player required to draw? → A: Log anomaly and skip (pass turn)
+- Q: For the rare case where, after recycling, no drawable cards remain and the player is skipped, what player-facing notification should be shown? → A: Non-blocking info banner to all players: "Deck exhausted. Skipping <Player> this turn."
+- Q: What level of event logging granularity should we use for King-related actions and anomalies? → A: Structured events: direction_change, cardless_entered, anomaly_skip with metadata (game_id, player_id, timestamp, context)
+- Q: How should the direction change be communicated in the UI when a King is played? → A: Ephemeral toast + persistent indicator update (arrow/text)
+- Q: What accessibility design should the persistent direction indicator follow? → A: Icon + text label ("Clockwise"/"Counter-clockwise") with WCAG AA contrast
+- Q: What localization approach should we take for new King-related user-facing strings (direction toast, anomaly banner)? → A: Add i18n keys now; ship English-only initially
+- Q: PII policy for King feature operational events? → A: IDs only; no PII (no names/emails)
+- Q: How should we rate-limit notifications for rapid consecutive direction changes (multiple Kings quickly)? → A: Coalesce within 2s window (single toast updated)
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -89,6 +97,9 @@ The system must maintain and expose the current game direction state so players 
 - What happens when a player has only King cards remaining and none match the last played card? The player must draw a card (standard game rules apply). If the deck is empty, the system automatically triggers deck recycling from the played stack before the draw
 - What happens during deck recycling if the last played card is a King? The King remains on top of the played stack as the current reference card (it is not shuffled back into the deck). All other cards from the played stack are shuffled to form the new deck
 - Can multiple players be in "cardless" state at the same time? Yes, multiple players can be cardless simultaneously. Each cardless player will automatically draw a card when their turn comes around
+- What happens if, after recycling, no cards are available to draw (only the top reference card remains)? System logs an anomaly and the affected player’s turn is skipped (pass) to avoid deadlock
+- What UX should accompany the rare post-recycle no-draw scenario? Show a non-blocking info banner to all players: "Deck exhausted. Skipping <Player> this turn."
+- When multiple Kings are played in quick succession, show a single coalesced toast updated within a 2s window while the persistent direction indicator updates on every change
 
 ## Requirements *(mandatory)*
 
@@ -111,6 +122,18 @@ The system must maintain and expose the current game direction state so players 
 - **FR-015**: System MUST broadcast the direction change to all players in the game session when a King is played
 - **FR-016**: System MUST automatically trigger deck recycling from the played stack when a player needs to draw a card but the deck is empty
 - **FR-017**: System MUST preserve the top card of the played stack (including King cards) during deck recycling and shuffle only the remaining cards to form the new deck
+- **FR-018**: System MUST, if after recycling no drawable cards exist (only immutable top card remains), log an anomaly event and skip (pass) the current player's draw action, advancing turn as normal
+- **FR-019**: System MUST display a non-blocking info banner to all players when the post-recycle no-draw anomaly occurs, with text: "Deck exhausted. Skipping <Player> this turn."
+- **FR-020**: System MUST emit structured operational events for King-related actions with metadata: 
+	- direction_change: {game_id, player_id, previous_direction, new_direction, card_id, timestamp}
+	- cardless_entered: {game_id, player_id, reason: "king_last_card", card_id, timestamp}
+	- anomaly_skip: {game_id, player_id, deck_state, timestamp}
+	Events MUST be logged in a structured format suitable for analytics and debugging
+- **FR-021**: System MUST display an ephemeral toast (non-blocking) announcing the direction change (e.g., "Direction reversed: now counter-clockwise") AND update a persistent UI indicator (icon/arrow + text) within the same update cycle (<1s)
+- **FR-022**: The persistent direction indicator MUST be accessible: include both icon and visible text label ("Clockwise" / "Counter-clockwise"), avoid color-only cues, meet WCAG 2.1 AA contrast, and expose an accurate accessible name/aria-label for screen readers
+- **FR-023**: All new user-facing strings for this feature (direction toast text, anomaly banner, direction indicator labels) MUST use i18n keys with English default translations; infrastructure MUST allow later locale additions without code changes
+- **FR-024**: Structured King feature events MUST NOT include personally identifiable information beyond stable internal IDs (player_id, game_id, card_id). No player names/emails/usernames in logs. Adding new identity fields requires privacy review.
+- **FR-025**: Notification rate limiting: Coalesce rapid direction changes within a 2s window into a single (updated) toast; update the persistent direction indicator on every change; if changes continue, extend/refresh the toast within the window; changes outside the window produce a new toast
 
 ### Key Entities
 
@@ -129,3 +152,10 @@ The system must maintain and expose the current game direction state so players 
 - **SC-004**: In 2-player games, King card plays advance turns correctly without causing turn calculation errors
 - **SC-005**: Game state correctly reflects the current direction after any number of Kings are played in sequence
 - **SC-006**: Players who play a King as their last card enter cardless state correctly and can draw a card on their next turn within 2 seconds
+- **SC-007**: When the post-recycle no-draw anomaly occurs, the info banner appears to all players within 2 seconds and does not block interaction
+- **SC-008**: For King-related actions, 100% of direction_change, cardless_entered, and anomaly_skip events are recorded with required metadata and available in logs within 5 seconds
+- **SC-009**: Direction change toast appears for all players within 1 second of King play and persistent indicator reflects new direction; toast auto-dismisses in <=5 seconds
+- **SC-010**: Direction indicator label has contrast ratio ≥ 4.5:1 against its background and is perceivable without color; screen readers announce the change within 2 seconds via polite live region or equivalent
+- **SC-011**: 100% of King feature UI strings are sourced via i18n keys (no hardcoded literals in templates/components other than the translation key references)
+- **SC-012**: 0 occurrences of player display names/emails in King-related structured event logs under standard operation (validated via automated log scan)
+- **SC-013**: During bursts with ≥2 direction changes within 2 seconds, at most one toast is displayed (updated), while the persistent indicator reflects each change within 1 second
