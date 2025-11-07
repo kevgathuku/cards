@@ -25,10 +25,10 @@
 
 **Purpose**: Database schema setup for basic gameplay
 
-- [ ] T001 Create migration to add top_card_id to game_sessions in priv/repo/migrations/XXXXXX_add_top_card_to_game_sessions.exs
-- [ ] T002 Update GameSession schema to include belongs_to :top_card in lib/kadi/games/game_session.ex
-- [ ] T003 Update GameSession changeset to include top_card_id in cast and assoc_constraint in lib/kadi/games/game_session.ex
-- [ ] T004 Run migration with mix ecto.migrate and verify existing tests pass
+- [X] T001 Create migration to add top_card_id to game_sessions in priv/repo/migrations/XXXXXX_add_top_card_to_game_sessions.exs
+- [X] T002 Update GameSession schema to include belongs_to :top_card in lib/kadi/games/game_session.ex
+- [X] T003 Update GameSession changeset to include top_card_id in cast and assoc_constraint in lib/kadi/games/game_session.ex
+- [X] T004 Run migration with mix ecto.migrate and verify existing tests pass
 
 ---
 

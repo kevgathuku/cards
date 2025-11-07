@@ -9,6 +9,7 @@ defmodule Kadi.Games.GameSession do
     field :status, :string, default: "lobby"
     belongs_to :created_by, Kadi.Accounts.Player
     belongs_to :current_turn_player, Kadi.Accounts.Player
+    belongs_to :top_card, Kadi.Games.Card
     has_one :deck, Kadi.Games.Deck
     has_many :game_session_players, Kadi.Games.GameSessionPlayer
     many_to_many :players, Kadi.Accounts.Player, join_through: "game_session_players"
@@ -19,11 +20,12 @@ defmodule Kadi.Games.GameSession do
   @doc false
   def changeset(game_session, attrs) do
     game_session
-    |> cast(attrs, [:short_code, :created_by_id, :status, :current_turn_player_id])
+    |> cast(attrs, [:short_code, :created_by_id, :status, :current_turn_player_id, :top_card_id])
     |> validate_required([:short_code, :created_by_id, :status])
     |> validate_inclusion(:status, @statuses)
     |> assoc_constraint(:created_by)
     |> assoc_constraint(:current_turn_player)
+    |> assoc_constraint(:top_card)
     |> unique_constraint(:short_code)
   end
 end
