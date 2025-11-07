@@ -214,16 +214,16 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T071 [P] Add logging for play_cards/3 operations (info level for success, warning for invalid) in lib/kadi/card_games.ex
-- [ ] T072 [P] Add telemetry events for play validation duration in lib/kadi/card_games.ex
-- [ ] T073 [P] Verify performance target <100ms for play validation with benchmarking
-- [ ] T074 [P] Add database indexes for deck_cards location queries if not present in priv/repo/migrations/
-- [ ] T075 Code review for security (turn validation, hand ownership, atomic transactions) across lib/kadi/card_games.ex
-- [ ] T076 Run full test suite with mix test and verify >90% coverage
+- [X] T071 [P] Add logging for play_cards/3 operations (info level for success, warning for invalid) in lib/kadi/card_games.ex
+- [X] T072 [P] Add telemetry events for play validation duration in lib/kadi/card_games.ex
+- [X] T073 [P] Verify performance target <100ms for play validation with benchmarking
+- [X] T074 [P] Add database indexes for deck_cards location queries if not present in priv/repo/migrations/
+- [X] T075 Code review for security (turn validation, hand ownership, atomic transactions) across lib/kadi/card_games.ex
+- [X] T076 Run full test suite with mix test and verify >90% coverage
 - [ ] T077 Manual testing with 2-4 players in live game session
-- [ ] T078 Verify top_card_id consistency with played stack in all flows
-- [ ] T079 Run quickstart.md validation for all phases
-- [ ] T080 Update CLAUDE.md if any architectural patterns changed
+- [X] T078 Verify top_card_id consistency with played stack in all flows
+- [X] T079 Run quickstart.md validation for all phases
+- [X] T080 Update CLAUDE.md if any architectural patterns changed
 
 ---
 

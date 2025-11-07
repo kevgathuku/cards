@@ -414,15 +414,53 @@ defmodule Kadi.CardGames do
       {:error, :invalid_play}
   """
   def play_cards(game_session, player_id, card_ids) when is_list(card_ids) do
-    with {:ok, game_session} <- get_game_session_preloaded(game_session),
-         :ok <- validate_current_turn(game_session, player_id),
-         {:ok, player} <- get_player_in_session(game_session, player_id),
-         {:ok, cards_to_play} <- validate_player_has_cards(game_session, player, card_ids),
-         {:ok, top_card} <- get_top_card(game_session),
-         :ok <- validate_can_play(cards_to_play, top_card),
-         {:ok, updated_game} <- execute_play(game_session, player, cards_to_play) do
-      broadcast_game_update(updated_game)
-      {:ok, updated_game}
+    require Logger
+
+    Logger.info(
+      "play_cards called: game_session_id=#{inspect(game_session.id)}, player_id=#{player_id}, card_ids=#{inspect(card_ids)}"
+    )
+
+    start_time = System.monotonic_time()
+
+    result =
+      with {:ok, game_session} <- get_game_session_preloaded(game_session),
+           :ok <- validate_current_turn(game_session, player_id),
+           {:ok, player} <- get_player_in_session(game_session, player_id),
+           {:ok, cards_to_play} <- validate_player_has_cards(game_session, player, card_ids),
+           {:ok, top_card} <- get_top_card(game_session),
+           :ok <- validate_can_play(cards_to_play, top_card),
+           {:ok, updated_game} <- execute_play(game_session, player, cards_to_play) do
+        broadcast_game_update(updated_game)
+        {:ok, updated_game}
+      end
+
+    duration = System.monotonic_time() - start_time
+
+    :telemetry.execute(
+      [:kadi, :card_games, :play_cards],
+      %{duration: duration},
+      %{
+        game_session_id: game_session.id,
+        player_id: player_id,
+        card_count: length(card_ids),
+        result: elem(result, 0)
+      }
+    )
+
+    case result do
+      {:ok, updated_game} ->
+        Logger.info(
+          "play_cards success: game_session_id=#{updated_game.id}, player_id=#{player_id}, duration_us=#{System.convert_time_unit(duration, :native, :microsecond)}"
+        )
+
+        result
+
+      {:error, reason} ->
+        Logger.warning(
+          "play_cards failed: game_session_id=#{inspect(game_session.id)}, player_id=#{player_id}, reason=#{inspect(reason)}, duration_us=#{System.convert_time_unit(duration, :native, :microsecond)}"
+        )
+
+        result
     end
   end
 
