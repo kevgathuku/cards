@@ -457,23 +457,16 @@ end
 @doc """
 Draws a card from the deck for the player when they have no valid play.
 
-IMPORTANT: Uses existing CardGames.draw_card_from_deck/2 from feature 003.
-This function handles:
+IMPORTANT: Feature 005 uses the existing draw_card_from_deck/2 from feature 003 directly.
+No wrapper function is needed. The existing function already handles:
 - Turn validation
 - Drawing from deck
 - Automatic deck recycling when empty (via feature 004)
 - Turn advancement
 - Broadcasting updates
+
+Usage: CardGames.draw_card_from_deck(game_session, player_id)
 """
-def draw_card(game_session_id, player_id) do
-  case get_game_session_preloaded(game_session_id) do
-    {:ok, game_session} ->
-      # Reuse existing function from feature 003-pick-card-from-deck
-      draw_card_from_deck(game_session, player_id)
-    {:error, reason} ->
-      {:error, reason}
-  end
-end
 
 # Private helper functions
 

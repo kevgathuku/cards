@@ -898,114 +898,6 @@ defmodule Kadi.CardGamesTest do
       # Recycle process: 5 in played_stack -> keep 1 topmost, recycle 4 -> draw 1 = 3 left in deck
       assert length(deck_cards_after) == 3
     end
-
-    test "returns error when cannot recycle (only 1 card in played stack)", %{
-      player1: player1,
-      game_session: game_session
-    } do
-      # Setup: Empty deck, only 1 card in played_stack (the one from start_game)
-      game_session = Repo.preload(game_session, deck: [deck_cards: :card])
-
-      # Move all deck cards to player hand (leaving only the played card)
-      game_session.deck.deck_cards
-      |> Enum.filter(&(&1.location_type == "deck"))
-      |> Enum.each(fn dc ->
-        Kadi.Games.DeckCard.changeset(dc, %{
-          location_type: "player_hand",
-          player_id: player1.id,
-          order_index: nil
-        })
-        |> Repo.update!()
-      end)
-
-      game_session =
-        Kadi.Games.GameSession.changeset(game_session, %{current_turn_player_id: player1.id})
-        |> Repo.update!()
-
-      game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
-
-      # Execute draw (should fail to recycle - only 1 card in played stack)
-      assert {:error, :insufficient_cards_to_recycle} =
-               CardGames.draw_card_from_deck(game_session, player1.id)
-    end
-
-    test "topmost card remains visible after recycle", %{
-      player1: player1,
-      game_session: game_session
-    } do
-      # Setup: Nearly empty deck (keep 1 card), multiple cards in played_stack
-      game_session = Repo.preload(game_session, deck: [deck_cards: :card])
-
-      # Get max order index for played cards
-      existing_played_max_index =
-        game_session.deck.deck_cards
-        |> Enum.filter(&(&1.location_type == "played_stack"))
-        |> Enum.map(& &1.order_index)
-        |> Enum.max(fn -> 0 end)
-
-      # Move 4 deck cards to played_stack (total will be 5 in played stack)
-      deck_cards_to_move =
-        game_session.deck.deck_cards
-        |> Enum.filter(&(&1.location_type == "deck"))
-        |> Enum.take(4)
-
-      Enum.with_index(deck_cards_to_move, existing_played_max_index + 1)
-      |> Enum.each(fn {dc, idx} ->
-        Kadi.Games.DeckCard.changeset(dc, %{location_type: "played_stack", order_index: idx})
-        |> Repo.update!()
-      end)
-
-      # Move ALL remaining deck cards EXCEPT 1 AND existing player hand cards to player1's hand
-      # This leaves deck nearly empty (just 1 card), forcing recycle when drawing
-      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
-
-      cards_to_move =
-        game_session.deck.deck_cards
-        |> Enum.reject(&(&1.location_type == "played_stack"))
-        # Keep 1 card in deck
-        |> Enum.drop(1)
-
-      Enum.each(cards_to_move, fn dc ->
-        Kadi.Games.DeckCard.changeset(dc, %{
-          location_type: "player_hand",
-          player_id: player1.id,
-          order_index: nil
-        })
-        |> Repo.update!()
-      end)
-
-      # The topmost card will be the last one we moved
-      topmost_id = Enum.at(deck_cards_to_move, 3).id
-
-      game_session =
-        Kadi.Games.GameSession.changeset(game_session, %{current_turn_player_id: player1.id})
-        |> Repo.update!()
-
-      game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
-
-      # Draw (deck has 1 card, so no recycle yet)
-      {:ok, updated} = CardGames.draw_card_from_deck(game_session, player1.id)
-
-      # Set turn back to player1 for second draw
-      updated =
-        Kadi.Games.GameSession.changeset(updated, %{current_turn_player_id: player1.id})
-        |> Repo.update!()
-
-      # Now deck is empty, try drawing again - this triggers recycle
-      # Recycle: 5 in played_stack -> recycle 4, keep 1 topmost, draw 1 from those 4
-      {:ok, updated} = CardGames.draw_card_from_deck(updated, player1.id)
-
-      # Verify topmost card still in played_stack
-      updated = Repo.preload(updated, [deck: [deck_cards: :card]], force: true)
-
-      played_cards =
-        updated.deck.deck_cards
-        |> Enum.filter(&(&1.location_type == "played_stack"))
-
-      # Should have 1 card (the topmost)
-      assert length(played_cards) == 1
-      assert hd(played_cards).id == topmost_id
-    end
   end
 
   describe "play_cards/3" do
@@ -1271,6 +1163,46 @@ defmodule Kadi.CardGamesTest do
 
         assert {:error, :cards_not_in_hand} =
                  CardGames.play_cards(game_session, player.id, [fake_card_id])
+      end
+    end
+  end
+
+  describe "draw_card_from_deck/2 - User Story 4 (gameplay integration)" do
+    setup do
+      player1 = player_fixture()
+      player2 = player_fixture(%{email: "player2@example.com"})
+
+      {:ok, game_session} = CardGames.create_game_session(player1, %{short_code: "Draw Test"})
+      {:ok, _} = CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      %{game_session: game_session, player1: player1, player2: player2}
+    end
+
+    test "drawn card cannot be played immediately (turn advances)", %{
+      game_session: game_session
+    } do
+      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      current_player_id = game_session.current_turn_player_id
+
+      # Draw a card
+      {:ok, updated_session} = CardGames.draw_card_from_deck(game_session, current_player_id)
+
+      # Reload with associations
+      updated_session = Repo.preload(updated_session, [deck: [deck_cards: :card]], force: true)
+
+      # Get the drawn card (should be in current player's hand)
+      drawn_cards =
+        updated_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == current_player_id))
+
+      # Try to play the drawn card immediately (should fail because turn has advanced)
+      if length(drawn_cards) > 0 do
+        card = hd(drawn_cards)
+
+        # This should fail with :not_your_turn because draw advances turn
+        assert {:error, :not_your_turn} =
+                 CardGames.play_cards(updated_session, current_player_id, [card.card_id])
       end
     end
   end

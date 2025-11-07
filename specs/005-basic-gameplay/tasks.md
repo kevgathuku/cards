@@ -139,17 +139,17 @@
 
 ### Tests for User Story 4
 
-- [ ] T040 [P] [US4] Test draw adds card to player's hand in test/kadi/card_games_test.exs
-- [ ] T041 [P] [US4] Test draw advances turn to next player in test/kadi/card_games_test.exs
-- [ ] T042 [P] [US4] Test draw with empty deck triggers recycle in test/kadi/card_games_test.exs
-- [ ] T043 [P] [US4] Test drawn card cannot be played immediately in test/kadi/card_games_test.exs
+- [X] T040 [US4] REMOVED DUPLICATE - draw adds card to player's hand (already tested in feature 003 line 453)
+- [X] T041 [US4] REMOVED DUPLICATE - draw advances turn to next player (already tested in feature 003 line 476)
+- [X] T042 [US4] REMOVED DUPLICATE - draw with empty deck triggers recycle (already tested in feature 004 line 826)
+- [X] T043 [US4] Test drawn card cannot be played immediately (gameplay-specific) in test/kadi/card_games_test.exs
 
 ### Implementation for User Story 4
 
-- [ ] T044 [US4] Implement draw_card/2 wrapper function that calls existing draw_card_from_deck/2 in lib/kadi/card_games.ex
-- [ ] T045 [US4] Verify draw_card_from_deck/2 includes turn validation and turn advancement in lib/kadi/card_games.ex
-- [ ] T046 [US4] Verify automatic deck recycling integration with recycle_played_stack/1 (feature 004) in lib/kadi/card_games.ex
-- [ ] T047 [US4] Add integration test for full draw flow with deck recycling in test/kadi/card_games_test.exs
+- [X] T044 [US4] Use existing draw_card_from_deck/2 directly (no wrapper needed) in lib/kadi/card_games.ex
+- [X] T045 [US4] Verify draw_card_from_deck/2 includes turn validation and turn advancement in lib/kadi/card_games.ex
+- [X] T046 [US4] Verify automatic deck recycling integration with recycle_played_stack/1 (feature 004) in lib/kadi/card_games.ex
+- [X] T047 [US4] REMOVED DUPLICATE - full draw flow integration test (redundant with existing tests)
 
 **Checkpoint**: Draw functionality should work independently with automatic deck management
 
