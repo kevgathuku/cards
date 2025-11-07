@@ -702,6 +702,61 @@ defmodule Kadi.CardGames do
     Enum.at(players, next_index)
   end
 
+  # Returns the next player based on current game direction.
+  #
+  # In clockwise: player1 → player2 → player3 → player1
+  # In counter_clockwise: player1 → player3 → player2 → player1
+  #
+  # For 2-player games, direction has no effect (FR-009).
+  #
+  # ## Parameters
+  # - players: List of Player structs
+  # - current_player_id: ID of the current player
+  # - direction: "clockwise" or "counter_clockwise"
+  #
+  # ## Returns
+  # - Player struct of the next player
+  defp get_next_player_with_direction(players, current_player_id, direction) do
+    player_count = length(players)
+
+    if player_count == 2 do
+      # 2-player: direction irrelevant per FR-009
+      get_next_player(players, current_player_id)
+    else
+      case direction do
+        "clockwise" ->
+          get_next_player(players, current_player_id)
+
+        "counter_clockwise" ->
+          get_previous_player(players, current_player_id)
+      end
+    end
+  end
+
+  # Returns the previous player in the turn order.
+  #
+  # ## Parameters
+  # - players: List of Player structs
+  # - current_player_id: ID of the current player
+  #
+  # ## Returns
+  # - Player struct of the previous player
+  defp get_previous_player(players, current_player_id) do
+    current_index = Enum.find_index(players, &(&1.id == current_player_id))
+    prev_index = rem(current_index - 1 + length(players), length(players))
+    Enum.at(players, prev_index)
+  end
+
+  # Reverses the game direction.
+  #
+  # ## Parameters
+  # - direction: Current direction ("clockwise" or "counter_clockwise")
+  #
+  # ## Returns
+  # - Opposite direction string
+  defp reverse_direction("clockwise"), do: "counter_clockwise"
+  defp reverse_direction("counter_clockwise"), do: "clockwise"
+
   # Validates if the given player is the current turn player.
   #
   # ## Parameters
@@ -725,5 +780,69 @@ defmodule Kadi.CardGames do
     else
       {:error, :not_your_turn}
     end
+  end
+
+  # Emits telemetry event for direction change.
+  #
+  # ## Parameters
+  # - game_id: Game session ID
+  # - player_id: Player who played the King
+  # - old_dir: Previous direction
+  # - new_dir: New direction after King play
+  # - card_id: ID of the King card played
+  # - neutral?: True for 2-player games (direction has no effect)
+  defp emit_direction_change_event(game_id, player_id, old_dir, new_dir, card_id, neutral?) do
+    :telemetry.execute(
+      [:kadi, :king, :direction_change],
+      %{},
+      %{
+        game_id: game_id,
+        player_id: player_id,
+        previous_direction: old_dir,
+        new_direction: new_dir,
+        card_id: card_id,
+        neutral: neutral?,
+        timestamp: DateTime.utc_now()
+      }
+    )
+  end
+
+  # Emits telemetry event when player enters cardless state.
+  #
+  # ## Parameters
+  # - game_id: Game session ID
+  # - player_id: Player who became cardless
+  # - card_id: ID of the King card played as last card
+  defp emit_cardless_event(game_id, player_id, card_id) do
+    :telemetry.execute(
+      [:kadi, :king, :cardless_entered],
+      %{},
+      %{
+        game_id: game_id,
+        player_id: player_id,
+        reason: "king_last_card",
+        card_id: card_id,
+        timestamp: DateTime.utc_now()
+      }
+    )
+  end
+
+  # Emits telemetry event when anomaly skip occurs.
+  #
+  # ## Parameters
+  # - game_id: Game session ID
+  # - player_id: Player who was skipped
+  # - deck_state: Description of deck state causing skip
+  defp emit_anomaly_skip_event(game_id, player_id, deck_state) do
+    :telemetry.execute(
+      [:kadi, :king, :anomaly_skip],
+      %{},
+      %{
+        game_id: game_id,
+        player_id: player_id,
+        deck_state: deck_state,
+        timestamp: DateTime.utc_now()
+      }
+    )
   end
 end

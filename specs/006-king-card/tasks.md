@@ -41,11 +41,11 @@ This is an Elixir/Phoenix project with the following structure:
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T006 [P] Extend PlayValidator in lib/kadi/games/play_validator.ex with valid_king_play?/2 function (lines 44-70)
-- [ ] T007 [P] Add direction-aware turn helpers in lib/kadi/card_games.ex after line 706 (get_next_player_with_direction/3, get_previous_player/2, reverse_direction/1)
-- [ ] T008 Add telemetry helper functions in lib/kadi/card_games.ex after line 730 (emit_direction_change_event/6, emit_cardless_event/3, emit_anomaly_skip_event/3)
-- [ ] T009 Attach telemetry handlers in lib/kadi/application.ex for King feature events (direction_change, cardless_entered, anomaly_skip)
-- [ ] T010 [P] Add i18n keys in priv/gettext/en/LC_MESSAGES/default.po for direction labels, toasts, and error messages
+- [X] T006 [P] Extend PlayValidator in lib/kadi/games/play_validator.ex with valid_king_play?/2 function (lines 44-70)
+- [X] T007 [P] Add direction-aware turn helpers in lib/kadi/card_games.ex after line 706 (get_next_player_with_direction/3, get_previous_player/2, reverse_direction/1)
+- [X] T008 Add telemetry helper functions in lib/kadi/card_games.ex after line 730 (emit_direction_change_event/6, emit_cardless_event/3, emit_anomaly_skip_event/3)
+- [X] T009 Attach telemetry handlers in lib/kadi/application.ex for King feature events (direction_change, cardless_entered, anomaly_skip)
+- [X] T010 [P] Add i18n keys in priv/gettext/en/LC_MESSAGES/default.po for direction labels, toasts, and error messages
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 

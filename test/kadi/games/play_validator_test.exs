@@ -88,8 +88,9 @@ defmodule Kadi.Games.PlayValidatorTest do
       end
     end
 
-    test "rejects special cards (2,3,8,Jack,Queen,King,Ace) even when they match" do
-      special_ranks = ["2", "3", "8", "jack", "queen", "king", "ace"]
+    test "rejects special cards (2,3,8,Jack,Queen,Ace) even when they match - except King" do
+      # King is now supported in Phase 2 (006-king-card)
+      special_ranks = ["2", "3", "8", "jack", "queen", "ace"]
 
       for rank <- special_ranks do
         top_card = %Card{suit: "hearts", rank: rank}
@@ -98,6 +99,18 @@ defmodule Kadi.Games.PlayValidatorTest do
         refute PlayValidator.valid_play?([card], top_card),
                "Special card #{rank} should be rejected in Phase 1"
       end
+    end
+
+    test "accepts King when it matches suit or rank (Phase 2 - 006-king-card)" do
+      # King matching suit
+      top_card = %Card{suit: "hearts", rank: "5"}
+      king = %Card{suit: "hearts", rank: "king"}
+      assert PlayValidator.valid_play?([king], top_card)
+
+      # King matching rank
+      top_card2 = %Card{suit: "hearts", rank: "king"}
+      king2 = %Card{suit: "spades", rank: "king"}
+      assert PlayValidator.valid_play?([king2], top_card2)
     end
 
     test "rejects combo with special cards even if they match" do

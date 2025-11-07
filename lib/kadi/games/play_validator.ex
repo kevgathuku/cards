@@ -13,6 +13,7 @@ defmodule Kadi.Games.PlayValidator do
 
   # Regular cards allowed in current phase (005-basic-gameplay)
   @regular_ranks ["4", "5", "6", "7", "9", "10"]
+  @special_ranks ["king"]
 
   @doc """
   Validates if a card play is valid.
@@ -41,12 +42,60 @@ defmodule Kadi.Games.PlayValidator do
   def valid_play?(_cards, nil), do: false
 
   def valid_play?([single_card], top_card) do
-    valid_regular_card?(single_card) and validate_single_card(single_card, top_card)
+    cond do
+      single_card.rank == "king" ->
+        valid_king_play?([single_card], top_card)
+
+      valid_regular_card?(single_card) ->
+        validate_single_card(single_card, top_card)
+
+      true ->
+        false
+    end
   end
 
   def valid_play?(cards, top_card) when is_list(cards) do
-    all_regular_cards?(cards) and validate_combo(cards, top_card)
+    cond do
+      Enum.any?(cards, &(&1.rank == "king")) ->
+        valid_king_play?(cards, top_card)
+
+      all_regular_cards?(cards) ->
+        validate_combo(cards, top_card)
+
+      true ->
+        false
+    end
   end
+
+  @doc """
+  Validates if a King card play is valid.
+
+  Rules:
+  - Single King: Must match suit OR rank of top card
+  - Multiple Kings: Rejected (only one King per turn - FR-005)
+  - King in combo with other cards: Rejected (Phase 1 limitation)
+
+  ## Parameters
+  - cards: List of Card structs (must contain King(s))
+  - top_card: The current top card on the played stack
+
+  ## Returns
+  - `true` if the King play is valid
+  - `false` if the King play is invalid
+  """
+  def valid_king_play?([], _top_card), do: false
+  def valid_king_play?(_cards, nil), do: false
+
+  def valid_king_play?([%{rank: "king"} = king_card], top_card) do
+    matches_suit_or_rank?(king_card, top_card)
+  end
+
+  def valid_king_play?([%{rank: "king"} | _rest], _top_card) do
+    # Multiple Kings or King in combo - reject per FR-005
+    false
+  end
+
+  def valid_king_play?(_cards, _top_card), do: false
 
   @doc """
   Validates if player has all the specified cards in their hand.
