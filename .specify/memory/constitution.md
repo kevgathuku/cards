@@ -32,6 +32,43 @@ This document establishes the core principles and standards for the Kadi card ga
 - **Test file location**: Mirror source structure in `test/` directory
 - **No "god modules"**: Break up modules that exceed ~300 lines or have too many responsibilities
 
+### 1.5 Feature Reuse and Integration
+- **Check existing features**: ALWAYS review `specs/` directory for previously implemented features before creating new implementations
+- **Reuse before rebuild**: If functionality exists in a prior feature (001, 002, 003, etc.), reference and extend it rather than reimplementing
+- **Feature dependencies**: Document dependencies on previous features in spec clarifications and implementation plan
+- **Backward compatibility**: New features must not break existing feature implementations
+- **Integration over duplication**: When adding to existing flows, integrate with existing context functions rather than creating parallel implementations
+
+### 1.6 Schema Verification Before Data Model Changes
+- **Read actual schema files**: ALWAYS read the relevant schema files in `lib/*/` before proposing data model changes
+- **Verify migrations**: Check `priv/repo/migrations/` to understand existing schema modifications
+- **Review documentation**: Consult `docs/database-relationships.md` for cascade behavior, ordering conventions, and relationship patterns
+- **Validate assumptions**: Never assume field names, data types, or validation rules—inspect the actual code
+- **Document what exists**: In data model documentation, accurately represent the current implementation before proposing changes
+- **Check validation rules**: Review Ecto changeset validations, constraints, and custom validation functions
+- **Understand relationships**: Verify actual `belongs_to`, `has_many`, and association configurations
+- **Migration prerequisites**: Identify what migrations are truly needed vs. what already exists
+- **Schema-first planning**: When designing features, start by reading current schema to align new features with existing structure
+- **Prevent duplication**: Schema review prevents adding fields that already exist or reimplementing existing tracking mechanisms
+
+### 1.7 DRY Principle - Eliminate All Duplication
+- **Check before creating**: ALWAYS search for existing functions and tests before implementing new ones
+- **Search methodology**:
+  - Use `grep -rn "def function_name" lib/` to find similar functions
+  - Use `grep -n "describe \"function_name" test/` to find existing test suites
+  - Read module documentation and related context modules
+  - Check previous features in `specs/` directory for reusable implementations
+- **No wrapper functions**: Never create 1:1 wrapper functions that add no value; use existing functions directly
+- **No duplicate tests**: Never write tests for scenarios already covered by existing tests
+- **Test organization hierarchy**:
+  - **Unit tests**: Test the direct function once in its primary test suite
+  - **Integration tests**: Test unique interactions between components
+  - **User story tests**: Only test gameplay-specific behaviors not covered elsewhere
+  - **Never test**: Same behavior through different call paths
+- **Reuse over reimplementation**: If functionality exists, reference and extend it rather than rebuilding
+- **Documentation over duplication**: Reference existing tests/functions in comments rather than duplicating them
+- **Example case study**: Feature 005 eliminated 1 duplicate function and 6 duplicate tests by properly reusing features 003 and 004
+
 ---
 
 ## 2. Testing Standards
@@ -208,9 +245,23 @@ This document establishes the core principles and standards for the Kadi card ga
 
 This constitution is a living document. All contributors must follow these principles. Exceptions require explicit discussion and documentation. Propose amendments via pull requests with clear rationale.
 
-**Version**: 1.1.0 | **Ratified**: 2025-11-03 | **Last Amended**: 2025-11-05
+**Version**: 1.3.0 | **Ratified**: 2025-11-03 | **Last Amended**: 2025-11-07
 
 ## Amendment History
+
+### Version 1.3.0 (2025-11-07)
+- Added Section 1.7: DRY Principle - Eliminate All Duplication
+- Established mandatory search process before creating new functions or tests
+- Defined test organization hierarchy (unit → integration → user story)
+- Prohibited 1:1 wrapper functions and duplicate test scenarios
+- Added concrete example from Feature 005 (eliminated 1 function + 6 tests)
+- Prevents code and test duplication across features
+
+### Version 1.2.0 (2025-11-06)
+- Added Section 1.6: Schema Verification Before Data Model Changes
+- Established mandatory schema review process before proposing data model changes
+- Prevents documentation drift from actual implementation
+- Requires reading schema files and migrations to validate assumptions
 
 ### Version 1.1.0 (2025-11-05)
 - Added Section 6.4: Database Safety During Development

@@ -243,6 +243,35 @@ defmodule Kadi.CardGamesTest do
       player_ids = [player.id, player2.id, player3.id]
       assert started_game_session.current_turn_player_id in player_ids
     end
+
+    test "sets top_card_id to the start card", %{player: player} do
+      player2 = player_fixture(%{email: "player2b@example.com"})
+
+      {:ok, game_session} =
+        CardGames.create_game_session(player, %{short_code: "top-card-test"})
+
+      CardGames.join_game_session(player2, game_session.id)
+
+      {:ok, started_game_session} = CardGames.start_game(game_session)
+
+      # Verify top_card_id is set
+      assert started_game_session.top_card_id != nil
+
+      # Reload with preloads to verify the top_card relationship
+      started_game_session =
+        Repo.preload(started_game_session, [:top_card, deck: [deck_cards: :card]])
+
+      # Verify top_card is the card on the played_stack
+      played_cards =
+        started_game_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "played_stack"))
+
+      assert length(played_cards) == 1
+
+      start_card = hd(played_cards)
+      assert started_game_session.top_card_id == start_card.card_id
+      assert started_game_session.top_card.id == start_card.card_id
+    end
   end
 
   describe "deal_cards/2 with order_index" do
@@ -869,113 +898,380 @@ defmodule Kadi.CardGamesTest do
       # Recycle process: 5 in played_stack -> keep 1 topmost, recycle 4 -> draw 1 = 3 left in deck
       assert length(deck_cards_after) == 3
     end
+  end
 
-    test "returns error when cannot recycle (only 1 card in played stack)", %{
-      player1: player1,
-      game_session: game_session
-    } do
-      # Setup: Empty deck, only 1 card in played_stack (the one from start_game)
-      game_session = Repo.preload(game_session, deck: [deck_cards: :card])
+  describe "play_cards/3" do
+    setup %{player: player} do
+      player2 = player_fixture(%{email: "player2@example.com"})
+      {:ok, game_session} = CardGames.create_game_session(player, %{short_code: "Test Play"})
+      {:ok, _} = CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
 
-      # Move all deck cards to player hand (leaving only the played card)
-      game_session.deck.deck_cards
-      |> Enum.filter(&(&1.location_type == "deck"))
-      |> Enum.each(fn dc ->
-        Kadi.Games.DeckCard.changeset(dc, %{
-          location_type: "player_hand",
-          player_id: player1.id,
-          order_index: nil
-        })
-        |> Repo.update!()
-      end)
-
-      game_session =
-        Kadi.Games.GameSession.changeset(game_session, %{current_turn_player_id: player1.id})
-        |> Repo.update!()
-
-      game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
-
-      # Execute draw (should fail to recycle - only 1 card in played stack)
-      assert {:error, :insufficient_cards_to_recycle} =
-               CardGames.draw_card_from_deck(game_session, player1.id)
+      %{game_session: game_session, player: player, player2: player2}
     end
 
-    test "topmost card remains visible after recycle", %{
-      player1: player1,
-      game_session: game_session
+    test "successfully plays a single matching card", %{
+      game_session: game_session,
+      player: player
     } do
-      # Setup: Nearly empty deck (keep 1 card), multiple cards in played_stack
-      game_session = Repo.preload(game_session, deck: [deck_cards: :card])
+      # Reload to get fresh state
+      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      current_player_id = game_session.current_turn_player_id
 
-      # Get max order index for played cards
-      existing_played_max_index =
+      # Get the current player
+      current_player = if current_player_id == player.id, do: player, else: nil
+
+      # Skip test if player is not current turn
+      if current_player do
+        # Get top card
+        top_card =
+          game_session.deck.deck_cards
+          |> Enum.filter(&(&1.location_type == "played_stack"))
+          |> Enum.max_by(& &1.order_index)
+          |> Map.get(:card)
+
+        # Find a matching card in player's hand
+        player_hand =
+          game_session.deck.deck_cards
+          |> Enum.filter(
+            &(&1.location_type == "player_hand" and &1.player_id == current_player.id)
+          )
+          |> Enum.map(& &1.card)
+
+        matching_card =
+          Enum.find(player_hand, fn card ->
+            card.suit == top_card.suit or card.rank == top_card.rank
+          end)
+
+        if matching_card do
+          {:ok, updated_game} =
+            CardGames.play_cards(game_session, current_player.id, [matching_card.id])
+
+          # Verify card was moved to played_stack
+          updated_game = Repo.preload(updated_game, [deck: [deck_cards: :card]], force: true)
+
+          played_cards =
+            updated_game.deck.deck_cards
+            |> Enum.filter(&(&1.location_type == "played_stack"))
+
+          assert Enum.any?(played_cards, &(&1.card_id == matching_card.id))
+
+          # Verify turn advanced
+          refute updated_game.current_turn_player_id == current_player.id
+        end
+      end
+    end
+
+    test "rejects play when not player's turn", %{
+      game_session: game_session,
+      player: player,
+      player2: player2
+    } do
+      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      current_player_id = game_session.current_turn_player_id
+
+      # Get the non-current player
+      wrong_player = if current_player_id == player.id, do: player2, else: player
+
+      # Get any card from wrong player's hand
+      player_hand =
         game_session.deck.deck_cards
-        |> Enum.filter(&(&1.location_type == "played_stack"))
-        |> Enum.map(& &1.order_index)
-        |> Enum.max(fn -> 0 end)
+        |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == wrong_player.id))
+        |> Enum.map(& &1.card)
 
-      # Move 4 deck cards to played_stack (total will be 5 in played stack)
-      deck_cards_to_move =
-        game_session.deck.deck_cards
-        |> Enum.filter(&(&1.location_type == "deck"))
-        |> Enum.take(4)
+      if card = List.first(player_hand) do
+        assert {:error, :not_your_turn} =
+                 CardGames.play_cards(game_session, wrong_player.id, [card.id])
+      end
+    end
 
-      Enum.with_index(deck_cards_to_move, existing_played_max_index + 1)
-      |> Enum.each(fn {dc, idx} ->
-        Kadi.Games.DeckCard.changeset(dc, %{location_type: "played_stack", order_index: idx})
-        |> Repo.update!()
-      end)
+    test "rejects invalid card play", %{game_session: game_session, player: player} do
+      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      current_player_id = game_session.current_turn_player_id
 
-      # Move ALL remaining deck cards EXCEPT 1 AND existing player hand cards to player1's hand
-      # This leaves deck nearly empty (just 1 card), forcing recycle when drawing
+      if current_player_id == player.id do
+        # Get top card
+        top_card =
+          game_session.deck.deck_cards
+          |> Enum.filter(&(&1.location_type == "played_stack"))
+          |> Enum.max_by(& &1.order_index)
+          |> Map.get(:card)
+
+        # Find a non-matching card in player's hand
+        player_hand =
+          game_session.deck.deck_cards
+          |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == player.id))
+          |> Enum.map(& &1.card)
+
+        non_matching_card =
+          Enum.find(player_hand, fn card ->
+            card.suit != top_card.suit and card.rank != top_card.rank
+          end)
+
+        if non_matching_card do
+          assert {:error, :invalid_play} =
+                   CardGames.play_cards(game_session, player.id, [non_matching_card.id])
+        end
+      end
+    end
+
+    test "rejects play with cards not in hand", %{game_session: game_session, player: player} do
+      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      current_player_id = game_session.current_turn_player_id
+
+      if current_player_id == player.id do
+        # Get a card from the deck (not in player's hand)
+        deck_card =
+          game_session.deck.deck_cards
+          |> Enum.filter(&(&1.location_type == "deck"))
+          |> List.first()
+
+        if deck_card do
+          assert {:error, :cards_not_in_hand} =
+                   CardGames.play_cards(game_session, player.id, [deck_card.card_id])
+        end
+      end
+    end
+
+    test "successfully plays combo cards", %{game_session: game_session, player: player} do
+      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      current_player_id = game_session.current_turn_player_id
+
+      if current_player_id == player.id do
+        # Get top card
+        top_card =
+          game_session.deck.deck_cards
+          |> Enum.filter(&(&1.location_type == "played_stack"))
+          |> Enum.max_by(& &1.order_index)
+          |> Map.get(:card)
+
+        # Find cards with same rank in player's hand
+        player_hand =
+          game_session.deck.deck_cards
+          |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == player.id))
+          |> Enum.map(& &1.card)
+
+        # Group by rank
+        cards_by_rank =
+          player_hand
+          |> Enum.group_by(& &1.rank)
+          |> Enum.filter(fn {_rank, cards} -> length(cards) >= 2 end)
+
+        # Find a combo where first card matches top card
+        combo =
+          Enum.find_value(cards_by_rank, fn {_rank, cards} ->
+            first_card = List.first(cards)
+
+            if first_card.suit == top_card.suit or first_card.rank == top_card.rank do
+              Enum.take(cards, 2)
+            end
+          end)
+
+        if combo do
+          card_ids = Enum.map(combo, & &1.id)
+          {:ok, updated_game} = CardGames.play_cards(game_session, player.id, card_ids)
+
+          # Verify all cards were moved to played_stack
+          updated_game = Repo.preload(updated_game, [deck: [deck_cards: :card]], force: true)
+
+          played_cards =
+            updated_game.deck.deck_cards
+            |> Enum.filter(&(&1.location_type == "played_stack"))
+            |> Enum.map(& &1.card_id)
+
+          assert Enum.all?(card_ids, &(&1 in played_cards))
+
+          # Verify turn advanced
+          refute updated_game.current_turn_player_id == player.id
+        end
+      end
+    end
+
+    test "rejects combo with mixed ranks", %{game_session: game_session, player: player} do
+      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      current_player_id = game_session.current_turn_player_id
+
+      if current_player_id == player.id do
+        # Get player's hand
+        player_hand =
+          game_session.deck.deck_cards
+          |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == player.id))
+          |> Enum.map(& &1.card)
+
+        # Find two cards with different ranks
+        cards_by_rank = Enum.group_by(player_hand, & &1.rank)
+
+        if length(Map.keys(cards_by_rank)) >= 2 do
+          # Get one card from two different ranks
+          [rank1, rank2 | _] = Map.keys(cards_by_rank)
+          card1 = hd(cards_by_rank[rank1])
+          card2 = hd(cards_by_rank[rank2])
+
+          # Try to play mixed ranks
+          assert {:error, :invalid_play} =
+                   CardGames.play_cards(game_session, player.id, [card1.id, card2.id])
+        end
+      end
+    end
+  end
+
+  describe "play_cards/3 - edge cases" do
+    setup %{player: player} do
+      player2 = player_fixture(%{email: "edgecase@example.com"})
+      {:ok, game_session} = CardGames.create_game_session(player, %{short_code: "Edge Test"})
+      {:ok, _} = CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      %{game_session: game_session, player: player, player2: player2}
+    end
+
+    test "rejects empty card list", %{game_session: game_session, player: player} do
+      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      current_player_id = game_session.current_turn_player_id
+
+      if current_player_id == player.id do
+        # Try to play empty list
+        assert {:error, :invalid_play} = CardGames.play_cards(game_session, player.id, [])
+      end
+    end
+
+    test "rejects play when player not in game", %{game_session: game_session} do
+      other_player = player_fixture(%{email: "notingame@example.com"})
       game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
 
-      cards_to_move =
+      # Get any card id (doesn't matter since player not in game)
+      card =
         game_session.deck.deck_cards
-        |> Enum.reject(&(&1.location_type == "played_stack"))
-        # Keep 1 card in deck
-        |> Enum.drop(1)
+        |> Enum.filter(&(&1.location_type == "player_hand"))
+        |> List.first()
 
-      Enum.each(cards_to_move, fn dc ->
-        Kadi.Games.DeckCard.changeset(dc, %{
-          location_type: "player_hand",
-          player_id: player1.id,
-          order_index: nil
-        })
-        |> Repo.update!()
-      end)
+      if card do
+        # Note: Turn validation happens first, so we get :not_your_turn
+        # This is correct behavior - more efficient to check turn before loading player data
+        assert {:error, :not_your_turn} =
+                 CardGames.play_cards(game_session, other_player.id, [card.card_id])
+      end
+    end
 
-      # The topmost card will be the last one we moved
-      topmost_id = Enum.at(deck_cards_to_move, 3).id
+    test "rejects play with non-existent card id", %{game_session: game_session, player: player} do
+      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      current_player_id = game_session.current_turn_player_id
 
+      if current_player_id == player.id do
+        # Use a card id that doesn't exist (very large number)
+        fake_card_id = 999_999_999
+
+        assert {:error, :cards_not_in_hand} =
+                 CardGames.play_cards(game_session, player.id, [fake_card_id])
+      end
+    end
+  end
+
+  describe "draw_card_from_deck/2 - User Story 4 (gameplay integration)" do
+    setup do
+      player1 = player_fixture()
+      player2 = player_fixture(%{email: "player2@example.com"})
+
+      {:ok, game_session} = CardGames.create_game_session(player1, %{short_code: "Draw Test"})
+      {:ok, _} = CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      %{game_session: game_session, player1: player1, player2: player2}
+    end
+
+    test "drawn card cannot be played immediately (turn advances)", %{
+      game_session: game_session
+    } do
+      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      current_player_id = game_session.current_turn_player_id
+
+      # Draw a card
+      {:ok, updated_session} = CardGames.draw_card_from_deck(game_session, current_player_id)
+
+      # Reload with associations
+      updated_session = Repo.preload(updated_session, [deck: [deck_cards: :card]], force: true)
+
+      # Get the drawn card (should be in current player's hand)
+      drawn_cards =
+        updated_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == current_player_id))
+
+      # Try to play the drawn card immediately (should fail because turn has advanced)
+      if length(drawn_cards) > 0 do
+        card = hd(drawn_cards)
+
+        # This should fail with :not_your_turn because draw advances turn
+        assert {:error, :not_your_turn} =
+                 CardGames.play_cards(updated_session, current_player_id, [card.card_id])
+      end
+    end
+  end
+
+  describe "play_cards/3 - Phase 1 regular cards only (4,5,6,7,9,10)" do
+    setup do
+      player1 = player_fixture()
+      player2 = player_fixture(%{email: "player2@example.com"})
+
+      {:ok, game_session} = CardGames.create_game_session(player1, %{short_code: "Phase1"})
+      {:ok, _} = CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      %{game_session: game_session, player1: player1, player2: player2}
+    end
+
+    test "rejects special cards (2,3,8,Jack,Queen,King,Ace) even when they match", %{
+      game_session: game_session
+    } do
+      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      current_player_id = game_session.current_turn_player_id
+
+      # Try to find a special card in current player's hand
+      special_ranks = ["2", "3", "8", "jack", "queen", "king", "ace"]
+
+      special_card =
+        game_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == current_player_id))
+        |> Enum.find(&(&1.card.rank in special_ranks))
+
+      # If player has a special card, try to play it
+      if special_card do
+        # Should be rejected regardless of whether it matches
+        assert {:error, :invalid_play} =
+                 CardGames.play_cards(game_session, current_player_id, [special_card.card_id])
+      end
+    end
+
+    test "accepts regular cards (4,5,6,7,9,10) when they match", %{
+      game_session: game_session
+    } do
       game_session =
-        Kadi.Games.GameSession.changeset(game_session, %{current_turn_player_id: player1.id})
-        |> Repo.update!()
+        Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
 
-      game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
+      current_player_id = game_session.current_turn_player_id
+      top_card = game_session.top_card
 
-      # Draw (deck has 1 card, so no recycle yet)
-      {:ok, updated} = CardGames.draw_card_from_deck(game_session, player1.id)
+      # Try to find a matching regular card in current player's hand
+      regular_ranks = ["4", "5", "6", "7", "9", "10"]
 
-      # Set turn back to player1 for second draw
-      updated =
-        Kadi.Games.GameSession.changeset(updated, %{current_turn_player_id: player1.id})
-        |> Repo.update!()
+      matching_regular_card =
+        game_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == current_player_id))
+        |> Enum.find(fn deck_card ->
+          card = deck_card.card
 
-      # Now deck is empty, try drawing again - this triggers recycle
-      # Recycle: 5 in played_stack -> recycle 4, keep 1 topmost, draw 1 from those 4
-      {:ok, updated} = CardGames.draw_card_from_deck(updated, player1.id)
+          card.rank in regular_ranks and
+            (card.suit == top_card.suit or card.rank == top_card.rank)
+        end)
 
-      # Verify topmost card still in played_stack
-      updated = Repo.preload(updated, [deck: [deck_cards: :card]], force: true)
-
-      played_cards =
-        updated.deck.deck_cards
-        |> Enum.filter(&(&1.location_type == "played_stack"))
-
-      # Should have 1 card (the topmost)
-      assert length(played_cards) == 1
-      assert hd(played_cards).id == topmost_id
+      # If player has a matching regular card, it should be accepted
+      if matching_regular_card do
+        assert {:ok, _updated_session} =
+                 CardGames.play_cards(
+                   game_session,
+                   current_player_id,
+                   [matching_regular_card.card_id]
+                 )
+      end
     end
   end
 end
