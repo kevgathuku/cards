@@ -20,21 +20,25 @@ Implement King (K) card reversal mechanic with direction tracking, player status
 **Scale/Scope**: Support 100+ concurrent games (constitution scalability requirement); feature localized strings but English only initial; extensible player status enum
 
 ### Derived Components / Modules
-- `Kadi.Games.GameSession`: add `direction` ("clockwise" | "counter_clockwise")
-- `Kadi.Games.GameSessionPlayer`: add `status` string (enum validated) default "normal" (values: "normal","cardless")
-- `Kadi.Games.PlayValidator`: extend or add function `validate_king_play/3`
-- New rule module (optional): `Kadi.Games.Rules.King` for composability (NEEDS CLARIFICATION—merge into existing validator or separate?)
-- Telemetry event emission (namespace: `:kadi, :king, :direction_change` etc.)
-- LiveView event/messages contract (no external REST API)
+- `Kadi.Games.GameSession` (`lib/kadi/games/game_session.ex`): add `direction` field ("clockwise" | "counter_clockwise") → **see data-model.md §2.1**
+- `Kadi.Games.GameSessionPlayer` (`lib/kadi/games/game_session_player.ex`): add `status` string enum (default "normal", values: "normal"|"cardless") → **see data-model.md §2.2**
+- `Kadi.Games.PlayValidator` (`lib/kadi/games/play_validator.ex`, lines 1-107): extend with `valid_king_play?/3` function → **see quickstart.md §3.1**
+- Integration points:
+  - `Kadi.CardGames.play_cards/3` (lines 415-465): add turn gating validation → **see quickstart.md §3.3**
+  - `Kadi.CardGames.execute_play/3` (lines 571-615): add King detection & direction reversal → **see quickstart.md §3.3**
+  - `Kadi.CardGames.draw_card_from_deck/2` (lines 215-285): add cardless auto-draw logic → **see quickstart.md §4.1**
+  - `Kadi.CardGames.get_next_player/2` (line 697): refactor to direction-aware → **see quickstart.md §3.2**
+- Telemetry event emission: namespace `:kadi, :king, :direction_change` etc. → **see contracts/events.md §3, quickstart.md §5**
+- LiveView event/messages contract (`lib/kadi_web/live/game_live.ex`): no external REST API → **see contracts/events.md §1-2**
 
-### Open Questions (Resolved)
-1. Separate dedicated King rules module vs extending existing `PlayValidator`? → RESOLVED (extend validator)
-2. Concurrency: prevent simultaneous King plays by rejecting non-turn player actions (no optimistic lock) → RESOLVED
-3. Representation of `direction`: string + CHECK constraint → RESOLVED
-4. Player status persistence: string enum field → RESOLVED
-5. Telemetry vs custom logging wrapper: Telemetry → RESOLVED
-6. Validation placement: server authoritative with optional client hint → RESOLVED
-7. Top card integrity guard: runtime invariant + future trigger Phase 2 → RESOLVED
+### Open Questions (All Resolved)
+1. ~~Separate dedicated King rules module vs extending existing `PlayValidator`?~~ → **RESOLVED**: Extend validator (see research.md §1)
+2. ~~Concurrency: prevent simultaneous King plays~~ → **RESOLVED**: Turn gating via `validate_current_turn/2` at line 715 (see research.md §2)
+3. ~~Representation of `direction`~~ → **RESOLVED**: String + CHECK constraint (see research.md §3, data-model.md §2.1)
+4. ~~Player status persistence~~ → **RESOLVED**: String enum field (see research.md §4, data-model.md §2.2)
+5. ~~Telemetry vs custom logging wrapper~~ → **RESOLVED**: Telemetry (see research.md §5)
+6. ~~Validation placement~~ → **RESOLVED**: Server authoritative (see research.md §6)
+7. ~~Top card integrity guard~~ → **RESOLVED**: Runtime invariant (see research.md §7)
 
 ## Constitution Check (Initial Pre-Design Gate)
 
@@ -72,29 +76,44 @@ All gates satisfied; Phase 2 task decomposition may proceed next.
 ### Documentation (feature directory)
 ```text
 specs/006-king-card/
-├── spec.md
-├── plan.md
-├── research.md          # Phase 0
-├── data-model.md        # Phase 1
-├── quickstart.md        # Phase 1
-├── contracts/           # Phase 1 (OpenAPI + events doc)
-└── tasks.md             # Phase 2 (future)
+├── spec.md              # Complete requirements & acceptance criteria
+├── plan.md              # This file - implementation roadmap
+├── research.md          # Phase 0 - Design decisions & rationale
+├── data-model.md        # Phase 1 - Schema changes & migrations
+├── quickstart.md        # Phase 1 - Step-by-step implementation guide
+├── audit.md             # Implementation plan review & cross-references
+└── contracts/
+    └── events.md        # LiveView & Telemetry event contracts
 ```
 
 ### Source Code (relevant existing paths)
 ```text
 lib/
-  kadi/games/game_session.ex
-  kadi/games/game_session_player.ex
-  kadi/games/deck_card.ex
-  kadi/games/card.ex
-  kadi/games/play_validator.ex
-  kadi/games/supervisor.ex
-  kadi/utils.ex
-  kadi_web/live/game_live.ex (assumed)
+  kadi/
+    games/
+      game_session.ex           # Lines 1-30: Add :direction field (§2.1)
+      game_session_player.ex    # Lines 1-20: Add :status field (§2.2)
+      deck_card.ex              # Unchanged
+      card.ex                   # Contains rank "king"
+      play_validator.ex         # Lines 1-107: Extend with King logic (§3.1)
+      supervisor.ex             # Unchanged
+    card_games.ex               # Main context - multiple integration points:
+                                # - Lines 215-285: draw_card_from_deck (§4.1)
+                                # - Lines 415-465: play_cards (§3.3)
+                                # - Lines 571-615: execute_play (§3.3)
+                                # - Line 697-706: get_next_player (§3.2)
+                                # - Line 715: validate_current_turn (existing)
+    utils.ex                    # Unchanged
+  kadi_web/
+    live/
+      game_live.ex              # LiveView updates (§6)
+      game_live.html.heex       # Direction indicator template (§6.2)
+priv/
+  repo/migrations/              # Add two new migrations (§1)
+  gettext/en/LC_MESSAGES/       # Add i18n keys (§8)
 ```
 
-**Structure Decision**: Extend existing Games context; no new context introduced. Add migrations and, if separation chosen, a small `kadi/games/rules/king.ex` module.
+**Structure Decision**: Extend existing Games context; no new context introduced. Add migrations as specified in quickstart.md §1. All cross-references use § notation to reference quickstart.md sections.
 
 ## Complexity Tracking
 
