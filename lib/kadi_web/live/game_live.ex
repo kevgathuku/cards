@@ -226,7 +226,8 @@ defmodule KadiWeb.GameLive do
       played_pile: played_pile,
       deck_size: deck_size,
       current_turn_player: game_session.current_turn_player,
-      other_players_hands: other_players_hands
+      other_players_hands: other_players_hands,
+      selected_cards: socket.assigns[:selected_cards] || []
     )
   end
 end

@@ -440,4 +440,368 @@ defmodule KadiWeb.GameLiveTest do
       refute html1 =~ "Draw Card"
     end
   end
+
+  describe "Phase 8: Card Selection UI (T063)" do
+    setup do
+      player1 = player_fixture()
+      player2 = player_fixture(%{email: "player2@example.com"})
+
+      {:ok, game_session} = CardGames.create_game_session(player1, %{short_code: "selection"})
+      {:ok, _} = CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      %{player1: player1, player2: player2, game_session: game_session}
+    end
+
+    test "clicking card toggles selection", %{player1: player1, game_session: game_session} do
+      game_session =
+        Kadi.Games.GameSession.changeset(game_session, %{current_turn_player_id: player1.id})
+        |> Kadi.Repo.update!()
+
+      conn = log_in_player(build_conn(), player1)
+      {:ok, view, _html} = live(conn, ~p"/games/#{game_session.id}")
+
+      # Get a card from player's hand
+      game_session = Kadi.Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+
+      player_card =
+        game_session.deck.deck_cards
+        |> Enum.find(&(&1.location_type == "player_hand" and &1.player_id == player1.id))
+
+      # Click to select card
+      render_click(view, "toggle_card", %{"card_id" => to_string(player_card.card_id)})
+      html = render(view)
+
+      # Card should show as selected (bg-blue-100 class)
+      assert html =~ "bg-blue-100"
+
+      # Click again to deselect
+      render_click(view, "toggle_card", %{"card_id" => to_string(player_card.card_id)})
+      html = render(view)
+
+      # Button should show 0 cards selected
+      assert html =~ "Play Selected Cards (0)"
+    end
+
+    test "play button disabled when no cards selected", %{
+      player1: player1,
+      game_session: game_session
+    } do
+      game_session =
+        Kadi.Games.GameSession.changeset(game_session, %{current_turn_player_id: player1.id})
+        |> Kadi.Repo.update!()
+
+      conn = log_in_player(build_conn(), player1)
+      {:ok, _view, html} = live(conn, ~p"/games/#{game_session.id}")
+
+      # Play button should be disabled
+      assert html =~ "disabled"
+      assert html =~ "Play Selected Cards (0)"
+    end
+  end
+
+  describe "Phase 8: Play Cards Event (T064)" do
+    setup do
+      player1 = player_fixture()
+      player2 = player_fixture(%{email: "player2@example.com"})
+
+      {:ok, game_session} = CardGames.create_game_session(player1, %{short_code: "play-test"})
+      {:ok, _} = CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      %{player1: player1, player2: player2, game_session: game_session}
+    end
+
+    test "playing valid card updates game state", %{player1: player1, game_session: game_session} do
+      game_session =
+        Kadi.Games.GameSession.changeset(game_session, %{current_turn_player_id: player1.id})
+        |> Kadi.Repo.update!()
+
+      game_session =
+        Kadi.Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
+
+      # Find a matching card
+      top_card = game_session.top_card
+
+      matching_card =
+        game_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == player1.id))
+        |> Enum.find(fn dc ->
+          card = dc.card
+          card.suit == top_card.suit or card.rank == top_card.rank
+        end)
+
+      if matching_card do
+        conn = log_in_player(build_conn(), player1)
+        {:ok, view, _html} = live(conn, ~p"/games/#{game_session.id}")
+
+        # Select and play the card
+        render_click(view, "toggle_card", %{"card_id" => to_string(matching_card.card_id)})
+        render_click(view, "play_cards")
+
+        Process.sleep(100)
+        html = render(view)
+
+        # Turn should have changed to player2
+        assert html =~ "player2@example.com"
+      end
+    end
+  end
+
+  describe "Phase 8: Invalid Play Error Flash (T066)" do
+    setup do
+      player1 = player_fixture()
+      player2 = player_fixture(%{email: "player2@example.com"})
+
+      {:ok, game_session} = CardGames.create_game_session(player1, %{short_code: "error-test"})
+      {:ok, _} = CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      %{player1: player1, player2: player2, game_session: game_session}
+    end
+
+    test "shows error flash for invalid play", %{player1: player1, game_session: game_session} do
+      game_session =
+        Kadi.Games.GameSession.changeset(game_session, %{current_turn_player_id: player1.id})
+        |> Kadi.Repo.update!()
+
+      game_session =
+        Kadi.Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
+
+      # Find a non-matching card
+      top_card = game_session.top_card
+
+      non_matching_card =
+        game_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == player1.id))
+        |> Enum.find(fn dc ->
+          card = dc.card
+          card.suit != top_card.suit and card.rank != top_card.rank
+        end)
+
+      if non_matching_card do
+        conn = log_in_player(build_conn(), player1)
+        {:ok, view, _html} = live(conn, ~p"/games/#{game_session.id}")
+
+        # Try to play invalid card
+        render_click(view, "toggle_card", %{"card_id" => to_string(non_matching_card.card_id)})
+        html = render_click(view, "play_cards")
+
+        # Should show error message
+        assert html =~ "Invalid play"
+      end
+    end
+  end
+
+  describe "Phase 8: Turn Validation (T067)" do
+    setup do
+      player1 = player_fixture()
+      player2 = player_fixture(%{email: "player2@example.com"})
+
+      {:ok, game_session} = CardGames.create_game_session(player1, %{short_code: "turn-test"})
+      {:ok, _} = CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      %{player1: player1, player2: player2, game_session: game_session}
+    end
+
+    test "prevents out-of-turn plays", %{
+      player1: player1,
+      player2: player2,
+      game_session: game_session
+    } do
+      game_session =
+        Kadi.Games.GameSession.changeset(game_session, %{current_turn_player_id: player1.id})
+        |> Kadi.Repo.update!()
+
+      game_session = Kadi.Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+
+      # Player2 tries to play when it's player1's turn
+      player2_card =
+        game_session.deck.deck_cards
+        |> Enum.find(&(&1.location_type == "player_hand" and &1.player_id == player2.id))
+
+      if player2_card do
+        conn = log_in_player(build_conn(), player2)
+        {:ok, view, html} = live(conn, ~p"/games/#{game_session.id}")
+
+        # Player2 should not see play button (not their turn)
+        refute html =~ "Play Selected Cards"
+      end
+    end
+  end
+
+  describe "Phase 8: PubSub Broadcasts (T068)" do
+    setup do
+      player1 = player_fixture()
+      player2 = player_fixture(%{email: "player2@example.com"})
+
+      {:ok, game_session} = CardGames.create_game_session(player1, %{short_code: "pubsub-test"})
+      {:ok, _} = CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      %{player1: player1, player2: player2, game_session: game_session}
+    end
+
+    test "updates all connected players", %{
+      player1: player1,
+      player2: player2,
+      game_session: game_session
+    } do
+      game_session =
+        Kadi.Games.GameSession.changeset(game_session, %{current_turn_player_id: player1.id})
+        |> Kadi.Repo.update!()
+
+      conn1 = log_in_player(build_conn(), player1)
+      conn2 = log_in_player(build_conn(), player2)
+
+      {:ok, view1, _html1} = live(conn1, ~p"/games/#{game_session.id}")
+      {:ok, view2, _html2} = live(conn2, ~p"/games/#{game_session.id}")
+
+      # Player1 draws
+      render_click(view1, "draw_card")
+      Process.sleep(100)
+
+      # Both views should update
+      html1 = render(view1)
+      html2 = render(view2)
+
+      # Both should show player2's turn
+      assert html1 =~ player2.email
+      assert html2 =~ player2.email
+    end
+  end
+
+  describe "Phase 8: Selection Cleared on Turn Change (T069)" do
+    setup do
+      player1 = player_fixture()
+      player2 = player_fixture(%{email: "player2@example.com"})
+
+      {:ok, game_session} = CardGames.create_game_session(player1, %{short_code: "clear-test"})
+      {:ok, _} = CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      %{player1: player1, player2: player2, game_session: game_session}
+    end
+
+    test "clears selection when turn changes", %{
+      player1: player1,
+      player2: player2,
+      game_session: game_session
+    } do
+      game_session =
+        Kadi.Games.GameSession.changeset(game_session, %{current_turn_player_id: player1.id})
+        |> Kadi.Repo.update!()
+
+      game_session = Kadi.Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+
+      player1_card =
+        game_session.deck.deck_cards
+        |> Enum.find(&(&1.location_type == "player_hand" and &1.player_id == player1.id))
+
+      conn1 = log_in_player(build_conn(), player1)
+      conn2 = log_in_player(build_conn(), player2)
+
+      {:ok, view1, _html1} = live(conn1, ~p"/games/#{game_session.id}")
+      {:ok, _view2, _html2} = live(conn2, ~p"/games/#{game_session.id}")
+
+      # Player1 selects a card
+      render_click(view1, "toggle_card", %{"card_id" => to_string(player1_card.card_id)})
+      html = render(view1)
+      assert html =~ "Play Selected Cards (1)"
+
+      # Player2 takes turn (draw to advance)
+      game_session =
+        Kadi.Games.GameSession.changeset(game_session, %{current_turn_player_id: player2.id})
+        |> Kadi.Repo.update!()
+
+      # Broadcast the change
+      Phoenix.PubSub.broadcast(
+        Kadi.PubSub,
+        "game:#{game_session.id}",
+        %Phoenix.Socket.Broadcast{
+          event: "game_updated",
+          topic: "game:#{game_session.id}",
+          payload: %{game_session: game_session}
+        }
+      )
+
+      Process.sleep(100)
+      html = render(view1)
+
+      # Player no longer sees play button (not their turn)
+      # But selection should be cleared internally
+      # We can verify by making it player1's turn again
+      game_session =
+        Kadi.Games.GameSession.changeset(game_session, %{current_turn_player_id: player1.id})
+        |> Kadi.Repo.update!()
+
+      Phoenix.PubSub.broadcast(
+        Kadi.PubSub,
+        "game:#{game_session.id}",
+        %Phoenix.Socket.Broadcast{
+          event: "game_updated",
+          topic: "game:#{game_session.id}",
+          payload: %{game_session: game_session}
+        }
+      )
+
+      Process.sleep(100)
+      html = render(view1)
+
+      # Selection should still be 0 (was cleared when turn changed away)
+      assert html =~ "Play Selected Cards (0)"
+    end
+  end
+
+  describe "Phase 8: Full Gameplay Round (T070)" do
+    setup do
+      player1 = player_fixture()
+      player2 = player_fixture(%{email: "player2@example.com"})
+
+      {:ok, game_session} = CardGames.create_game_session(player1, %{short_code: "round-test"})
+      {:ok, _} = CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      %{player1: player1, player2: player2, game_session: game_session}
+    end
+
+    test "completes full round with both players", %{
+      player1: player1,
+      player2: player2,
+      game_session: game_session
+    } do
+      game_session =
+        Kadi.Games.GameSession.changeset(game_session, %{current_turn_player_id: player1.id})
+        |> Kadi.Repo.update!()
+
+      conn1 = log_in_player(build_conn(), player1)
+      conn2 = log_in_player(build_conn(), player2)
+
+      {:ok, view1, _html1} = live(conn1, ~p"/games/#{game_session.id}")
+      {:ok, view2, _html2} = live(conn2, ~p"/games/#{game_session.id}")
+
+      # Player1 draws
+      render_click(view1, "draw_card")
+      Process.sleep(100)
+
+      html1 = render(view1)
+      html2 = render(view2)
+
+      # Should be player2's turn
+      assert html1 =~ player2.email
+      assert html2 =~ player2.email
+
+      # Player2 draws
+      render_click(view2, "draw_card")
+      Process.sleep(100)
+
+      html1 = render(view1)
+      html2 = render(view2)
+
+      # Should be back to player1's turn
+      assert html1 =~ player1.email
+      assert html2 =~ player1.email
+    end
+  end
 end

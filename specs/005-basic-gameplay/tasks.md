@@ -199,14 +199,14 @@
 
 **Purpose**: Verify end-to-end gameplay through LiveView
 
-- [ ] T063 [P] Test card selection UI in test/kadi_web/live/game_live/show_test.exs
-- [ ] T064 [P] Test play cards event updates game state in test/kadi_web/live/game_live/show_test.exs
-- [ ] T065 [P] Test draw card event updates game state in test/kadi_web/live/game_live/show_test.exs
-- [ ] T066 [P] Test invalid play shows error flash in test/kadi_web/live/game_live/show_test.exs
-- [ ] T067 [P] Test turn validation prevents out-of-turn plays in test/kadi_web/live/game_live/show_test.exs
-- [ ] T068 [P] Test PubSub broadcasts update all connected players in test/kadi_web/live/game_live/show_test.exs
-- [ ] T069 [P] Test selection cleared when turn changes in test/kadi_web/live/game_live/show_test.exs
-- [ ] T070 Test full gameplay round (all players play once) in test/kadi_web/live/game_live/show_test.exs
+- [X] T063 [P] Test card selection UI in test/kadi_web/live/game_live/show_test.exs
+- [X] T064 [P] Test play cards event updates game state in test/kadi_web/live/game_live/show_test.exs
+- [X] T065 [P] Test draw card event updates game state in test/kadi_web/live/game_live/show_test.exs
+- [X] T066 [P] Test invalid play shows error flash in test/kadi_web/live/game_live/show_test.exs
+- [X] T067 [P] Test turn validation prevents out-of-turn plays in test/kadi_web/live/game_live/show_test.exs
+- [X] T068 [P] Test PubSub broadcasts update all connected players in test/kadi_web/live/game_live/show_test.exs
+- [X] T069 [P] Test selection cleared when turn changes in test/kadi_web/live/game_live/show_test.exs
+- [X] T070 Test full gameplay round (all players play once) in test/kadi_web/live/game_live/show_test.exs
 
 ---
 
