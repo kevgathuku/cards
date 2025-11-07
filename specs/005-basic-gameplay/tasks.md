@@ -61,23 +61,23 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T013 [P] [US1] Test accepts card matching suit in test/kadi/games/play_validator_test.exs
-- [ ] T014 [P] [US1] Test accepts card matching rank in test/kadi/games/play_validator_test.exs
-- [ ] T015 [P] [US1] Test rejects card matching neither suit nor rank in test/kadi/games/play_validator_test.exs
+- [X] T013 [P] [US1] Test accepts card matching suit in test/kadi/games/play_validator_test.exs
+- [X] T014 [P] [US1] Test accepts card matching rank in test/kadi/games/play_validator_test.exs
+- [X] T015 [P] [US1] Test rejects card matching neither suit nor rank in test/kadi/games/play_validator_test.exs
 
 ### Implementation for User Story 1
 
-- [ ] T016 [US1] Implement get_game_session_preloaded/1 helper in lib/kadi/card_games.ex
-- [ ] T017 [P] [US1] Implement validate_can_play/2 helper in lib/kadi/card_games.ex
-- [ ] T018 [P] [US1] Implement get_player_in_session/2 helper in lib/kadi/card_games.ex
-- [ ] T019 [P] [US1] Implement validate_player_has_cards/2 helper in lib/kadi/card_games.ex
-- [ ] T020 [P] [US1] Implement get_top_card/1 helper in lib/kadi/card_games.ex
-- [ ] T021 [P] [US1] Implement get_max_played_stack_order/1 helper in lib/kadi/card_games.ex
-- [ ] T022 [P] [US1] Implement find_player_deck_card/3 helper in lib/kadi/card_games.ex
-- [ ] T023 [US1] Implement execute_play/3 with Ecto.Multi for atomic state updates in lib/kadi/card_games.ex
-- [ ] T024 [US1] Implement play_cards/3 main function with validation pipeline in lib/kadi/card_games.ex
-- [ ] T025 [US1] Implement broadcast_game_update/1 helper for PubSub in lib/kadi/card_games.ex
-- [ ] T026 [US1] Add play_cards/3 integration tests in test/kadi/card_games_test.exs
+- [X] T016 [US1] Implement get_game_session_preloaded/1 helper in lib/kadi/card_games.ex
+- [X] T017 [P] [US1] Implement validate_can_play/2 helper in lib/kadi/card_games.ex
+- [X] T018 [P] [US1] Implement get_player_in_session/2 helper in lib/kadi/card_games.ex
+- [X] T019 [P] [US1] Implement validate_player_has_cards/2 helper in lib/kadi/card_games.ex
+- [X] T020 [P] [US1] Implement get_top_card/1 helper in lib/kadi/card_games.ex
+- [X] T021 [P] [US1] Implement get_max_played_stack_order/1 helper in lib/kadi/card_games.ex
+- [X] T022 [P] [US1] Implement find_player_deck_card/3 helper in lib/kadi/card_games.ex
+- [X] T023 [US1] Implement execute_play/3 with Ecto.Multi for atomic state updates in lib/kadi/card_games.ex
+- [X] T024 [US1] Implement play_cards/3 main function with validation pipeline in lib/kadi/card_games.ex
+- [X] T025 [US1] Implement broadcast_game_update/1 helper for PubSub in lib/kadi/card_games.ex
+- [X] T026 [US1] Add play_cards/3 integration tests in test/kadi/card_games_test.exs
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 

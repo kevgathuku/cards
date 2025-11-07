@@ -7,8 +7,6 @@ defmodule Kadi.Games.PlayValidator do
   - Multiple cards (combo): All same rank AND at least one matches top card
   """
 
-  alias Kadi.Games.Card
-
   @doc """
   Validates if a card play is valid.
 
