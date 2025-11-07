@@ -154,18 +154,23 @@ defmodule Kadi.CardGames do
     # Select a random player to start the turn
     random_player = Enum.random(players)
 
-    multi =
-      Ecto.Multi.new()
-      |> Ecto.Multi.update(
-        :game_session,
-        GameSession.changeset(game_session, %{
-          status: "live",
-          current_turn_player_id: random_player.id
-        })
-      )
-
     with {:ok, dealt_card_changesets, remaining_cards} <- deal_cards(players, deck_cards),
          {:ok, start_card_changeset, _final_cards} <- select_start_card(remaining_cards) do
+      # Get the start card's card_id for top_card_id
+      start_card_id = start_card_changeset.data.card_id
+
+      # Update game session with status, turn player, and top card
+      multi =
+        Ecto.Multi.new()
+        |> Ecto.Multi.update(
+          :game_session,
+          GameSession.changeset(game_session, %{
+            status: "live",
+            current_turn_player_id: random_player.id,
+            top_card_id: start_card_id
+          })
+        )
+
       all_card_changesets = dealt_card_changesets ++ [start_card_changeset]
 
       multi_with_cards =
@@ -487,19 +492,8 @@ defmodule Kadi.CardGames do
 
   defp get_top_card(game_session) do
     case game_session.top_card do
-      nil ->
-        # Fallback: get from played_stack if top_card_id not set
-        played_cards =
-          game_session.deck.deck_cards
-          |> Enum.filter(&(&1.location_type == "played_stack"))
-
-        case Enum.max_by(played_cards, & &1.order_index, fn -> nil end) do
-          nil -> {:error, :no_top_card}
-          deck_card -> {:ok, deck_card.card}
-        end
-
-      top_card ->
-        {:ok, top_card}
+      nil -> {:error, :no_top_card}
+      top_card -> {:ok, top_card}
     end
   end
 

@@ -513,6 +513,8 @@ defp validate_player_has_cards(player, card_ids) do
   end
 end
 
+# Note: top_card_id is set when game starts via start_game/1
+# and updated on every play via execute_play/3
 defp get_top_card(%{top_card_id: nil}), do: {:error, :no_top_card}
 defp get_top_card(%{top_card: card}), do: {:ok, card}
 

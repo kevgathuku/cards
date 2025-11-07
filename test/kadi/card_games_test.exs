@@ -243,6 +243,35 @@ defmodule Kadi.CardGamesTest do
       player_ids = [player.id, player2.id, player3.id]
       assert started_game_session.current_turn_player_id in player_ids
     end
+
+    test "sets top_card_id to the start card", %{player: player} do
+      player2 = player_fixture(%{email: "player2b@example.com"})
+
+      {:ok, game_session} =
+        CardGames.create_game_session(player, %{short_code: "top-card-test"})
+
+      CardGames.join_game_session(player2, game_session.id)
+
+      {:ok, started_game_session} = CardGames.start_game(game_session)
+
+      # Verify top_card_id is set
+      assert started_game_session.top_card_id != nil
+
+      # Reload with preloads to verify the top_card relationship
+      started_game_session =
+        Repo.preload(started_game_session, [:top_card, deck: [deck_cards: :card]])
+
+      # Verify top_card is the card on the played_stack
+      played_cards =
+        started_game_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "played_stack"))
+
+      assert length(played_cards) == 1
+
+      start_card = hd(played_cards)
+      assert started_game_session.top_card_id == start_card.card_id
+      assert started_game_session.top_card.id == start_card.card_id
+    end
   end
 
   describe "deal_cards/2 with order_index" do

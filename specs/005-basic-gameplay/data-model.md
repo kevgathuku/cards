@@ -167,6 +167,22 @@ end
 
 **Purpose**: Quick reference to current top card on played stack for validation
 
+**Lifecycle**:
+1. **Initialization**: Set when `start_game/1` is called
+   - Start card is selected from deck (non-special card)
+   - `top_card_id` set to start card's ID in same transaction
+   - Example: `top_card_id: 42` (5 of Hearts)
+
+2. **Updates**: Updated atomically on every card play via `execute_play/3`
+   - Last played card becomes new top card
+   - Updated in same Ecto.Multi transaction
+   - Example: After playing [4H, 4D], `top_card_id: 43` (4 of Diamonds)
+
+3. **Access**: Retrieved via preloaded association
+   - `get_game_session_preloaded/1` preloads `:top_card`
+   - `get_top_card/1` returns preloaded card (no query needed)
+   - No fallback logic - `top_card_id` always set after game starts
+
 **Note**: Top card can also be queried via: "SELECT * FROM deck_cards WHERE location_type='played_stack' ORDER BY order_index DESC LIMIT 1"
 
 📖 **Reference**: See `docs/database-relationships.md` for:

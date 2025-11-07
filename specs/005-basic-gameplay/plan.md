@@ -151,6 +151,13 @@ Multi.new()
 - Test helper for verification: `verify_top_card_consistency/1`
 - Ecto.Multi ensures atomicity (no partial updates)
 
+**Implementation Details** (Updated 2025-11-07):
+- ✅ `top_card_id` set when game starts via `start_game/1` function
+- ✅ `top_card_id` updated on every card play via `execute_play/3` function
+- ✅ `get_top_card/1` simplified to remove fallback logic (no longer needed)
+- ✅ Preloaded via `:top_card` association in `get_game_session_preloaded/1`
+- ✅ Test coverage added to verify top_card_id is set on game start
+
 **Rejected Alternative**: Query-based approach
 - **Why Rejected**: Performance overhead on hot path (every turn validation)
 - **When Reconsidered**: If <100ms target consistently met without field, or if consistency bugs emerge

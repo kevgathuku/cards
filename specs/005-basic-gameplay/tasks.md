@@ -29,6 +29,9 @@
 - [X] T002 Update GameSession schema to include belongs_to :top_card in lib/kadi/games/game_session.ex
 - [X] T003 Update GameSession changeset to include top_card_id in cast and assoc_constraint in lib/kadi/games/game_session.ex
 - [X] T004 Run migration with mix ecto.migrate and verify existing tests pass
+- [X] T004a Update start_game to set top_card_id when game starts in lib/kadi/card_games.ex
+- [X] T004b Simplify get_top_card/1 to remove fallback logic (no longer needed) in lib/kadi/card_games.ex
+- [X] T004c Add test to verify top_card_id is set on game start in test/kadi/card_games_test.exs
 
 ---
 
