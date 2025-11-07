@@ -70,7 +70,16 @@ defmodule KadiWeb.GameLive do
         {:noreply, put_flash(socket, :error, "It's not your turn")}
 
       {:error, :deck_empty} ->
-        {:noreply, put_flash(socket, :error, "No cards left in deck")}
+        {:noreply, put_flash(socket, :error, "No cards left in deck or played pile")}
+
+      {:error, :deck_empty_after_recycle} ->
+        {:noreply, put_flash(socket, :error, "No cards available after recycling")}
+
+      {:error, :no_cards_in_played_stack} ->
+        {:noreply, put_flash(socket, :error, "No cards to recycle from played pile")}
+
+      {:error, :insufficient_cards_to_recycle} ->
+        {:noreply, put_flash(socket, :error, "Need at least 2 cards in played pile to recycle")}
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Error: #{reason}")}

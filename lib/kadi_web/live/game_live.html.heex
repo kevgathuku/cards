@@ -18,10 +18,14 @@
       <%= if @current_turn_player.id == @current_player.id do %>
         <p class="text-sm text-blue-600 mt-1">It's your turn!</p>
 
-        <%!-- Draw Card Button - Only visible when it's player's turn AND deck has cards --%>
-        <%= if @deck_size > 0 do %>
+        <%!-- Draw Card Button - Visible when deck has cards OR played pile can be recycled --%>
+        <%= if @deck_size > 0 or length(@played_pile) >= 2 do %>
           <.button phx-click="draw_card" phx-disable-with="Drawing..." class="mt-2">
-            Draw Card
+            <%= if @deck_size == 0 do %>
+              Draw Card (Recycle Pile)
+            <% else %>
+              Draw Card
+            <% end %>
           </.button>
         <% end %>
       <% end %>

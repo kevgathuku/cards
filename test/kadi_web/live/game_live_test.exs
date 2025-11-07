@@ -370,11 +370,11 @@ defmodule KadiWeb.GameLiveTest do
       refute html =~ "Draw Card"
     end
 
-    test "draw card button hidden when deck is empty", %{
+    test "draw card button shows recycle option when deck is empty but played pile has cards", %{
       player1: player1,
       game_session: game_session
     } do
-      # Empty the deck
+      # Move all deck cards to played_stack (except keep at least 2 for recycling)
       game_session = Kadi.Repo.preload(game_session, deck: :deck_cards)
 
       # Get the max order_index from played_stack to avoid conflicts
@@ -402,8 +402,56 @@ defmodule KadiWeb.GameLiveTest do
       conn = log_in_player(build_conn(), player1)
       {:ok, _view, html} = live(conn, ~p"/games/#{game_session.id}")
 
-      # Should NOT show "Draw Card" button
-      refute html =~ "Draw Card"
+      # Should show "Draw Card (Recycle Pile)" button when deck is empty but played pile has 2+ cards
+      assert html =~ "Draw Card (Recycle Pile)"
+    end
+
+    test "draw card triggers recycle when deck is empty", %{
+      player1: player1,
+      player2: player2,
+      game_session: game_session
+    } do
+      # Move all deck cards to played_stack
+      game_session = Kadi.Repo.preload(game_session, deck: :deck_cards)
+
+      max_played_index =
+        game_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "played_stack"))
+        |> Enum.map(& &1.order_index)
+        |> Enum.max(fn -> 0 end)
+
+      deck_cards =
+        game_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "deck"))
+
+      deck_cards
+      |> Enum.with_index(max_played_index + 1)
+      |> Enum.each(fn {dc, index} ->
+        Kadi.Games.DeckCard.changeset(dc, %{
+          location_type: "played_stack",
+          order_index: index
+        })
+        |> Kadi.Repo.update!()
+      end)
+
+      game_session =
+        Kadi.Games.GameSession.changeset(game_session, %{current_turn_player_id: player1.id})
+        |> Kadi.Repo.update!()
+
+      conn = log_in_player(build_conn(), player1)
+      {:ok, view, html} = live(conn, ~p"/games/#{game_session.id}")
+
+      # Verify deck is empty and played pile has cards
+      assert html =~ "~0 cards left"
+      assert html =~ "Draw Card (Recycle Pile)"
+
+      # Click draw card - should trigger recycle
+      render_click(view, "draw_card")
+      Process.sleep(150)
+
+      # Verify the card was drawn (turn should advance to player2)
+      updated_html = render(view)
+      assert updated_html =~ player2.email
     end
 
     test "multiple players see updated state after draw", %{

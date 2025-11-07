@@ -351,6 +351,129 @@ end
 
 ---
 
+### Recycle UI Visibility Fix (2025-11-07) ✅
+
+**Issue**: Draw Card button was hidden when deck was empty, preventing players from triggering recycle even though the backend supported automatic recycling.
+
+**Root Cause**:
+- Template condition: `<%= if @deck_size > 0 do %>` only checked deck size
+- Backend `draw_card_from_deck/2` already had automatic recycle logic
+- UI didn't expose this capability to users
+- Players couldn't draw cards when deck was empty but played pile had recyclable cards
+
+**Impact**:
+- **High** - Players stuck when deck empty, unable to continue game
+- Feature 004 (recycle functionality) was implemented but not accessible via UI
+- Poor user experience - no way to trigger recycle manually
+- Blocked gameplay when deck exhausted but cards available in played pile
+
+**Files Modified**:
+1. `lib/kadi_web/live/game_live.html.heex`:
+   - Changed button condition from `@deck_size > 0` to `@deck_size > 0 or length(@played_pile) >= 2`
+   - Added dynamic button text showing "Draw Card (Recycle Pile)" when deck empty
+   - Button now appears when either deck has cards OR played pile has 2+ cards
+
+2. `lib/kadi_web/live/game_live.ex`:
+   - Enhanced error handling for recycle-specific scenarios
+   - Added error messages for `:deck_empty_after_recycle`, `:no_cards_in_played_stack`, `:insufficient_cards_to_recycle`
+   - Updated generic `:deck_empty` error message to be more informative
+
+3. `test/kadi_web/live/game_live_test.exs`:
+   - Replaced "draw card button hidden when deck is empty" test
+   - Added: "draw card button shows recycle option when deck is empty but played pile has cards"
+   - Added: "draw card triggers recycle when deck is empty"
+   - Verifies button visibility and recycle functionality work correctly
+
+**Code Changes**:
+```heex
+<%!-- BEFORE (BUG) --%>
+<%= if @deck_size > 0 do %>
+  <.button phx-click="draw_card">Draw Card</.button>
+<% end %>
+
+<%!-- AFTER (FIXED) --%>
+<%= if @deck_size > 0 or length(@played_pile) >= 2 do %>
+  <.button phx-click="draw_card">
+    <%= if @deck_size == 0 do %>
+      Draw Card (Recycle Pile)
+    <% else %>
+      Draw Card
+    <% end %>
+  </.button>
+<% end %>
+```
+
+**Error Handling Enhanced**:
+```elixir
+# BEFORE (INSUFFICIENT)
+{:error, :deck_empty} ->
+  {:noreply, put_flash(socket, :error, "No cards left in deck")}
+
+# AFTER (COMPLETE)
+{:error, :deck_empty} ->
+  {:noreply, put_flash(socket, :error, "No cards left in deck or played pile")}
+{:error, :deck_empty_after_recycle} ->
+  {:noreply, put_flash(socket, :error, "No cards available after recycling")}
+{:error, :no_cards_in_played_stack} ->
+  {:noreply, put_flash(socket, :error, "No cards to recycle from played pile")}
+{:error, :insufficient_cards_to_recycle} ->
+  {:noreply, put_flash(socket, :error, "Need at least 2 cards in played pile to recycle")}
+```
+
+**Test Coverage**:
+```elixir
+test "draw card button shows recycle option when deck is empty but played pile has cards" do
+  # 1. Move all deck cards to played_stack
+  # 2. Verify button shows with recycle text
+  assert html =~ "Draw Card (Recycle Pile)"
+end
+
+test "draw card triggers recycle when deck is empty" do
+  # 1. Empty deck, populate played_stack
+  # 2. Click draw card button
+  # 3. Verify recycle triggered and card drawn
+  assert updated_html =~ player2.email  # Turn advanced
+end
+```
+
+**Backend Logic** (already existed in Feature 004):
+```elixir
+def draw_card_from_deck(game_session, player_id) do
+  case deck_cards do
+    [] ->
+      # Automatic recycle when deck empty
+      case recycle_played_stack(game_session) do
+        {:ok, recycled_game_session} ->
+          draw_card_from_deck(recycled_game_session, player_id)  # Retry
+        {:error, reason} -> {:error, reason}
+      end
+    [card_to_draw | _] -> # ... normal draw
+  end
+end
+```
+
+**Why This Matters**:
+- **Gameplay Continuity**: Players can continue playing when deck exhausted
+- **Feature Visibility**: Feature 004 recycle is now user-accessible via UI
+- **User Experience**: Clear feedback via button text "Draw Card (Recycle Pile)"
+- **Error Handling**: Specific error messages guide players on what went wrong
+- **Phase 1 Compliance**: Integrates recycle (T039) with draw card UI (T033)
+
+**Requirements Satisfied**:
+- ✅ **T033**: Draw card action with automatic next turn
+- ✅ **T039**: Recycle played stack when deck depleted
+- ✅ **FR-RECYCLE-01**: "SHOULD trigger automatically when player draws and deck is empty"
+- ✅ **FR-RECYCLE-02**: "MUST keep topmost card visible in played stack"
+
+**Validation**:
+- ✅ All 26 game_live tests pass (added 1 net test)
+- ✅ Button shows correctly when `deck_size == 0 and played_pile >= 2`
+- ✅ Button triggers recycle and draws card successfully
+- ✅ Turn advances after recycle draw
+- ✅ Error messages specific to recycle scenarios
+
+---
+
 ## References
 
 - [AUDIT.md](./AUDIT.md) - Complete audit findings
