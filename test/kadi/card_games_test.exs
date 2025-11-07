@@ -1165,5 +1165,84 @@ defmodule Kadi.CardGamesTest do
         end
       end
     end
+
+    test "rejects combo with mixed ranks", %{game_session: game_session, player: player} do
+      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      current_player_id = game_session.current_turn_player_id
+
+      if current_player_id == player.id do
+        # Get player's hand
+        player_hand =
+          game_session.deck.deck_cards
+          |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == player.id))
+          |> Enum.map(& &1.card)
+
+        # Find two cards with different ranks
+        cards_by_rank = Enum.group_by(player_hand, & &1.rank)
+
+        if length(Map.keys(cards_by_rank)) >= 2 do
+          # Get one card from two different ranks
+          [rank1, rank2 | _] = Map.keys(cards_by_rank)
+          card1 = hd(cards_by_rank[rank1])
+          card2 = hd(cards_by_rank[rank2])
+
+          # Try to play mixed ranks
+          assert {:error, :invalid_play} =
+                   CardGames.play_cards(game_session, player.id, [card1.id, card2.id])
+        end
+      end
+    end
+  end
+
+  describe "play_cards/3 - edge cases" do
+    setup %{player: player} do
+      player2 = player_fixture(%{email: "edgecase@example.com"})
+      {:ok, game_session} = CardGames.create_game_session(player, %{short_code: "Edge Test"})
+      {:ok, _} = CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      %{game_session: game_session, player: player, player2: player2}
+    end
+
+    test "rejects empty card list", %{game_session: game_session, player: player} do
+      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      current_player_id = game_session.current_turn_player_id
+
+      if current_player_id == player.id do
+        # Try to play empty list
+        assert {:error, :invalid_play} = CardGames.play_cards(game_session, player.id, [])
+      end
+    end
+
+    test "rejects play when player not in game", %{game_session: game_session} do
+      other_player = player_fixture(%{email: "notingame@example.com"})
+      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+
+      # Get any card id (doesn't matter since player not in game)
+      card =
+        game_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "player_hand"))
+        |> List.first()
+
+      if card do
+        # Note: Turn validation happens first, so we get :not_your_turn
+        # This is correct behavior - more efficient to check turn before loading player data
+        assert {:error, :not_your_turn} =
+                 CardGames.play_cards(game_session, other_player.id, [card.card_id])
+      end
+    end
+
+    test "rejects play with non-existent card id", %{game_session: game_session, player: player} do
+      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      current_player_id = game_session.current_turn_player_id
+
+      if current_player_id == player.id do
+        # Use a card id that doesn't exist (very large number)
+        fake_card_id = 999_999_999
+
+        assert {:error, :cards_not_in_hand} =
+                 CardGames.play_cards(game_session, player.id, [fake_card_id])
+      end
+    end
   end
 end

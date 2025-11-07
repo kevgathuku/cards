@@ -381,6 +381,19 @@ defmodule Kadi.CardGames do
 
   Returns `{:ok, updated_game_session}` or `{:error, reason}`.
 
+  ## Error Codes
+
+  - `:game_not_found` - Game session does not exist
+  - `:not_your_turn` - Player attempted action out of turn
+  - `:player_not_in_game` - Player is not a participant in this game session
+  - `:cards_not_in_hand` - Player doesn't have all specified cards in hand
+  - `:no_top_card` - No card on played stack (should not happen in normal gameplay)
+  - `:invalid_play` - Play violates game rules:
+    - Empty card list
+    - Single card doesn't match suit or rank
+    - Combo has different ranks
+    - Combo's first card doesn't match top card
+
   ## Examples
 
       iex> play_cards(game_session, player.id, [card_id])
@@ -390,6 +403,9 @@ defmodule Kadi.CardGames do
       {:error, :not_your_turn}
 
       iex> play_cards(game_session, player.id, [invalid_card_id])
+      {:error, :cards_not_in_hand}
+
+      iex> play_cards(game_session, player.id, [non_matching_card_id])
       {:error, :invalid_play}
   """
   def play_cards(game_session, player_id, card_ids) when is_list(card_ids) do

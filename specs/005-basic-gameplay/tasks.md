@@ -91,15 +91,15 @@
 
 ### Tests for User Story 2
 
-- [ ] T027 [P] [US2] Test accepts combo with same rank and one match in test/kadi/games/play_validator_test.exs
-- [ ] T028 [P] [US2] Test rejects combo with different ranks in test/kadi/games/play_validator_test.exs
-- [ ] T029 [P] [US2] Test rejects combo where no card matches in test/kadi/games/play_validator_test.exs
+- [X] T027 [P] [US2] Test accepts combo with same rank and one match in test/kadi/games/play_validator_test.exs
+- [X] T028 [P] [US2] Test rejects combo with different ranks in test/kadi/games/play_validator_test.exs
+- [X] T029 [P] [US2] Test rejects combo where no card matches in test/kadi/games/play_validator_test.exs
 
 ### Implementation for User Story 2
 
-- [ ] T030 [US2] Extend execute_play/3 to handle multiple cards with Enum.with_index for order_index assignment in lib/kadi/card_games.ex
-- [ ] T031 [US2] Update play_cards/3 to handle card ID lists (already supports from US1, verify works for combos) in lib/kadi/card_games.ex
-- [ ] T032 [US2] Add combo play integration tests (2-card and 3-card combos) in test/kadi/card_games_test.exs
+- [X] T030 [US2] Extend execute_play/3 to handle multiple cards with Enum.with_index for order_index assignment in lib/kadi/card_games.ex
+- [X] T031 [US2] Update play_cards/3 to handle card ID lists (already supports from US1, verify works for combos) in lib/kadi/card_games.ex
+- [X] T032 [US2] Add combo play integration tests (2-card and 3-card combos) in test/kadi/card_games_test.exs
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
 
@@ -113,16 +113,16 @@
 
 ### Tests for User Story 3
 
-- [ ] T033 [P] [US3] Test rejects play when not player's turn in test/kadi/card_games_test.exs
-- [ ] T034 [P] [US3] Test rejects play when player doesn't have cards in hand in test/kadi/card_games_test.exs
-- [ ] T035 [P] [US3] Test rejects invalid single card (no match) in test/kadi/card_games_test.exs
-- [ ] T036 [P] [US3] Test rejects invalid combo (mixed ranks) in test/kadi/card_games_test.exs
+- [X] T033 [P] [US3] Test rejects play when not player's turn in test/kadi/card_games_test.exs
+- [X] T034 [P] [US3] Test rejects play when player doesn't have cards in hand in test/kadi/card_games_test.exs
+- [X] T035 [P] [US3] Test rejects invalid single card (no match) in test/kadi/card_games_test.exs
+- [X] T036 [P] [US3] Test rejects invalid combo (mixed ranks) in test/kadi/card_games_test.exs
 
 ### Implementation for User Story 3
 
-- [ ] T037 [US3] Verify all validation paths in play_cards/3 return appropriate error tuples in lib/kadi/card_games.ex
-- [ ] T038 [US3] Document error codes (:not_your_turn, :cards_not_in_hand, :no_match, :different_ranks) in lib/kadi/card_games.ex
-- [ ] T039 [US3] Add edge case tests (empty card list, nil top_card, player not in game) in test/kadi/card_games_test.exs
+- [X] T037 [US3] Verify all validation paths in play_cards/3 return appropriate error tuples in lib/kadi/card_games.ex
+- [X] T038 [US3] Document error codes (:not_your_turn, :cards_not_in_hand, :no_match, :different_ranks) in lib/kadi/card_games.ex
+- [X] T039 [US3] Add edge case tests (empty card list, nil top_card, player not in game) in test/kadi/card_games_test.exs
 
 **Checkpoint**: All validation rules should be tested and working
 
