@@ -26,6 +26,8 @@
 - Q: What localization approach should we take for new King-related user-facing strings (direction toast, anomaly banner)? → A: Add i18n keys now; ship English-only initially
 - Q: PII policy for King feature operational events? → A: IDs only; no PII (no names/emails)
 - Q: How should we rate-limit notifications for rapid consecutive direction changes (multiple Kings quickly)? → A: Coalesce within 2s window (single toast updated)
+- Q: Should the cardless representation remain a boolean or evolve into a player status enum for future extensibility? → A: Use status enum ("normal","cardless") persisted on game_session_players
+- Q: Will this feature expose an external HTTP API, or is LiveView the only client? → A: LiveView only; no external API planned
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -134,6 +136,8 @@ The system must maintain and expose the current game direction state so players 
 - **FR-023**: All new user-facing strings for this feature (direction toast text, anomaly banner, direction indicator labels) MUST use i18n keys with English default translations; infrastructure MUST allow later locale additions without code changes
 - **FR-024**: Structured King feature events MUST NOT include personally identifiable information beyond stable internal IDs (player_id, game_id, card_id). No player names/emails/usernames in logs. Adding new identity fields requires privacy review.
 - **FR-025**: Notification rate limiting: Coalesce rapid direction changes within a 2s window into a single (updated) toast; update the persistent direction indicator on every change; if changes continue, extend/refresh the toast within the window; changes outside the window produce a new toast
+- **FR-026**: System MUST persist a player `status` field with allowed values {"normal","cardless"}; set to "cardless" when a King is played as last card by that player; reset to "normal" automatically after forced draw; reject invalid status transitions
+- **FR-027**: System MUST reject any King (or card) play attempt from a player who is not the current turn player (authoritative turn gating) and return an appropriate error
 
 ### Key Entities
 
@@ -141,6 +145,7 @@ The system must maintain and expose the current game direction state so players 
 - **King Card**: A special card (rank "K") that, when played matching the last card's suit or rank, reverses the game direction
 - **Turn Order**: The sequence of players taking turns, which is determined by the game direction and player join order
 - **Player State**: Tracks whether a player is in normal play or "cardless" state (when they play a King as their last card)
+	- Implemented as a `status` enum-like string field on `game_session_players` with allowed values {"normal","cardless"}; future statuses can be added via spec & migration.
 
 ## Success Criteria *(mandatory)*
 

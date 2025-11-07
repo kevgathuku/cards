@@ -1,0 +1,71 @@
+openapi: 3.0.3
+info:
+  title: Kadi - King Card (Internal Contracts)
+  version: 0.1.0
+  description: |
+    LiveView-only feature. This OpenAPI file is retained for internal documentation/testing convenience only.
+    No external REST API is planned or supported for this feature.
+    Prefer LiveView event contracts and Telemetry events documented in events.md.
+  x-internal: true
+paths:
+  /api/games/{id}/play:
+    post:
+      summary: Play a card in the game
+      operationId: playCard
+      x-internal: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [card_id]
+              properties:
+                card_id:
+                  type: string
+      responses:
+        '200':
+          description: Result of play
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok, error]
+                  reason:
+                    type: string
+                    nullable: true
+        '400':
+          description: Invalid play
+  /api/games/{id}/draw:
+    post:
+      summary: Draw a card for current player
+      operationId: drawCard
+      x-internal: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Draw result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok, skipped]
+
+components: {}
