@@ -27,11 +27,11 @@ This is an Elixir/Phoenix project with the following structure:
 
 **Purpose**: Database schema changes and initial setup required for all King card functionality
 
-- [ ] T001 Create direction field migration in priv/repo/migrations/YYYYMMDDHHMMSS_add_direction_to_game_sessions.exs
-- [ ] T002 Create status field migration in priv/repo/migrations/YYYYMMDDHHMMSS_add_status_to_game_session_players.exs
-- [ ] T003 Run migrations with mix ecto.migrate to apply schema changes
-- [ ] T004 [P] Update GameSession schema in lib/kadi/games/game_session.ex to add direction field and validation
-- [ ] T005 [P] Update GameSessionPlayer schema in lib/kadi/games/game_session_player.ex to add status field and validation
+- [X] T001 Create direction field migration in priv/repo/migrations/YYYYMMDDHHMMSS_add_direction_to_game_sessions.exs
+- [X] T002 Create status field migration in priv/repo/migrations/YYYYMMDDHHMMSS_add_status_to_game_session_players.exs
+- [X] T003 Run migrations with mix ecto.migrate to apply schema changes
+- [X] T004 [P] Update GameSession schema in lib/kadi/games/game_session.ex to add direction field and validation
+- [X] T005 [P] Update GameSessionPlayer schema in lib/kadi/games/game_session_player.ex to add status field and validation
 
 ---
 
