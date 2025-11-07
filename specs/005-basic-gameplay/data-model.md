@@ -1,11 +1,13 @@
 # Phase 1: Data Model
 
-**Feature**: Basic Gameplay - Regular Cards  
+**Feature**: Basic Gameplay - Regular Cards (4,5,6,7,9,10 Only)  
 **Date**: 2025-11-06
 
 ## Overview
 
 This document defines the data model for implementing basic gameplay mechanics. The model leverages existing schemas and adds new structures where needed.
+
+**⚠️ Phase 1 Restriction**: This feature implements **regular cards only (4, 5, 6, 7, 9, 10)**. Special cards (2, 3, 8, Jack, Queen, King, Ace) are present in the deck but cannot be played in this phase. Validation explicitly blocks special cards.
 
 ---
 
@@ -222,11 +224,27 @@ GameSession (1)───(∞) GameSessionPlayer (∞)───(1) Player
 
 ### Card Play Validation
 
+**Rule: Regular Cards Only (Phase 1)**
+```elixir
+# NEW: Phase 1 restriction - block special cards
+@regular_ranks ["4", "5", "6", "7", "9", "10"]
+
+def valid_regular_card?(%{rank: rank}) do
+  rank in @regular_ranks
+end
+
+# Special cards (2, 3, 8, jack, queen, king, ace) will return false
+# These will be implemented in future features
+```
+
+📖 **Reference**: See `spec.md` for clarification that feature 005 starts with regular cards only
+
 **Rule: Single Card Match**
 ```elixir
 # FR-002: Accept single regular cards that match top card
 def valid_single_card?(card, top_card) do
-  card.suit == top_card.suit or card.rank == top_card.rank
+  valid_regular_card?(card) and 
+  (card.suit == top_card.suit or card.rank == top_card.rank)
 end
 ```
 
@@ -236,8 +254,13 @@ end
 ```elixir
 # FR-003, FR-004: Accept multiple cards with same number, first card must match
 def valid_combo?([first_card | _rest] = cards, top_card) do
+  all_regular_cards?(cards) and
   same_number?(cards) and
   valid_single_card?(first_card, top_card)
+end
+
+defp all_regular_cards?(cards) do
+  Enum.all?(cards, &valid_regular_card?/1)
 end
 
 defp same_number?(cards) do

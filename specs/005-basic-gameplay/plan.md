@@ -5,9 +5,9 @@
 
 ## Summary
 
-Implement basic gameplay mechanics for regular cards (4, 5, 6, 7, 9, 10) with play and draw actions. Players must match suit or rank of the top card on the played stack. Supports single card plays and combo plays (multiple cards with same rank). When no valid play exists, player draws from deck. Leverages existing features: 003-pick-card-from-deck (draw_card_from_deck/2) and 004-recycle-played-stack (recycle_played_stack/1) for automatic deck recycling.
+Implement basic gameplay mechanics for **regular cards only (4, 5, 6, 7, 9, 10)** with play and draw actions. Special cards (2, 3, 8, Jack, Queen, King, Ace) are explicitly excluded from this phase and will be implemented in future features. Players must match suit or rank of the top card on the played stack. Supports single card plays and combo plays (multiple cards with same rank). When no valid play exists, player draws from deck. Leverages existing features: 003-pick-card-from-deck (draw_card_from_deck/2) and 004-recycle-played-stack (recycle_played_stack/1) for automatic deck recycling.
 
-**Key Requirements**: Turn-based validation, atomic state updates via Ecto.Multi, real-time updates via Phoenix.PubSub, <100ms play validation performance target.
+**Key Requirements**: Turn-based validation, atomic state updates via Ecto.Multi, real-time updates via Phoenix.PubSub, <100ms play validation performance target, **regular cards only (4,5,6,7,9,10)**.
 
 ## Technical Context
 
@@ -18,8 +18,8 @@ Implement basic gameplay mechanics for regular cards (4, 5, 6, 7, 9, 10) with pl
 **Target Platform**: Web (Phoenix LiveView with real-time updates)  
 **Project Type**: Web application (Phoenix MVC + LiveView)  
 **Performance Goals**: <100ms play validation and state updates, real-time broadcast to all players  
-**Constraints**: Turn-based (only current player can play), atomic transactions (Ecto.Multi), card conservation (52 cards total)  
-**Scale/Scope**: 2-4 players per game, 6 regular card types (4,5,6,7,9,10), full 52-card deck
+**Constraints**: Turn-based (only current player can play), atomic transactions (Ecto.Multi), card conservation (52 cards total), **Phase 1 restriction: regular cards only (4,5,6,7,9,10) - special cards blocked**  
+**Scale/Scope**: 2-4 players per game, 6 regular card types (4,5,6,7,9,10), full 52-card deck (includes special cards but they cannot be played yet)
 
 ## Constitution Check
 

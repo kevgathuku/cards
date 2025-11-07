@@ -1206,4 +1206,72 @@ defmodule Kadi.CardGamesTest do
       end
     end
   end
+
+  describe "play_cards/3 - Phase 1 regular cards only (4,5,6,7,9,10)" do
+    setup do
+      player1 = player_fixture()
+      player2 = player_fixture(%{email: "player2@example.com"})
+
+      {:ok, game_session} = CardGames.create_game_session(player1, %{short_code: "Phase1"})
+      {:ok, _} = CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      %{game_session: game_session, player1: player1, player2: player2}
+    end
+
+    test "rejects special cards (2,3,8,Jack,Queen,King,Ace) even when they match", %{
+      game_session: game_session
+    } do
+      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      current_player_id = game_session.current_turn_player_id
+
+      # Try to find a special card in current player's hand
+      special_ranks = ["2", "3", "8", "jack", "queen", "king", "ace"]
+
+      special_card =
+        game_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == current_player_id))
+        |> Enum.find(&(&1.card.rank in special_ranks))
+
+      # If player has a special card, try to play it
+      if special_card do
+        # Should be rejected regardless of whether it matches
+        assert {:error, :invalid_play} =
+                 CardGames.play_cards(game_session, current_player_id, [special_card.card_id])
+      end
+    end
+
+    test "accepts regular cards (4,5,6,7,9,10) when they match", %{
+      game_session: game_session
+    } do
+      game_session =
+        Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
+
+      current_player_id = game_session.current_turn_player_id
+      top_card = game_session.top_card
+
+      # Try to find a matching regular card in current player's hand
+      regular_ranks = ["4", "5", "6", "7", "9", "10"]
+
+      matching_regular_card =
+        game_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == current_player_id))
+        |> Enum.find(fn deck_card ->
+          card = deck_card.card
+
+          card.rank in regular_ranks and
+            (card.suit == top_card.suit or card.rank == top_card.rank)
+        end)
+
+      # If player has a matching regular card, it should be accepted
+      if matching_regular_card do
+        assert {:ok, _updated_session} =
+                 CardGames.play_cards(
+                   game_session,
+                   current_player_id,
+                   [matching_regular_card.card_id]
+                 )
+      end
+    end
+  end
 end

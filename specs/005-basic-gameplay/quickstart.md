@@ -1,12 +1,14 @@
 # Quickstart Guide: Basic Gameplay Implementation
 
-**Feature**: Basic Gameplay - Regular Cards  
+**Feature**: Basic Gameplay - Regular Cards (4,5,6,7,9,10 Only)  
 **Date**: 2025-11-06  
 **Audience**: Developers implementing this feature
 
 ## Overview
 
 This guide provides a step-by-step implementation path for the basic gameplay mechanics. Follow phases sequentially to maintain testability and incremental progress.
+
+**⚠️ Phase 1 Restriction**: This feature implements **regular cards only (4, 5, 6, 7, 9, 10)**. Special cards (2, 3, 8, Jack, Queen, King, Ace) are explicitly blocked in validation and will be implemented in future features.
 
 **Important Note**: The helper functions `get_game_session_players/1` and `get_next_player/2` shown at the end of Phase 3 are the correct implementations that should be added in Phase 2. They use the actual schema fields (`current_turn_player_id`, `inserted_at`) rather than non-existent fields.
 
@@ -156,44 +158,56 @@ touch lib/kadi/games/play_validator.ex
 # lib/kadi/games/play_validator.ex
 defmodule Kadi.Games.PlayValidator do
   @moduledoc """
-  Validates card plays according to game rules for regular cards (4-10).
+  Validates card plays according to game rules for regular cards only.
+  
+  ## Phase 1 - Regular Cards Only
+  Currently only regular cards (4,5,6,7,9,10) can be played.
+  Special cards (2,3,8,Jack,Queen,King,Ace) will be implemented in later phases.
   """
 
   alias Kadi.Games.Card
+
+  # Regular cards allowed in current phase (005-basic-gameplay)
+  @regular_ranks ["4", "5", "6", "7", "9", "10"]
 
   @doc """
   Validates if the given cards can be played on the top card.
 
   ## Rules
+  - Cards must be regular cards (4,5,6,7,9,10) - special cards blocked
   - Single card: Must match suit OR rank
   - Multiple cards: All must have same rank, first card must match suit OR rank
   
   ## Examples
       iex> valid_play?([%Card{rank: "4", suit: "H"}], %Card{rank: "5", suit: "H"})
-      {:ok, :valid}
+      true
       
-      iex> valid_play?([%Card{rank: "4", suit: "C"}], %Card{rank: "5", suit: "H"})
-      {:error, :no_match}
+      iex> valid_play?([%Card{rank: "jack", suit: "H"}], %Card{rank: "jack", suit: "H"})
+      false  # Special cards blocked in Phase 1
   """
-  def valid_play?(cards, top_card) when is_list(cards) and length(cards) > 0 do
-    cond do
-      length(cards) == 1 ->
-        validate_single_card(hd(cards), top_card)
-        
-      length(cards) > 1 ->
-        validate_combo(cards, top_card)
-        
-      true ->
-        {:error, :no_cards}
-    end
+  def valid_play?([], _top_card), do: false
+  def valid_play?(_cards, nil), do: false
+
+  def valid_play?([single_card], top_card) do
+    valid_regular_card?(single_card) and validate_single_card(single_card, top_card)
+  end
+
+  def valid_play?(cards, top_card) when is_list(cards) do
+    all_regular_cards?(cards) and validate_combo(cards, top_card)
+  end
+
+  # Private Functions
+
+  defp valid_regular_card?(%{rank: rank}) do
+    rank in @regular_ranks
+  end
+
+  defp all_regular_cards?(cards) do
+    Enum.all?(cards, &valid_regular_card?/1)
   end
 
   defp validate_single_card(card, top_card) do
-    if matches_suit_or_rank?(card, top_card) do
-      {:ok, :valid}
-    else
-      {:error, :no_match}
-    end
+    matches_suit_or_rank?(card, top_card)
   end
 
   defp validate_combo(cards, top_card) do

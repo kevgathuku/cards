@@ -1,6 +1,6 @@
 # LiveView Event Contracts
 
-**Feature**: Basic Gameplay - Regular Cards  
+**Feature**: Basic Gameplay - Regular Cards (4,5,6,7,9,10 Only)  
 **Date**: 2025-11-06  
 **Protocol**: Phoenix LiveView Events
 
@@ -8,13 +8,16 @@
 
 This document defines the event contracts between the LiveView frontend and backend for gameplay actions. All events use Phoenix LiveView's event handling mechanism with server-side validation.
 
+**⚠️ Phase 1 Restriction**: Only regular cards (4, 5, 6, 7, 9, 10) can be played. Special cards (2, 3, 8, Jack, Queen, King, Ace) will be rejected with an `INVALID_PLAY` error.
+
 ## Card Notation Protocol
 
 **Format**: JSON array of strings (even for single card)
 - Single card: `["4H"]`
 - Combo: `["4H", "4D", "4S"]`
 - Case-insensitive: "4h" = "4H"
-- Rank notation: "4", "5", "6", "7", "9", "10" (regular cards for this feature)
+- **Rank notation (Phase 1)**: "4", "5", "6", "7", "9", "10" (regular cards only)
+- **Blocked ranks**: "2", "3", "8", "jack", "queen", "king", "ace" (special cards - future features)
 - Suit notation: "H" (hearts), "D" (diamonds), "C" (clubs), "S" (spades)
 
 📖 **Reference**: See `spec.md` clarification #1 for complete notation details
@@ -78,11 +81,12 @@ This document defines the event contracts between the LiveView frontend and back
 📖 **Implementation**: See `quickstart.md` Phase 1 for PlayValidator module
 
 1. Card notation format is valid (e.g., "4H", "5D", "10C")
-2. Player is current player (turn validation via GameSession.current_turn_player_id)
-3. Player has all specified cards in hand
-4. Cards meet play validation rules (PlayValidator)
-   - Single card: Matches suit OR rank of top card
-   - Multiple cards: All same rank AND first card must match top card
+2. **Cards are regular cards only (4,5,6,7,9,10)** - special cards blocked
+3. Player is current player (turn validation via GameSession.current_turn_player_id)
+4. Player has all specified cards in hand
+5. Cards meet play validation rules (PlayValidator)
+   - Single card: Matches suit OR rank of top card AND is a regular card
+   - Multiple cards: All same rank AND first card must match top card AND all are regular cards
 
 **Success Response**:
 ```elixir
@@ -115,6 +119,13 @@ Phoenix.PubSub.broadcast(
   |> put_flash(:error, "INVALID_CARD_NOTATION: '4X' is not a valid card")
 }
 
+# Special cards blocked (Phase 1)
+{:noreply,
+  socket
+  |> put_flash(:error, "INVALID_PLAY: Special cards not allowed (only 4,5,6,7,9,10 in this version)")
+  |> assign(:selected_cards, [])  # Clear selection
+}
+
 # Cards don't match
 {:noreply,
   socket
@@ -127,13 +138,6 @@ Phoenix.PubSub.broadcast(
   socket
   |> put_flash(:error, "MIXED_NUMBERS: All cards in a combo must have the same number")
   |> assign(:selected_cards, [])
-}
-}
-
-# Not player's turn
-{:noreply,
-  socket
-  |> put_flash(:error, "NOT_YOUR_TURN: Please wait for your turn")
 }
 
 # Cards not in hand

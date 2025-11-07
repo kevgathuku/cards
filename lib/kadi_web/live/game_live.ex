@@ -115,7 +115,10 @@ defmodule KadiWeb.GameLive do
         {:error, :invalid_play} ->
           {:noreply,
            socket
-           |> put_flash(:error, "Invalid play - card(s) don't match the top card")
+           |> put_flash(
+             :error,
+             "Invalid play - card(s) don't match the top card or are special cards (only 4,5,6,7,9,10 allowed in this version)"
+           )
            |> assign(selected_cards: [])}
 
         {:error, :cards_not_in_hand} ->

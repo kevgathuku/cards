@@ -5,7 +5,14 @@ defmodule Kadi.Games.PlayValidator do
   Validates whether a card play is valid according to game rules:
   - Single card: Must match suit OR rank of top card
   - Multiple cards (combo): All same rank AND at least one matches top card
+
+  ## Phase 1 - Regular Cards Only
+  Currently only regular cards (4,5,6,7,9,10) can be played.
+  Special cards (2,3,8,Jack,Queen,King,Ace) will be implemented in later phases.
   """
+
+  # Regular cards allowed in current phase (005-basic-gameplay)
+  @regular_ranks ["4", "5", "6", "7", "9", "10"]
 
   @doc """
   Validates if a card play is valid.
@@ -34,11 +41,11 @@ defmodule Kadi.Games.PlayValidator do
   def valid_play?(_cards, nil), do: false
 
   def valid_play?([single_card], top_card) do
-    validate_single_card(single_card, top_card)
+    valid_regular_card?(single_card) and validate_single_card(single_card, top_card)
   end
 
   def valid_play?(cards, top_card) when is_list(cards) do
-    validate_combo(cards, top_card)
+    all_regular_cards?(cards) and validate_combo(cards, top_card)
   end
 
   @doc """
@@ -60,6 +67,14 @@ defmodule Kadi.Games.PlayValidator do
   end
 
   # Private Functions
+
+  defp valid_regular_card?(%{rank: rank}) do
+    rank in @regular_ranks
+  end
+
+  defp all_regular_cards?(cards) do
+    Enum.all?(cards, &valid_regular_card?/1)
+  end
 
   defp validate_single_card(card, top_card) do
     matches_suit_or_rank?(card, top_card)

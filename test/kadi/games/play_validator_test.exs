@@ -75,6 +75,54 @@ defmodule Kadi.Games.PlayValidatorTest do
     end
   end
 
+  describe "valid_play?/2 - regular cards only (Phase 1)" do
+    test "accepts regular cards (4,5,6,7,9,10) when they match" do
+      regular_ranks = ["4", "5", "6", "7", "9", "10"]
+
+      for rank <- regular_ranks do
+        top_card = %Card{suit: "hearts", rank: "5"}
+        card = %Card{suit: "hearts", rank: rank}
+
+        assert PlayValidator.valid_play?([card], top_card),
+               "Regular card #{rank} should be accepted"
+      end
+    end
+
+    test "rejects special cards (2,3,8,Jack,Queen,King,Ace) even when they match" do
+      special_ranks = ["2", "3", "8", "jack", "queen", "king", "ace"]
+
+      for rank <- special_ranks do
+        top_card = %Card{suit: "hearts", rank: rank}
+        card = %Card{suit: "hearts", rank: rank}
+
+        refute PlayValidator.valid_play?([card], top_card),
+               "Special card #{rank} should be rejected in Phase 1"
+      end
+    end
+
+    test "rejects combo with special cards even if they match" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+
+      cards = [
+        %Card{suit: "hearts", rank: "jack"},
+        %Card{suit: "diamonds", rank: "jack"}
+      ]
+
+      refute PlayValidator.valid_play?(cards, top_card)
+    end
+
+    test "rejects combo mixing regular and special cards" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+
+      cards = [
+        %Card{suit: "hearts", rank: "4"},
+        %Card{suit: "diamonds", rank: "jack"}
+      ]
+
+      refute PlayValidator.valid_play?(cards, top_card)
+    end
+  end
+
   describe "player_has_cards?/2" do
     test "returns true when player has all cards" do
       player_cards = [
