@@ -101,7 +101,10 @@ defmodule KadiWeb.GameLive do
     if Enum.empty?(selected_cards) do
       {:noreply, put_flash(socket, :error, "Please select at least one card")}
     else
-      case CardGames.play_cards(game_session, current_player.id, selected_cards) do
+      # Reverse to send cards in the order they were selected (oldest first)
+      cards_in_selection_order = Enum.reverse(selected_cards)
+
+      case CardGames.play_cards(game_session, current_player.id, cards_in_selection_order) do
         {:ok, _updated_game_session} ->
           # Clear selection and wait for broadcast
           {:noreply, assign(socket, selected_cards: [])}

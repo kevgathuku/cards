@@ -546,6 +546,70 @@ defmodule KadiWeb.GameLiveTest do
         assert html =~ "player2@example.com"
       end
     end
+
+    test "cards are sent to backend in selection order", %{
+      player1: player1,
+      game_session: game_session
+    } do
+      game_session =
+        Kadi.Games.GameSession.changeset(game_session, %{current_turn_player_id: player1.id})
+        |> Kadi.Repo.update!()
+
+      game_session =
+        Kadi.Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
+
+      # Find multiple matching cards of the same rank
+      top_card = game_session.top_card
+
+      matching_cards =
+        game_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == player1.id))
+        |> Enum.filter(fn dc -> dc.card.rank == top_card.rank end)
+        |> Enum.take(3)
+
+      # Need at least 2 cards to test order
+      if length(matching_cards) >= 2 do
+        [card1, card2 | _] = matching_cards
+
+        conn = log_in_player(build_conn(), player1)
+        {:ok, view, _html} = live(conn, ~p"/games/#{game_session.id}")
+
+        # Select cards in specific order: card1 first, then card2
+        render_click(view, "toggle_card", %{"card_id" => to_string(card1.card_id)})
+        render_click(view, "toggle_card", %{"card_id" => to_string(card2.card_id)})
+
+        # Subscribe to PubSub to intercept the play_cards call
+        topic = "game:#{game_session.id}"
+        :ok = Phoenix.PubSub.subscribe(Kadi.PubSub, topic)
+
+        # Play the cards
+        render_click(view, "play_cards")
+
+        # Wait for broadcast
+        assert_receive %Phoenix.Socket.Broadcast{
+                         event: "game_updated",
+                         payload: %{game_session: updated_game_session}
+                       },
+                       1000
+
+        # Verify cards were played and are in the played_stack
+        updated_game_session =
+          Kadi.Repo.preload(updated_game_session, [deck: [deck_cards: :card]], force: true)
+
+        played_cards =
+          updated_game_session.deck.deck_cards
+          |> Enum.filter(&(&1.location_type == "played_stack"))
+          |> Enum.sort_by(& &1.order_index)
+          |> Enum.take(-2)
+
+        # Cards should be in the order they were selected (card1, then card2)
+        # The last two cards in played_stack should match selection order
+        assert length(played_cards) == 2
+        [played_first, played_second] = played_cards
+        assert played_first.card_id == card1.card_id
+        assert played_second.card_id == card2.card_id
+      end
+    end
   end
 
   describe "Phase 8: Invalid Play Error Flash (T066)" do

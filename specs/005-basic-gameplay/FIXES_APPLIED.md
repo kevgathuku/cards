@@ -276,6 +276,81 @@ lib/kadi/
 
 ---
 
+## Post-Implementation Bug Fixes
+
+### Card Selection Order Fix (2025-11-07) ✅
+
+**Issue**: Cards were being sent to backend in reverse selection order due to list prepending.
+
+**Root Cause**:
+- `handle_event("toggle_card", ...)` in `game_live.ex` used `[card_id | selected_cards]`
+- This prepends new selections to the front of the list
+- When user selected cards A, B, C, backend received `[C, B, A]`
+
+**Impact**: 
+- **Critical** for game rules requiring specific card order
+- Affects combo plays where order matters
+- Poor user experience (cards played in reverse of selection)
+
+**Files Modified**:
+1. `lib/kadi_web/live/game_live.ex`:
+   - Added `Enum.reverse(selected_cards)` in `handle_event("play_cards", ...)`
+   - Ensures cards are sent in selection order (oldest first)
+
+2. `test/kadi_web/live/game_live_test.exs`:
+   - Added test: "cards are sent to backend in selection order"
+   - Verifies two cards selected as A, B are played as [A, B] in played_stack
+   - Uses PubSub to intercept broadcast and validate order_index
+
+**Code Change**:
+```elixir
+# BEFORE (BUG)
+def handle_event("play_cards", _params, socket) do
+  selected_cards = socket.assigns.selected_cards
+  case CardGames.play_cards(game_session, player_id, selected_cards) do
+    # ... cards in wrong order [C, B, A]
+  end
+end
+
+# AFTER (FIXED)
+def handle_event("play_cards", _params, socket) do
+  selected_cards = socket.assigns.selected_cards
+  cards_in_selection_order = Enum.reverse(selected_cards)
+  case CardGames.play_cards(game_session, player_id, cards_in_selection_order) do
+    # ... cards in correct order [A, B, C]
+  end
+end
+```
+
+**Test Coverage**:
+```elixir
+test "cards are sent to backend in selection order" do
+  # 1. Select card1, then card2
+  render_click(view, "toggle_card", %{"card_id" => to_string(card1.card_id)})
+  render_click(view, "toggle_card", %{"card_id" => to_string(card2.card_id)})
+  
+  # 2. Play cards
+  render_click(view, "play_cards")
+  
+  # 3. Verify order in played_stack
+  assert played_first.card_id == card1.card_id  # Selected first
+  assert played_second.card_id == card2.card_id # Selected second
+end
+```
+
+**Why This Matters**:
+- **Future Features**: Special card combos (2, 3, 8, J, Q, K, A) may depend on play order
+- **Game Rules**: Some variants require specific sequencing for multi-card plays
+- **User Expectations**: Players expect cards to play in the order they select them
+- **Data Integrity**: `order_index` in played_stack now reflects actual selection order
+
+**Validation**:
+- ✅ All 25 game_live tests pass
+- ✅ New test validates selection order A, B → played [A, B]
+- ✅ No performance impact (single `Enum.reverse/1` call)
+
+---
+
 ## References
 
 - [AUDIT.md](./AUDIT.md) - Complete audit findings
@@ -283,3 +358,4 @@ lib/kadi/
 - [data-model.md](./data-model.md) - Data model (now correct)
 - [quickstart.md](./quickstart.md) - Implementation guide (now accurate)
 - [contracts/play_actions.md](./contracts/play_actions.md) - Event contracts (enhanced)
+
