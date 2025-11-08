@@ -88,9 +88,10 @@ defmodule Kadi.Games.PlayValidatorTest do
       end
     end
 
-    test "rejects special cards (2,3,8,Jack,Queen,Ace) even when they match - except King" do
+    test "rejects special cards (2,3,8,Queen,Ace) even when they match - except King and Jack" do
       # King is now supported in Phase 2 (006-king-card)
-      special_ranks = ["2", "3", "8", "jack", "queen", "ace"]
+      # Jack is now supported in Phase 3 (007-jack-card)
+      special_ranks = ["2", "3", "8", "queen", "ace"]
 
       for rank <- special_ranks do
         top_card = %Card{suit: "hearts", rank: rank}
@@ -113,7 +114,19 @@ defmodule Kadi.Games.PlayValidatorTest do
       assert PlayValidator.valid_play?([king2], top_card2)
     end
 
-    test "rejects combo with special cards even if they match" do
+    test "accepts Jack when it matches suit or rank (Phase 3 - 007-jack-card)" do
+      # Jack matching suit
+      top_card = %Card{suit: "hearts", rank: "5"}
+      jack = %Card{suit: "hearts", rank: "jack"}
+      assert PlayValidator.valid_play?([jack], top_card)
+
+      # Jack matching rank
+      top_card2 = %Card{suit: "diamonds", rank: "jack"}
+      jack2 = %Card{suit: "clubs", rank: "jack"}
+      assert PlayValidator.valid_play?([jack2], top_card2)
+    end
+
+    test "accepts Jack combo when first matches (Phase 3 - 007-jack-card)" do
       top_card = %Card{suit: "hearts", rank: "5"}
 
       cards = [
@@ -121,7 +134,7 @@ defmodule Kadi.Games.PlayValidatorTest do
         %Card{suit: "diamonds", rank: "jack"}
       ]
 
-      refute PlayValidator.valid_play?(cards, top_card)
+      assert PlayValidator.valid_play?(cards, top_card)
     end
 
     test "rejects combo mixing regular and special cards" do
@@ -229,6 +242,63 @@ defmodule Kadi.Games.PlayValidatorTest do
       king = %Card{suit: "hearts", rank: "king"}
 
       refute PlayValidator.valid_king_play?([king], nil)
+    end
+  end
+
+  describe "valid_jack_play?/2 - Jack card validation (Feature 007)" do
+    test "accepts single Jack matching by suit" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+      jack = %Card{suit: "hearts", rank: "jack"}
+
+      assert PlayValidator.valid_jack_play?([jack], top_card)
+    end
+
+    test "accepts single Jack matching by rank" do
+      top_card = %Card{suit: "diamonds", rank: "jack"}
+      jack = %Card{suit: "clubs", rank: "jack"}
+
+      assert PlayValidator.valid_jack_play?([jack], top_card)
+    end
+
+    test "accepts Jack combo when first matches" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+
+      jacks = [
+        %Card{suit: "hearts", rank: "jack"},
+        %Card{suit: "clubs", rank: "jack"}
+      ]
+
+      assert PlayValidator.valid_jack_play?(jacks, top_card)
+    end
+
+    test "rejects Jack when neither suit nor rank matches" do
+      top_card = %Card{suit: "diamonds", rank: "5"}
+      jack = %Card{suit: "hearts", rank: "jack"}
+
+      refute PlayValidator.valid_jack_play?([jack], top_card)
+    end
+
+    test "rejects combo with non-Jack cards" do
+      top_card = %Card{suit: "hearts", rank: "jack"}
+
+      cards = [
+        %Card{suit: "hearts", rank: "jack"},
+        %Card{suit: "hearts", rank: "5"}
+      ]
+
+      refute PlayValidator.valid_jack_play?(cards, top_card)
+    end
+
+    test "rejects empty card list" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+
+      refute PlayValidator.valid_jack_play?([], top_card)
+    end
+
+    test "rejects when top_card is nil" do
+      jack = %Card{suit: "hearts", rank: "jack"}
+
+      refute PlayValidator.valid_jack_play?([jack], nil)
     end
   end
 end

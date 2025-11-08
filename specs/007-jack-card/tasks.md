@@ -30,11 +30,11 @@
 
 **Estimated Time**: 15-30 minutes
 
-- [ ] T001 Verify all tests pass on main branch: `mix test`
-- [ ] T002 Confirm feature branch `007-jack-card` exists and is checked out
-- [ ] T003 [P] Verify PostgreSQL running and database `kadi_dev` accessible
-- [ ] T004 [P] Review King card implementation pattern in lib/kadi/card_games.ex (lines 654-750)
-- [ ] T005 [P] Review existing cardless state logic in lib/kadi/card_games.ex
+- [x] T001 Verify all tests pass on main branch: `mix test`
+- [x] T002 Confirm feature branch `007-jack-card` exists and is checked out
+- [x] T003 [P] Verify PostgreSQL running and database `kadi_dev` accessible
+- [x] T004 [P] Review King card implementation pattern in lib/kadi/card_games.ex (lines 654-750)
+- [x] T005 [P] Review existing cardless state logic in lib/kadi/card_games.ex
 
 ---
 
@@ -48,22 +48,22 @@
 
 ### Validation Function Implementation
 
-- [ ] T006 [P] Add `all_jacks?/1` helper function in lib/kadi/games/play_validator.ex
-- [ ] T007 [P] Add `valid_jack_play?/2` function in lib/kadi/games/play_validator.ex with @doc
-- [ ] T008 Update `valid_play?/2` in lib/kadi/games/play_validator.ex to handle Jack detection
+- [x] T006 [P] Add `all_jacks?/1` helper function in lib/kadi/games/play_validator.ex
+- [x] T007 [P] Add `valid_jack_play?/2` function in lib/kadi/games/play_validator.ex with @doc
+- [x] T008 Update `valid_play?/2` in lib/kadi/games/play_validator.ex to handle Jack detection
 
 ### Validation Tests
 
-- [ ] T009 [P] Add test: single Jack matching by suit in test/kadi/games/play_validator_test.exs
-- [ ] T010 [P] Add test: single Jack matching by rank in test/kadi/games/play_validator_test.exs
-- [ ] T011 [P] Add test: Jack combo (all same rank) in test/kadi/games/play_validator_test.exs
-- [ ] T012 [P] Add test: reject Jack not matching suit or rank in test/kadi/games/play_validator_test.exs
-- [ ] T013 [P] Add test: reject combo with non-Jack cards in test/kadi/games/play_validator_test.exs
+- [x] T009 [P] Add test: single Jack matching by suit in test/kadi/games/play_validator_test.exs
+- [x] T010 [P] Add test: single Jack matching by rank in test/kadi/games/play_validator_test.exs
+- [x] T011 [P] Add test: Jack combo (all same rank) in test/kadi/games/play_validator_test.exs
+- [x] T012 [P] Add test: reject Jack not matching suit or rank in test/kadi/games/play_validator_test.exs
+- [x] T013 [P] Add test: reject combo with non-Jack cards in test/kadi/games/play_validator_test.exs
 
 ### Verification
 
-- [ ] T014 Run validation tests: `mix test test/kadi/games/play_validator_test.exs`
-- [ ] T015 Verify no compilation warnings: `mix compile --warnings-as-errors`
+- [x] T014 Run validation tests: `mix test test/kadi/games/play_validator_test.exs`
+- [x] T015 Verify no compilation warnings: `mix compile --warnings-as-errors`
 
 **Checkpoint**: Validation layer ready - all user stories can now proceed
 
