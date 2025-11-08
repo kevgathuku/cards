@@ -268,11 +268,6 @@ field :status, :string, default: "normal"
 **Current**: Lines 1-107 (regular cards only)
 **Reference**: spec.md FR-001, FR-004, FR-005
 
-**Add to module attributes** (after line 18):
-```elixir
-@special_ranks ["king"]  # Extend later for other special cards
-```
-
 **Add new function** (after line 44, before `player_has_cards?/2`):
 ```elixir
 @doc """

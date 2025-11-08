@@ -13,7 +13,6 @@ defmodule Kadi.Games.PlayValidator do
 
   # Regular cards allowed in current phase (005-basic-gameplay)
   @regular_ranks ["4", "5", "6", "7", "9", "10"]
-  @special_ranks ["king"]
 
   @doc """
   Validates if a card play is valid.

@@ -260,11 +260,6 @@ Potential improvements for future versions:
    - Priority: Medium
    - Effort: ~2 hours
 
-2. **Module Attribute**: `@special_ranks` defined but not used in PlayValidator
-   - Impact: None (compilation warning only)
-   - Priority: Low
-   - Effort: 5 minutes
-
 ---
 
 ## Related Documentation

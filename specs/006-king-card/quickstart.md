@@ -143,11 +143,6 @@ field :status, :string, default: "normal"
 **Integration Point**: Add after line 44, before `player_has_cards?/2`  
 **Reference**: spec.md FR-001, FR-004, FR-005
 
-**Add to module attributes** (after line 18):
-```elixir
-@special_ranks ["king"]
-```
-
 **Note**: As of 2025-11-08 (T031 implementation), this module attribute is defined but not actively used in validation. It's kept for future extensibility when other special cards are implemented.
 
 **Add new validation function** (after line 44):
