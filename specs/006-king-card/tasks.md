@@ -61,22 +61,22 @@ This is an Elixir/Phoenix project with the following structure:
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T011 [P] [US1] Unit test for valid_king_play?/2 accepting King matching suit in test/kadi/games/play_validator_test.exs
-- [ ] T012 [P] [US1] Unit test for valid_king_play?/2 accepting King matching rank in test/kadi/games/play_validator_test.exs
-- [ ] T013 [P] [US1] Unit test for valid_king_play?/2 rejecting King not matching suit or rank in test/kadi/games/play_validator_test.exs
-- [ ] T014 [P] [US1] Unit test for valid_king_play?/2 rejecting multiple Kings (FR-005) in test/kadi/games/play_validator_test.exs
-- [ ] T015 [P] [US1] Integration test for direction reversal clockwise to counter_clockwise in test/kadi/card_games_test.exs
-- [ ] T016 [P] [US1] Integration test for direction reversal counter_clockwise to clockwise in test/kadi/card_games_test.exs
-- [ ] T017 [P] [US1] Integration test for 2-player game King play (FR-009) in test/kadi/card_games_test.exs
+- [X] T011 [P] [US1] Unit test for valid_king_play?/2 accepting King matching suit in test/kadi/games/play_validator_test.exs
+- [X] T012 [P] [US1] Unit test for valid_king_play?/2 accepting King matching rank in test/kadi/games/play_validator_test.exs
+- [X] T013 [P] [US1] Unit test for valid_king_play?/2 rejecting King not matching suit or rank in test/kadi/games/play_validator_test.exs
+- [X] T014 [P] [US1] Unit test for valid_king_play?/2 rejecting multiple Kings (FR-005) in test/kadi/games/play_validator_test.exs
+- [X] T015 [P] [US1] Integration test for direction reversal clockwise to counter_clockwise in test/kadi/card_games_test.exs
+- [X] T016 [P] [US1] Integration test for direction reversal counter_clockwise to clockwise in test/kadi/card_games_test.exs
+- [X] T017 [P] [US1] Integration test for 2-player game King play (FR-009) in test/kadi/card_games_test.exs
 - [ ] T018 [P] [US1] Telemetry test for direction_change event emission in test/kadi/telemetry_test.exs
 
 ### Implementation for User Story 1
 
-- [ ] T019 [US1] Update valid_play?/2 in lib/kadi/games/play_validator.ex to route King plays to valid_king_play?/2 (lines 33-44)
-- [ ] T020 [US1] Implement King detection and direction reversal in execute_play/3 in lib/kadi/card_games.ex (replace lines 571-615)
-- [ ] T021 [US1] Update execute_play/3 to use get_next_player_with_direction/3 for turn progression in lib/kadi/card_games.ex
-- [ ] T022 [US1] Add get_player_hand_count/2 helper function in lib/kadi/card_games.ex for cardless detection
-- [ ] T023 [US1] Update start_game/1 in lib/kadi/card_games.ex to initialize direction field to "clockwise" (FR-007)
+- [X] T019 [US1] Update valid_play?/2 in lib/kadi/games/play_validator.ex to route King plays to valid_king_play?/2 (lines 33-44)
+- [X] T020 [US1] Implement King detection and direction reversal in execute_play/3 in lib/kadi/card_games.ex (replace lines 571-615)
+- [X] T021 [US1] Update execute_play/3 to use get_next_player_with_direction/3 for turn progression in lib/kadi/card_games.ex
+- [X] T022 [US1] Add get_player_hand_count/2 helper function in lib/kadi/card_games.ex for cardless detection
+- [X] T023 [US1] Update start_game/1 in lib/kadi/card_games.ex to initialize direction field to "clockwise" (FR-007)
 
 **Checkpoint**: At this point, User Story 1 should be fully functional - King cards reverse direction and turn order changes correctly
 

@@ -174,4 +174,61 @@ defmodule Kadi.Games.PlayValidatorTest do
       assert PlayValidator.player_has_cards?(player_cards, [])
     end
   end
+
+  describe "valid_king_play?/2 - King card validation (User Story 1)" do
+    test "accepts single King matching suit" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+      king = %Card{suit: "hearts", rank: "king"}
+
+      assert PlayValidator.valid_king_play?([king], top_card)
+    end
+
+    test "accepts single King matching rank" do
+      top_card = %Card{suit: "hearts", rank: "king"}
+      king = %Card{suit: "spades", rank: "king"}
+
+      assert PlayValidator.valid_king_play?([king], top_card)
+    end
+
+    test "rejects King not matching suit or rank" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+      king = %Card{suit: "spades", rank: "king"}
+
+      refute PlayValidator.valid_king_play?([king], top_card)
+    end
+
+    test "rejects multiple Kings (FR-005)" do
+      top_card = %Card{suit: "hearts", rank: "king"}
+
+      kings = [
+        %Card{suit: "hearts", rank: "king"},
+        %Card{suit: "spades", rank: "king"}
+      ]
+
+      refute PlayValidator.valid_king_play?(kings, top_card)
+    end
+
+    test "rejects King in combo with other cards" do
+      top_card = %Card{suit: "hearts", rank: "king"}
+
+      cards = [
+        %Card{suit: "hearts", rank: "king"},
+        %Card{suit: "diamonds", rank: "5"}
+      ]
+
+      refute PlayValidator.valid_king_play?(cards, top_card)
+    end
+
+    test "rejects empty card list" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+
+      refute PlayValidator.valid_king_play?([], top_card)
+    end
+
+    test "rejects when top_card is nil" do
+      king = %Card{suit: "hearts", rank: "king"}
+
+      refute PlayValidator.valid_king_play?([king], nil)
+    end
+  end
 end

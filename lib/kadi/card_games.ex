@@ -167,7 +167,8 @@ defmodule Kadi.CardGames do
           GameSession.changeset(game_session, %{
             status: "live",
             current_turn_player_id: random_player.id,
-            top_card_id: start_card_id
+            top_card_id: start_card_id,
+            direction: "clockwise"
           })
         )
 
@@ -544,12 +545,31 @@ defmodule Kadi.CardGames do
   end
 
   defp execute_play(game_session, player, cards_to_play) do
+    require Logger
+
     # Get current max order_index in played_stack
     max_order = get_max_played_stack_order(game_session)
 
-    # Get next player
+    # Detect King play (FR-002)
+    king_played? = Enum.any?(cards_to_play, &(&1.rank == "king"))
+
+    # Calculate new direction (FR-002)
+    new_direction =
+      if king_played? do
+        reverse_direction(game_session.direction)
+      else
+        game_session.direction
+      end
+
+    # Get next player with new direction (FR-008)
     players = get_game_session_players(game_session.id)
-    next_player = get_next_player(players, player.id)
+    player_count = length(players)
+    next_player = get_next_player_with_direction(players, player.id, new_direction)
+
+    # Check if player will be cardless after this play (FR-011)
+    player_hand = get_player_hand_count(game_session, player.id)
+    cards_played_count = length(cards_to_play)
+    will_be_cardless = player_hand == cards_played_count and king_played?
 
     # Build transaction
     multi = Ecto.Multi.new()
@@ -572,7 +592,7 @@ defmodule Kadi.CardGames do
         Ecto.Multi.update(acc_multi, {:move_card, idx}, changeset)
       end)
 
-    # Update game_session with new top_card and turn
+    # Update game_session with new direction and turn (FR-002, FR-015)
     last_card = List.last(cards_to_play)
 
     multi_with_game =
@@ -581,13 +601,51 @@ defmodule Kadi.CardGames do
         :game_session,
         GameSession.changeset(game_session, %{
           top_card_id: last_card.id,
-          current_turn_player_id: next_player.id
+          current_turn_player_id: next_player.id,
+          direction: new_direction
         })
       )
 
+    # Update player status if cardless (FR-011, FR-026)
+    multi_with_status =
+      if will_be_cardless do
+        player_session =
+          Repo.get_by!(GameSessionPlayer,
+            game_session_id: game_session.id,
+            player_id: player.id
+          )
+
+        Ecto.Multi.update(
+          multi_with_game,
+          :player_status,
+          GameSessionPlayer.changeset(player_session, %{status: "cardless"})
+        )
+      else
+        multi_with_game
+      end
+
     # Execute transaction
-    case Repo.transaction(multi_with_game) do
-      {:ok, %{game_session: updated_game}} ->
+    case Repo.transaction(multi_with_status) do
+      {:ok, results} ->
+        updated_game = results.game_session
+
+        # Emit telemetry events (FR-020)
+        if king_played? do
+          emit_direction_change_event(
+            game_session.id,
+            player.id,
+            game_session.direction,
+            new_direction,
+            last_card.id,
+            # neutral flag for 2-player (FR-009)
+            player_count == 2
+          )
+        end
+
+        if will_be_cardless do
+          emit_cardless_event(game_session.id, player.id, last_card.id)
+        end
+
         # Reload with fresh associations
         reloaded =
           GameSession
@@ -611,6 +669,19 @@ defmodule Kadi.CardGames do
   defp find_player_deck_card(game_session, player_id, card_id) do
     game_session.deck.deck_cards
     |> Enum.find(&(&1.player_id == player_id and &1.card_id == card_id))
+  end
+
+  # Helper to count player's hand.
+  #
+  # ## Parameters
+  # - game_session: GameSession struct with preloaded deck.deck_cards
+  # - player_id: ID of the player
+  #
+  # ## Returns
+  # - Integer count of cards in player's hand
+  defp get_player_hand_count(game_session, player_id) do
+    game_session.deck.deck_cards
+    |> Enum.count(&(&1.location_type == "player_hand" and &1.player_id == player_id))
   end
 
   defp broadcast_game_update(game_session) do
