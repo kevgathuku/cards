@@ -3,10 +3,12 @@ defmodule Kadi.Games.GameSession do
   import Ecto.Changeset
 
   @statuses ["lobby", "live"]
+  @directions ["clockwise", "counter_clockwise"]
 
   schema "game_sessions" do
     field :short_code, :string
     field :status, :string, default: "lobby"
+    field :direction, :string, default: "clockwise"
     belongs_to :created_by, Kadi.Accounts.Player
     belongs_to :current_turn_player, Kadi.Accounts.Player
     belongs_to :top_card, Kadi.Games.Card
@@ -20,9 +22,17 @@ defmodule Kadi.Games.GameSession do
   @doc false
   def changeset(game_session, attrs) do
     game_session
-    |> cast(attrs, [:short_code, :created_by_id, :status, :current_turn_player_id, :top_card_id])
-    |> validate_required([:short_code, :created_by_id, :status])
+    |> cast(attrs, [
+      :short_code,
+      :created_by_id,
+      :status,
+      :direction,
+      :current_turn_player_id,
+      :top_card_id
+    ])
+    |> validate_required([:short_code, :created_by_id, :status, :direction])
     |> validate_inclusion(:status, @statuses)
+    |> validate_inclusion(:direction, @directions)
     |> assoc_constraint(:created_by)
     |> assoc_constraint(:current_turn_player)
     |> assoc_constraint(:top_card)

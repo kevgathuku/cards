@@ -240,14 +240,18 @@ This ensures code is properly formatted before commits. The hook will:
 - **Actions**: Draw a card OR play a card (not both)
 - **Objective**: First to play all cards wins
 
-### Special Cards (Coming Soon)
+### Special Cards
+
+**Implemented**:
+- **King**: Reverses turn order (clockwise ⟷ counter-clockwise). See [King Card Feature Documentation](docs/king-card-feature.md) for details.
+
+**Coming Soon**:
 - **2, 3**: Pick cards
 - **Jack**: Skip next player
 - **Queen / 8**: Question cards -> Need to be played in combination with an "answer" This could be:
   - another card
   - A combination of compatible cards (same suit as the question)
   - Drawing a card if the player has no compatible card
-- **King**: Reverse turn order
 - **Ace**: Is an allowed finishing card. When a player plays it, they can request for a specific suit to be played on the next turn
 
 ---
@@ -264,15 +268,37 @@ graph TD;
 
 ---
 
+## Features
+
+### Implemented Features
+- **Basic Gameplay**: Draw cards, play matching cards, turn-based mechanics
+- **Real-time Updates**: Phoenix LiveView with PubSub for live game state
+- **Player Authentication**: Registration, login, session management
+- **King Card (Feature 006)**: Direction reversal, cardless state, auto-draw mechanics - [Full Documentation](docs/king-card-feature.md)
+
+### Coming Soon
+- Additional special cards (2, 3, Jack, Queen, Ace)
+- Game completion and winner detection
+- Player statistics and leaderboards
+
+---
+
 ## Contributing
 
 1. Check out a feature branch
 2. Write tests first (TDD approach)
 3. Implement the feature
 4. Run `mix test` to ensure all tests pass
-5. Submit a pull request
+5. **Document the feature**:
+   - Create comprehensive documentation in `/docs/[feature-name].md`
+   - Include: overview, mechanics, API reference, testing, edge cases
+   - Update README.md to reference the new documentation
+   - Keep README concise - detailed docs belong in `/docs/`
+6. Submit a pull request
 
 See `/specs/` directory for feature specifications and planning documents.
+
+**Documentation Example**: See [King Card Feature](docs/king-card-feature.md) for a complete feature documentation template.
 
 ---
 

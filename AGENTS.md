@@ -1,6 +1,6 @@
-# GEMINI.md
+# AGENTS.md
 
-This file provides guidance to Google Gemini AI when working with code in this repository.
+This file provides guidance to AI agents (including Gemini, GitHub Copilot, and others) when working with code in this repository.
 
 ## Project Overview
 
@@ -72,6 +72,70 @@ Tests use Ecto Sandbox (`:manual` mode) for database isolation. Most tests are a
 
 ## Development Guidelines
 
+### DRY Principle - Avoid Duplication
+
+**CRITICAL: Always check for existing functionality before implementing new features or tests.**
+
+#### Before Writing New Code:
+
+1. **Search for existing functions**:
+   ```bash
+   # Search for similar function names
+   grep -rn "def function_name" lib/
+
+   # Search for related functionality
+   grep -rn "keyword" lib/
+   ```
+
+2. **Check module documentation**:
+   - Read module @doc and function @doc comments
+   - Look for related functions in the same module
+   - Check if the functionality exists in a different form
+
+3. **Ask yourself**:
+   - Does this functionality already exist?
+   - Can I reuse an existing function instead of creating a wrapper?
+   - Is this a 1:1 wrapper with no added value?
+
+#### Before Writing New Tests:
+
+1. **Search for existing tests**:
+   ```bash
+   # Find all describe blocks for a function
+   grep -n "describe \"function_name" test/
+
+   # Search for similar test scenarios
+   grep -rn "test \"scenario" test/
+   ```
+
+2. **Check test coverage**:
+   - Read existing test suites for the module
+   - Look for tests in related features
+   - Identify integration tests vs unit tests
+
+3. **Avoid duplicate test scenarios**:
+   - **Unit tests** should test the direct function once
+   - **Integration tests** should test unique interactions
+   - Don't test the same behavior through different paths
+   - If existing tests cover the scenario, reference them instead
+
+#### Example: Feature 005 (Basic Gameplay)
+
+**Original Plan**: Create `draw_card/2` wrapper + 5 new tests
+
+**After DRY Analysis**:
+- ❌ Removed `draw_card/2` - Was 1:1 wrapper of existing `draw_card_from_deck/2`
+- ❌ Removed 4 duplicate tests - Already tested in features 003 & 004
+- ✅ Kept 1 unique gameplay-specific test
+- **Result**: No code duplication, 6 fewer tests, same coverage
+
+#### Test Organization Strategy:
+
+- **Feature tests** (e.g., feature 003): Test the direct function thoroughly
+- **Integration tests** (e.g., feature 004): Test interaction between features
+- **User story tests**: Only test unique gameplay-specific behaviors
+- **Don't test**: Same scenario through different call paths
+
 ### Database Safety
 
 - **Never reset or drop the development database** when working on tasks
@@ -88,6 +152,8 @@ Tests use Ecto Sandbox (`:manual` mode) for database isolation. Most tests are a
 ### Code Changes
 
 - Make minimal, surgical changes to accomplish the task
+- **Check for existing implementations before creating new functions**
+- **Search for existing tests before writing new test cases**
 - Run tests after changes: `mix test`
 - Use git pre-commit hooks to ensure formatting
 - Follow existing patterns in the codebase
@@ -111,7 +177,7 @@ Card locations are tracked through the `deck_cards` join table with a `location_
 ## Active Technologies
 
 - Elixir 1.14+ (OTP 25+) + Phoenix 1.7, Phoenix LiveView, Ecto 3.x
-- PostgreSQL (via Ecto) - `deck_cards` table with `order_index` column
+- PostgreSQL (via Ecto) - `deck_cards` table with `order_index` and `location_type` columns
 
 ## Player Actions & Turn Management
 

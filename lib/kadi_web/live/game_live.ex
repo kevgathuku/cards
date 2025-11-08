@@ -3,6 +3,9 @@ defmodule KadiWeb.GameLive do
 
   alias Kadi.CardGames
 
+  # Toast coalescing window (FR-025)
+  @toast_coalesce_ms 2000
+
   @impl true
   def mount(_params, _session, socket) do
     {:ok,
@@ -13,7 +16,10 @@ defmodule KadiWeb.GameLive do
        deck_size: 0,
        current_turn_player: nil,
        other_players_hands: [],
-       selected_cards: []
+       selected_cards: [],
+       direction: "clockwise",
+       toast: nil,
+       toast_timer: nil
      )}
   end
 
@@ -129,7 +135,7 @@ defmodule KadiWeb.GameLive do
            socket
            |> put_flash(
              :error,
-             "Invalid play - card(s) don't match the top card or are special cards (only 4,5,6,7,9,10 allowed in this version)"
+             "Invalid play - card(s) don't match the top card or are not yet implemented"
            )
            |> assign(selected_cards: [])}
 
@@ -183,8 +189,62 @@ defmodule KadiWeb.GameLive do
         socket
       end
 
+    # Check for direction change and show toast (FR-025, T054)
+    old_direction = socket.assigns.direction
+    new_direction = updated_game_session.direction
+
+    socket =
+      if old_direction != new_direction do
+        # Cancel existing toast timer if any (toast coalescing)
+        if socket.assigns.toast_timer do
+          Process.cancel_timer(socket.assigns.toast_timer)
+        end
+
+        # Set new toast with timer (auto-dismiss after 2s)
+        timer_ref = Process.send_after(self(), :clear_toast, @toast_coalesce_ms)
+
+        assign(socket,
+          toast: %{
+            message: "Direction reversed: now #{direction_label(new_direction)}",
+            updated_at: System.monotonic_time()
+          },
+          toast_timer: timer_ref
+        )
+      else
+        socket
+      end
+
     socket = assign_game_state(socket, updated_game_session)
     {:noreply, socket}
+  end
+
+  # T055: Clear toast handler
+  @impl true
+  def handle_info(:clear_toast, socket) do
+    {:noreply, assign(socket, toast: nil, toast_timer: nil)}
+  end
+
+  # Handle anomaly banner broadcasts (FR-019)
+  @impl true
+  def handle_info({:anomaly_banner, %{message: message}}, socket) do
+    # Show anomaly as a toast notification
+    # Cancel existing toast timer if any
+    if socket.assigns.toast_timer do
+      Process.cancel_timer(socket.assigns.toast_timer)
+    end
+
+    # Set anomaly toast with timer
+    timer_ref = Process.send_after(self(), :clear_toast, @toast_coalesce_ms)
+
+    {:noreply,
+     assign(socket,
+       toast: %{
+         message: message,
+         updated_at: System.monotonic_time(),
+         type: :warning
+       },
+       toast_timer: timer_ref
+     )}
   end
 
   defp assign_game_state(socket, game_session) do
@@ -220,6 +280,7 @@ defmodule KadiWeb.GameLive do
           )
 
         %{
+          id: player.id,
           email: player.email,
           hand_size: hand_size
         }
@@ -232,6 +293,9 @@ defmodule KadiWeb.GameLive do
 
     deck_size = Enum.count(all_deck_cards, &(&1.location_type == "deck"))
 
+    # T058: Build player statuses map for cardless badge display
+    player_statuses = build_player_statuses_map(game_session)
+
     assign(socket,
       game_session: game_session,
       player_hand: player_hand,
@@ -239,7 +303,28 @@ defmodule KadiWeb.GameLive do
       deck_size: deck_size,
       current_turn_player: game_session.current_turn_player,
       other_players_hands: other_players_hands,
-      selected_cards: socket.assigns[:selected_cards] || []
+      selected_cards: socket.assigns[:selected_cards] || [],
+      direction: game_session.direction || "clockwise",
+      player_statuses: player_statuses
     )
   end
+
+  # T037: Helper function to build player status map for UI tracking
+  # Maps player_id -> status ("normal" | "cardless")
+  # Used for future UI indicators of player states
+  defp build_player_statuses_map(game_session) do
+    game_session.game_session_players
+    |> Enum.into(%{}, fn gsp -> {gsp.player_id, gsp.status} end)
+  end
+
+  # T039: Direction display helpers for UI
+  # Returns Heroicon name for direction indicator
+  defp direction_icon("clockwise"), do: "hero-arrow-path"
+  defp direction_icon("counter_clockwise"), do: "hero-arrow-path"
+  defp direction_icon(_), do: "hero-arrow-path"
+
+  # Returns human-readable label for direction
+  defp direction_label("clockwise"), do: "Clockwise"
+  defp direction_label("counter_clockwise"), do: "Counter-clockwise"
+  defp direction_label(_), do: "Clockwise"
 end
