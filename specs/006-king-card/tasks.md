@@ -68,7 +68,7 @@ This is an Elixir/Phoenix project with the following structure:
 - [X] T015 [P] [US1] Integration test for direction reversal clockwise to counter_clockwise in test/kadi/card_games_test.exs
 - [X] T016 [P] [US1] Integration test for direction reversal counter_clockwise to clockwise in test/kadi/card_games_test.exs
 - [X] T017 [P] [US1] Integration test for 2-player game King play (FR-009) in test/kadi/card_games_test.exs
-- [ ] T018 [P] [US1] Telemetry test for direction_change event emission in test/kadi/telemetry_test.exs
+- [X] T018 [P] [US1] Telemetry test for direction_change event emission in test/kadi/telemetry_test.exs
 
 ### Implementation for User Story 1
 
@@ -138,12 +138,12 @@ This is an Elixir/Phoenix project with the following structure:
 
 - [ ] T040 [P] Unit test for cardless status transition when playing King as last card in test/kadi/card_games_test.exs
 - [ ] T041 [P] Unit test for cardless player auto-draw on their turn in test/kadi/card_games_test.exs
-- [ ] T042 [P] Unit test for status reset to "normal" after auto-draw in test/kadi/card_games_test.exs
-- [ ] T043 [P] Telemetry test for cardless_entered event emission in test/kadi/telemetry_test.exs
-- [ ] T044 [P] Integration test for multiple simultaneous cardless players (FR-014) in test/kadi/card_games_test.exs
-- [ ] T045 Update execute_play/3 to detect cardless state and update player status in lib/kadi/card_games.ex (FR-011, FR-026)
-- [ ] T046 Update draw_card_from_deck/2 to check cardless status and auto-draw in lib/kadi/card_games.ex (FR-012, FR-013)
-- [ ] T047 Add cardless status reset in draw transaction in lib/kadi/card_games.ex
+- [X] T042 [P] Unit test for status reset to "normal" after auto-draw in test/kadi/card_games_test.exs
+- [X] T043 [P] Telemetry test for cardless_entered event emission in test/kadi/telemetry_test.exs
+- [X] T044 [P] Integration test for multiple simultaneous cardless players (FR-014) in test/kadi/card_games_test.exs
+- [X] T045 Update execute_play/3 to detect cardless state and update player status in lib/kadi/card_games.ex (FR-011, FR-026)
+- [X] T046 Update draw_card_from_deck/2 to check cardless status and auto-draw in lib/kadi/card_games.ex (FR-012, FR-013)
+- [X] T047 Add cardless status reset in draw transaction in lib/kadi/card_games.ex
 - [ ] T048 [P] Integration test for deck exhaustion anomaly skip in test/kadi/card_games_test.exs
 - [ ] T049 Update recycle_played_stack/1 error handling to emit anomaly_skip event in lib/kadi/card_games.ex (FR-018)
 - [ ] T050 Add broadcast_anomaly_banner/2 helper function in lib/kadi/card_games.ex for UI notifications (FR-019)
