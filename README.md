@@ -289,9 +289,16 @@ graph TD;
 2. Write tests first (TDD approach)
 3. Implement the feature
 4. Run `mix test` to ensure all tests pass
-5. Submit a pull request
+5. **Document the feature**:
+   - Create comprehensive documentation in `/docs/[feature-name].md`
+   - Include: overview, mechanics, API reference, testing, edge cases
+   - Update README.md to reference the new documentation
+   - Keep README concise - detailed docs belong in `/docs/`
+6. Submit a pull request
 
 See `/specs/` directory for feature specifications and planning documents.
+
+**Documentation Example**: See [King Card Feature](docs/king-card-feature.md) for a complete feature documentation template.
 
 ---
 

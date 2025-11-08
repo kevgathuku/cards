@@ -150,12 +150,20 @@ Examples of foundational tasks (adjust based on your project):
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] TXXX [P] Documentation updates in docs/
-- [ ] TXXX Code cleanup and refactoring
-- [ ] TXXX Performance optimization across all stories
+- [ ] TXXX [P] Code cleanup and refactoring
+- [ ] TXXX [P] Performance optimization across all stories
 - [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
-- [ ] TXXX Security hardening
-- [ ] TXXX Run quickstart.md validation
+- [ ] TXXX [P] Security hardening
+- [ ] TXXX [P] Run quickstart.md validation
+- [ ] TXXX Create comprehensive feature documentation in docs/[feature-name].md
+- [ ] TXXX Update README.md to reference new feature documentation (keep concise)
+
+**Documentation Guidelines**:
+- Create detailed docs in `/docs/[feature-name].md`
+- Include: overview, mechanics, API reference, testing, edge cases, accessibility, performance
+- Update README.md with brief summary and link to full documentation
+- Keep README focused on getting started, not feature deep-dives
+- See `docs/king-card-feature.md` for documentation template example
 
 ---
 
