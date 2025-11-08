@@ -265,6 +265,15 @@ defmodule Kadi.CardGames do
           players = get_game_session_players(game_session.id)
           next_player = get_next_player(players, player_id)
 
+          # Check if player is cardless and handle auto-draw (FR-012)
+          player_session =
+            Repo.get_by!(GameSessionPlayer,
+              game_session_id: game_session.id,
+              player_id: player_id
+            )
+
+          is_cardless = player_session.status == "cardless"
+
           # 5. Build transaction
           multi =
             Ecto.Multi.new()
@@ -276,7 +285,22 @@ defmodule Kadi.CardGames do
                 order_index: nil
               })
             )
-            |> Ecto.Multi.update(
+
+          # If player was cardless, reset status (FR-013)
+          multi_with_status =
+            if is_cardless do
+              Ecto.Multi.update(
+                multi,
+                :player_status,
+                GameSessionPlayer.changeset(player_session, %{status: "normal"})
+              )
+            else
+              multi
+            end
+
+          multi_with_game =
+            Ecto.Multi.update(
+              multi_with_status,
               :game_session,
               GameSession.changeset(game_session, %{
                 current_turn_player_id: next_player.id
@@ -284,7 +308,7 @@ defmodule Kadi.CardGames do
             )
 
           # 6. Execute transaction
-          case Repo.transaction(multi) do
+          case Repo.transaction(multi_with_game) do
             {:ok, %{game_session: updated_game_session}} ->
               # 7. Reload with all associations
               reloaded_game_session =

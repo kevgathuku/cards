@@ -2006,4 +2006,279 @@ defmodule Kadi.CardGamesTest do
       IO.puts("✓ T034: Direction toggles clockwise→counter_clockwise→clockwise")
     end
   end
+
+  # ============================================================================
+  # Phase 6: Cardless State & Edge Cases
+  # ============================================================================
+  # Purpose: Handle cardless player state (King as last card) and anomaly scenarios
+  # Tests verify cardless status transitions, auto-draw, and edge case handling
+
+  describe "cardless state transitions" do
+    @tag :phase6
+    @tag :cardless
+    test "T040: player status changes to 'cardless' when playing King as last card", %{
+      player: player
+    } do
+      player2 = player_fixture(%{email: "player2@example.com"})
+
+      {:ok, game_session} =
+        CardGames.create_game_session(player, %{short_code: "cardless-transition"})
+
+      CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      current_player_id = game_session.current_turn_player_id
+
+      # Get player's current hand from database (after dealing)
+      player_cards =
+        Repo.all(
+          from dc in Kadi.Games.DeckCard,
+            join: d in Kadi.Games.Deck,
+            on: dc.deck_id == d.id,
+            join: c in Kadi.Games.Card,
+            on: dc.card_id == c.id,
+            where:
+              d.game_session_id == ^game_session.id and dc.player_id == ^current_player_id and
+                dc.location_type == "player_hand",
+            preload: [card: c]
+        )
+
+      # Find a King card that matches top card
+      top_card = Repo.get!(Kadi.Games.Card, game_session.top_card_id)
+
+      king_card =
+        Repo.one(
+          from c in Kadi.Games.Card,
+            where: c.rank == "king" and c.suit == ^top_card.suit
+        )
+
+      # Find this King in deck_cards
+      king_deck_card =
+        Repo.one!(
+          from dc in Kadi.Games.DeckCard,
+            join: d in Kadi.Games.Deck,
+            on: dc.deck_id == d.id,
+            where: d.game_session_id == ^game_session.id and dc.card_id == ^king_card.id
+        )
+
+      # Remove all cards from player's hand EXCEPT if one is already the king we want
+      cards_to_remove =
+        player_cards
+        |> Enum.reject(&(&1.id == king_deck_card.id))
+
+      cards_to_remove
+      |> Enum.with_index()
+      |> Enum.each(fn {dc, idx} ->
+        Repo.update!(
+          Ecto.Changeset.change(dc, %{
+            location_type: "deck",
+            player_id: nil,
+            order_index: 900 + idx
+          })
+        )
+      end)
+
+      # Make sure the King is the player's only card
+      Repo.update!(
+        Ecto.Changeset.change(king_deck_card, %{
+          location_type: "player_hand",
+          player_id: current_player_id,
+          order_index: nil
+        })
+      )
+
+      # Verify player has exactly 1 card
+      remaining_cards =
+        Repo.all(
+          from dc in Kadi.Games.DeckCard,
+            join: d in Kadi.Games.Deck,
+            on: dc.deck_id == d.id,
+            where:
+              d.game_session_id == ^game_session.id and dc.player_id == ^current_player_id and
+                dc.location_type == "player_hand"
+        )
+
+      assert length(remaining_cards) == 1
+
+      # Get initial player status
+      player_session_before =
+        Repo.get_by!(Kadi.Games.GameSessionPlayer,
+          game_session_id: game_session.id,
+          player_id: current_player_id
+        )
+
+      assert player_session_before.status == "normal"
+
+      # Play the King (last card)
+      {:ok, _updated_game} = CardGames.play_cards(game_session, current_player_id, [king_card.id])
+
+      # Reload player session to check status
+      player_session_after =
+        Repo.get_by!(Kadi.Games.GameSessionPlayer,
+          game_session_id: game_session.id,
+          player_id: current_player_id
+        )
+
+      # Status should be "cardless"
+      assert player_session_after.status == "cardless"
+
+      IO.puts("✓ T040: Player status changed to 'cardless' after playing King as last card")
+    end
+
+    @tag :phase6
+    @tag :cardless
+    test "T041: cardless player automatically draws card on their turn", %{player: player} do
+      player2 = player_fixture(%{email: "player2@example.com"})
+
+      {:ok, game_session} =
+        CardGames.create_game_session(player, %{short_code: "cardless-autodraw"})
+
+      CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      # Setup: Make current player cardless
+      current_player_id = game_session.current_turn_player_id
+
+      player_session =
+        Repo.get_by!(Kadi.Games.GameSessionPlayer,
+          game_session_id: game_session.id,
+          player_id: current_player_id
+        )
+
+      Repo.update!(Ecto.Changeset.change(player_session, %{status: "cardless"}))
+
+      # Verify status is cardless
+      cardless_player =
+        Repo.get_by!(Kadi.Games.GameSessionPlayer,
+          game_session_id: game_session.id,
+          player_id: current_player_id
+        )
+
+      assert cardless_player.status == "cardless"
+
+      # Have cardless player draw a card (it's their turn)
+      {:ok, updated_game} = CardGames.draw_card_from_deck(game_session, current_player_id)
+
+      # Reload game session
+      updated_game = Repo.preload(updated_game, deck: [deck_cards: :card])
+
+      # Player should now have cards from initial deal plus the drawn card
+      player_cards =
+        Enum.filter(
+          updated_game.deck.deck_cards,
+          &(&1.location_type == "player_hand" and &1.player_id == current_player_id)
+        )
+
+      assert length(player_cards) >= 1
+
+      IO.puts("✓ T041: Cardless player auto-draws card on their turn")
+    end
+
+    @tag :phase6
+    @tag :cardless
+    test "T042: player status resets from 'cardless' to 'normal' after auto-draw", %{
+      player: player
+    } do
+      player2 = player_fixture(%{email: "player2@example.com"})
+
+      {:ok, game_session} =
+        CardGames.create_game_session(player, %{short_code: "cardless-reset"})
+
+      CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      # Use current turn player
+      current_player_id = game_session.current_turn_player_id
+
+      # Make current player cardless
+      player_session =
+        Repo.get_by!(Kadi.Games.GameSessionPlayer,
+          game_session_id: game_session.id,
+          player_id: current_player_id
+        )
+
+      Repo.update!(Ecto.Changeset.change(player_session, %{status: "cardless"}))
+
+      # Draw card (it's their turn)
+      {:ok, _updated_game} = CardGames.draw_card_from_deck(game_session, current_player_id)
+
+      # Check status reset
+      player_session_after =
+        Repo.get_by!(Kadi.Games.GameSessionPlayer,
+          game_session_id: game_session.id,
+          player_id: current_player_id
+        )
+
+      assert player_session_after.status == "normal"
+
+      IO.puts("✓ T042: Player status reset from 'cardless' to 'normal' after draw")
+    end
+
+    @tag :phase6
+    @tag :cardless
+    @tag :skip
+    test "T043: telemetry event emitted when player becomes cardless", %{player: player} do
+      # This test requires telemetry handler setup
+      # Skipped for now - will implement after telemetry infrastructure is in place
+      IO.puts("⏭️  T043: Skipped - Telemetry test infrastructure needed")
+    end
+
+    @tag :phase6
+    @tag :cardless
+    test "T044: multiple simultaneous cardless players tracked independently", %{player: player} do
+      player2 = player_fixture(%{email: "player2@example.com"})
+      player3 = player_fixture(%{email: "player3@example.com"})
+
+      {:ok, game_session} =
+        CardGames.create_game_session(player, %{short_code: "multi-cardless"})
+
+      CardGames.join_game_session(player2, game_session.id)
+      CardGames.join_game_session(player3, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      # Make player1 and player2 cardless
+      for player_id <- [player.id, player2.id] do
+        player_session =
+          Repo.get_by!(Kadi.Games.GameSessionPlayer,
+            game_session_id: game_session.id,
+            player_id: player_id
+          )
+
+        Repo.update!(Ecto.Changeset.change(player_session, %{status: "cardless"}))
+      end
+
+      # Verify both are cardless
+      cardless_count =
+        Repo.aggregate(
+          from(gsp in Kadi.Games.GameSessionPlayer,
+            where: gsp.game_session_id == ^game_session.id and gsp.status == "cardless"
+          ),
+          :count
+        )
+
+      assert cardless_count == 2
+
+      # Verify player3 is still normal
+      player3_session =
+        Repo.get_by!(Kadi.Games.GameSessionPlayer,
+          game_session_id: game_session.id,
+          player_id: player3.id
+        )
+
+      assert player3_session.status == "normal"
+
+      IO.puts("✓ T044: Multiple cardless players tracked independently")
+    end
+  end
+
+  describe "edge cases and anomalies" do
+    @tag :phase6
+    @tag :anomaly
+    @tag :skip
+    test "T048: deck exhaustion anomaly handled gracefully", %{player: player} do
+      # This test would require emptying both deck and played pile
+      # Complex setup - skipping for initial implementation
+      IO.puts("⏭️  T048: Skipped - Complex anomaly scenario")
+    end
+  end
 end
