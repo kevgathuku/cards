@@ -136,8 +136,8 @@ This is an Elixir/Phoenix project with the following structure:
 
 **Purpose**: Handle cardless player state (King as last card) and anomaly scenarios
 
-- [ ] T040 [P] Unit test for cardless status transition when playing King as last card in test/kadi/card_games_test.exs
-- [ ] T041 [P] Unit test for cardless player auto-draw on their turn in test/kadi/card_games_test.exs
+- [X] T040 [P] Unit test for cardless status transition when playing King as last card in test/kadi/card_games_test.exs
+- [X] T041 [P] Unit test for cardless player auto-draw on their turn in test/kadi/card_games_test.exs
 - [X] T042 [P] Unit test for status reset to "normal" after auto-draw in test/kadi/card_games_test.exs
 - [X] T043 [P] Telemetry test for cardless_entered event emission in test/kadi/telemetry_test.exs
 - [X] T044 [P] Integration test for multiple simultaneous cardless players (FR-014) in test/kadi/card_games_test.exs

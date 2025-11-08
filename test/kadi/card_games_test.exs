@@ -2098,17 +2098,20 @@ defmodule Kadi.CardGamesTest do
       assert player_session_before.status == "normal"
 
       # Play the King (last card)
-      {:ok, _updated_game} = CardGames.play_cards(game_session, current_player_id, [king_card.id])
+      {:ok, updated_game} = CardGames.play_cards(game_session, current_player_id, [king_card.id])
 
-      # Reload player session to check status
+      # Check status using preloaded data
+      updated_game =
+        Repo.preload(updated_game, [:game_session_players], force: true)
+
       player_session_after =
-        Repo.get_by!(Kadi.Games.GameSessionPlayer,
-          game_session_id: game_session.id,
-          player_id: current_player_id
-        )
+        updated_game.game_session_players
+        |> Enum.find(&(&1.player_id == current_player_id))
 
       # Status should be "cardless"
       assert player_session_after.status == "cardless"
+
+      IO.puts("✓ T040: Player status changes to 'cardless' when playing King as last card")
     end
 
     @tag :phase6
@@ -2122,94 +2125,125 @@ defmodule Kadi.CardGamesTest do
       CardGames.join_game_session(player2, game_session.id)
       {:ok, game_session} = CardGames.start_game(game_session)
 
-      # Setup: Make current player cardless
+      # Setup: Make current player have only 1 card (a King matching top card)
       current_player_id = game_session.current_turn_player_id
 
-      # Preload deck cards to work with in-memory filtering
       game_session =
-        Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+        Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
 
-      # Get all cards currently in player's hand
+      top_card = game_session.top_card
+
+      # Find King matching top card suit
+      king_deck_card =
+        Enum.find(game_session.deck.deck_cards, fn dc ->
+          dc.card.rank == "king" and dc.card.suit == top_card.suit
+        end)
+
+      king_card = king_deck_card.card
+
+      # Get all player's cards
       player_cards =
-        Enum.filter(
-          game_session.deck.deck_cards,
-          &(&1.location_type == "player_hand" and &1.player_id == current_player_id)
-        )
+        game_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == current_player_id))
 
-      # Move all player's cards back to deck
-      player_cards
+      # Remove all cards except the King
+      cards_to_remove =
+        player_cards
+        |> Enum.reject(&(&1.id == king_deck_card.id))
+
+      cards_to_remove
       |> Enum.with_index()
       |> Enum.each(fn {dc, idx} ->
         Repo.update!(
           Ecto.Changeset.change(dc, %{
             location_type: "deck",
             player_id: nil,
-            order_index: 1000 + idx
+            order_index: 900 + idx
           })
         )
       end)
 
-      # Update player session status to cardless
-      player_session =
-        Repo.get_by!(Kadi.Games.GameSessionPlayer,
-          game_session_id: game_session.id,
-          player_id: current_player_id
-        )
+      # Ensure the King is in player's hand
+      Repo.update!(
+        Ecto.Changeset.change(king_deck_card, %{
+          location_type: "player_hand",
+          player_id: current_player_id,
+          order_index: nil
+        })
+      )
 
-      Repo.update!(Ecto.Changeset.change(player_session, %{status: "cardless"}))
+      # Verify player has exactly 1 card before playing
+      game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
 
-      # Verify player has no cards
       game_session =
-        Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+        Repo.preload(game_session, [:game_session_players, deck: [deck_cards: :card]],
+          force: true
+        )
 
       remaining_cards =
-        Enum.filter(
-          game_session.deck.deck_cards,
-          &(&1.location_type == "player_hand" and &1.player_id == current_player_id)
+        game_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == current_player_id))
+
+      assert length(remaining_cards) == 1
+
+      # Play the King (last card) - this makes player cardless
+      {:ok, after_play_game} =
+        CardGames.play_cards(game_session, current_player_id, [king_card.id])
+
+      # Verify player is now cardless
+      after_play_game =
+        Repo.preload(after_play_game, [:game_session_players, deck: [deck_cards: :card]],
+          force: true
         )
 
-      assert length(remaining_cards) == 0
+      player_session_cardless =
+        after_play_game.game_session_players
+        |> Enum.find(&(&1.player_id == current_player_id))
 
-      # Verify status is cardless
-      cardless_player =
-        Repo.get_by!(Kadi.Games.GameSessionPlayer,
-          game_session_id: game_session.id,
-          player_id: current_player_id
+      assert player_session_cardless.status == "cardless"
+
+      # Verify player has 0 cards
+      cards_after_king =
+        after_play_game.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == current_player_id))
+
+      assert length(cards_after_king) == 0
+
+      # Now it's the other player's turn, so advance back to our cardless player
+      # The other player needs to play or draw
+      other_player_id = after_play_game.current_turn_player_id
+
+      # Other player draws to advance turn back to cardless player
+      {:ok, after_draw_game} =
+        CardGames.draw_card_from_deck(after_play_game, other_player_id)
+
+      # Now it should be the cardless player's turn again
+      assert after_draw_game.current_turn_player_id == current_player_id
+
+      # Have cardless player draw a card (it's their turn, they're cardless, should auto-draw)
+      {:ok, updated_game} = CardGames.draw_card_from_deck(after_draw_game, current_player_id)
+
+      # Reload game session with associations
+      updated_game =
+        Repo.preload(updated_game, [:game_session_players, deck: [deck_cards: :card]],
+          force: true
         )
 
-      assert cardless_player.status == "cardless"
+      # Player should now have 1 card (the drawn card)
+      player_cards_after =
+        updated_game.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == current_player_id))
 
-      # Have cardless player draw a card (it's their turn)
-      {:ok, updated_game} = CardGames.draw_card_from_deck(game_session, current_player_id)
+      assert length(player_cards_after) == 1
 
-      # Reload game session
-      updated_game = Repo.preload(updated_game, deck: [deck_cards: :card])
-
-      # Player should now have only the drawn card
-      player_cards =
-        Enum.filter(
-          updated_game.deck.deck_cards,
-          &(&1.location_type == "player_hand" and &1.player_id == current_player_id)
-        )
-
-      assert length(player_cards) == 1
-
-      # Check status reset
+      # Check status reset to normal (use preloaded data)
       player_session_after =
-        Repo.get_by!(Kadi.Games.GameSessionPlayer,
-          game_session_id: game_session.id,
-          player_id: current_player_id
-        )
+        updated_game.game_session_players
+        |> Enum.find(&(&1.player_id == current_player_id))
 
       assert player_session_after.status == "normal"
-    end
 
-    @tag :phase6
-    @tag :cardless
-    test "T043: telemetry event emitted when player becomes cardless", %{player: player} do
-      # Telemetry test implemented in test/kadi/telemetry_test.exs
-      # This placeholder is kept for reference
-      IO.puts("✓ T043: Telemetry test implemented in telemetry_test.exs")
+      IO.puts("✓ T041: Cardless player auto-draws card on their turn")
     end
 
     @tag :phase6
@@ -2225,36 +2259,90 @@ defmodule Kadi.CardGamesTest do
       CardGames.join_game_session(player3, game_session.id)
       {:ok, game_session} = CardGames.start_game(game_session)
 
-      # Make player1 and player2 cardless
-      for player_id <- [player.id, player2.id] do
-        player_session =
-          Repo.get_by!(Kadi.Games.GameSessionPlayer,
-            game_session_id: game_session.id,
-            player_id: player_id
-          )
-
-        Repo.update!(Ecto.Changeset.change(player_session, %{status: "cardless"}))
-      end
-
-      # Verify both are cardless
-      cardless_count =
-        Repo.aggregate(
-          from(gsp in Kadi.Games.GameSessionPlayer,
-            where: gsp.game_session_id == ^game_session.id and gsp.status == "cardless"
-          ),
-          :count
+      # Preload all deck cards and top card
+      game_session =
+        Repo.preload(game_session, [:top_card, :game_session_players, deck: [deck_cards: :card]],
+          force: true
         )
 
-      assert cardless_count == 2
+      top_card = game_session.top_card
+      current_player_id = game_session.current_turn_player_id
 
-      # Verify player3 is still normal
-      player3_session =
-        Repo.get_by!(Kadi.Games.GameSessionPlayer,
-          game_session_id: game_session.id,
-          player_id: player3.id
+      # Make current player cardless by playing King as their last card
+      # Find a King matching top card suit
+      king_deck_card =
+        Enum.find(game_session.deck.deck_cards, fn dc ->
+          dc.card.rank == "king" and dc.card.suit == top_card.suit and
+            dc.location_type == "deck"
+        end)
+
+      # Get all current player's cards
+      player_cards =
+        game_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == current_player_id))
+
+      # Remove all cards except the King
+      player_cards
+      |> Enum.with_index()
+      |> Enum.each(fn {dc, idx} ->
+        Repo.update!(
+          Ecto.Changeset.change(dc, %{
+            location_type: "deck",
+            player_id: nil,
+            order_index: 950 + idx
+          })
         )
+      end)
 
-      assert player3_session.status == "normal"
+      # Give the King to current player
+      Repo.update!(
+        Ecto.Changeset.change(king_deck_card, %{
+          location_type: "player_hand",
+          player_id: current_player_id,
+          order_index: nil
+        })
+      )
+
+      # Reload and play the King (making player cardless)
+      game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
+
+      game_session =
+        Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
+
+      {:ok, game_session} =
+        CardGames.play_cards(game_session, current_player_id, [king_deck_card.card.id])
+
+      # Reload with game_session_players
+      game_session =
+        Repo.preload(game_session, [:game_session_players], force: true)
+
+      # Now manually set a second player to cardless to test independent tracking
+      # (This simulates another player becoming cardless through normal gameplay)
+      other_players =
+        game_session.game_session_players
+        |> Enum.reject(&(&1.player_id == current_player_id))
+
+      second_cardless_player = List.first(other_players)
+
+      Repo.update!(Ecto.Changeset.change(second_cardless_player, %{status: "cardless"}))
+
+      # Verify both are cardless using preloaded data
+      game_session =
+        Repo.get!(Kadi.Games.GameSession, game_session.id)
+        |> Repo.preload([:game_session_players], force: true)
+
+      cardless_players =
+        game_session.game_session_players
+        |> Enum.filter(&(&1.status == "cardless"))
+
+      assert length(cardless_players) == 2
+
+      # Verify the third player is still normal
+      normal_players =
+        game_session.game_session_players
+        |> Enum.filter(&(&1.status == "normal"))
+
+      assert length(normal_players) == 1
 
       IO.puts("✓ T044: Multiple cardless players tracked independently")
     end
