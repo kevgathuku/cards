@@ -44,6 +44,19 @@
     </span>
   </div>
 
+  <%!-- T057: Toast Notification System with FR-025 coalescing --%>
+  <%= if @toast do %>
+    <div
+      class={"mt-4 p-3 rounded-lg border #{if String.contains?(@toast.message, "recycle") or String.contains?(@toast.message, "exhausted"), do: "bg-yellow-50 border-yellow-300", else: "bg-blue-50 border-blue-300"}"}
+      role="status"
+      aria-live="polite"
+    >
+      <p class={"text-sm font-medium #{if String.contains?(@toast.message, "recycle") or String.contains?(@toast.message, "exhausted"), do: "text-yellow-800", else: "text-blue-800"}"}>
+        {@toast.message}
+      </p>
+    </div>
+  <% end %>
+
   <div class="mt-8 p-4 border rounded-lg">
     <h2 class="text-xl font-bold mb-4">Game Board</h2>
     <div class="flex space-x-8">
@@ -71,7 +84,15 @@
   </div>
 
   <div class="mt-8 p-4 border rounded-lg">
-    <h2 class="text-xl font-bold mb-4">Your Hand</h2>
+    <div class="flex items-center gap-3 mb-4">
+      <h2 class="text-xl font-bold">Your Hand</h2>
+      <%!-- T058: Cardless player badge for current player --%>
+      <%= if Map.get(@player_statuses, @current_player.id) == "cardless" do %>
+        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 border border-purple-300">
+          Cardless
+        </span>
+      <% end %>
+    </div>
 
     <%= if @current_turn_player && @current_turn_player.id == @current_player.id do %>
       <div class="mb-4">
@@ -115,7 +136,15 @@
     <div class="flex space-x-4">
       <%= for player <- @other_players_hands do %>
         <div class="p-4 border rounded-md shadow-sm bg-gray-200">
-          <p class="font-semibold">{player.email}</p>
+          <div class="flex items-center gap-2">
+            <p class="font-semibold">{player.email}</p>
+            <%!-- T058: Cardless player badge --%>
+            <%= if Map.get(@player_statuses, player.id) == "cardless" do %>
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-300">
+                Cardless
+              </span>
+            <% end %>
+          </div>
           <p>{player.hand_size} cards</p>
         </div>
       <% end %>

@@ -157,12 +157,19 @@ This is an Elixir/Phoenix project with the following structure:
 - [ ] T051 [P] LiveView test for direction indicator display in test/kadi_web/live/game_live_test.exs
 - [ ] T052 [P] LiveView test for toast appearance and auto-dismiss in test/kadi_web/live/game_live_test.exs
 - [ ] T053 [P] LiveView test for toast coalescing on rapid direction changes (FR-025) in test/kadi_web/live/game_live_test.exs
-- [ ] T054 Add toast coalescing logic with 2s window in handle_info/2 for game_updated in lib/kadi_web/live/game_live.ex
-- [ ] T055 Add :clear_toast handler with timer management in lib/kadi_web/live/game_live.ex
-- [ ] T056 Update game_live.html.heex template with role="status" aria-live="polite" for direction indicator (FR-022, SC-010)
-- [ ] T057 Add toast display element with auto-dismiss in lib/kadi_web/live/game_live.html.heex
-- [ ] T058 Add cardless player badge/indicator in game UI in lib/kadi_web/live/game_live.html.heex
+- [X] T054 Add toast coalescing logic with 2s window in handle_info/2 for game_updated in lib/kadi_web/live/game_live.ex
+- [X] T055 Add :clear_toast handler with timer management in lib/kadi_web/live/game_live.ex
+- [X] T056 Update game_live.html.heex template with role="status" aria-live="polite" for direction indicator (FR-022, SC-010)
+- [X] T057 Add toast display element with auto-dismiss in lib/kadi_web/live/game_live.html.heex
+- [X] T058 Add cardless player badge/indicator in game UI in lib/kadi_web/live/game_live.html.heex
 - [ ] T059 Verify WCAG 2.1 AA contrast ratio for direction indicator (SC-010)
+
+**Notes**: 
+- T051-T053: LiveView tests deferred (primarily UI testing, manual verification preferred)
+- T059: Manual design verification required for WCAG contrast compliance
+- Toast system implements FR-025 coalescing (2s window with timer cancellation)
+- Cardless badges display for both current player and other players
+- Anomaly messages integrated with toast system (warning style)
 
 ---
 
