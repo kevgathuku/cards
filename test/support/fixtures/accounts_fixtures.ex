@@ -4,7 +4,10 @@ defmodule Kadi.AccountsFixtures do
   entities via the `Kadi.Accounts` context.
   """
 
-  def unique_player_email, do: "player#{System.unique_integer()}@example.com"
+  def unique_player_email do
+    "player#{System.unique_integer([:positive])}#{System.monotonic_time()}@example.com"
+  end
+
   def valid_player_password, do: "hello world!"
 
   def valid_player_attributes(attrs \\ %{}) do
