@@ -847,7 +847,24 @@ defmodule Kadi.CardGames do
     end
   end
 
-  defp get_game_session_players(game_session_id) do
+  @doc """
+  Returns all players in a game session, ordered by join time.
+
+  Players are ordered by the time they joined the game session (inserted_at),
+  which determines turn order.
+
+  ## Parameters
+  - game_session_id: ID of the game session
+
+  ## Returns
+  - List of Player structs, ordered by join time
+
+  ## Examples
+
+      iex> get_game_session_players(game_session.id)
+      [%Player{id: 1, email: "player1@example.com"}, %Player{id: 2, email: "player2@example.com"}]
+  """
+  def get_game_session_players(game_session_id) do
     query =
       from gsp in GameSessionPlayer,
         where: gsp.game_session_id == ^game_session_id,
