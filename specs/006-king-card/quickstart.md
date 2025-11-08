@@ -148,6 +148,8 @@ field :status, :string, default: "normal"
 @special_ranks ["king"]
 ```
 
+**Note**: As of 2025-11-08 (T031 implementation), this module attribute is defined but not actively used in validation. It's kept for future extensibility when other special cards are implemented.
+
 **Add new validation function** (after line 44):
 ```elixir
 @doc """

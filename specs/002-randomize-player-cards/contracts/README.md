@@ -35,10 +35,10 @@ This feature **does not introduce new API contracts** or change existing externa
   - `updated_game_session.status` = `"live"`
   - `updated_game_session.current_turn_player_id` = randomly selected player
   - Players have 4 cards each in their hands
-  - One valid start card in played pile
+  - One valid start card in played pile (as of feature 006-king-card, Kings are allowed as start cards)
 - `{:error, :not_enough_players}` - Fewer than 2 players in session
 - `{:error, :not_enough_cards_in_deck}` - Deck has insufficient cards (shouldn't happen with 52-card deck)
-- `{:error, :no_valid_start_card_found}` - No non-special card available for start (rare edge case)
+- `{:error, :no_valid_start_card_found}` - No non-special card available for start (rare edge case - excludes 2, 3, J, Q, A only)
 
 **Behavioral Change** (internal only):
 - **Before**: Cards dealt in undefined order (likely database insertion order)

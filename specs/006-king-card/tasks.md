@@ -92,17 +92,17 @@ This is an Elixir/Phoenix project with the following structure:
 
 ### Tests for User Story 2
 
-- [ ] T024 [P] [US2] Integration test for accepting King matching suit in test/kadi/card_games_test.exs
-- [ ] T025 [P] [US2] Integration test for accepting King matching rank in test/kadi/card_games_test.exs
-- [ ] T026 [P] [US2] Integration test for rejecting King not matching suit or rank in test/kadi/card_games_test.exs
-- [ ] T027 [P] [US2] Integration test for rejecting multiple King cards in single turn in test/kadi/card_games_test.exs
-- [ ] T028 [P] [US2] Integration test for King as start card (allowed, no reversal per FR-003) in test/kadi/card_games_test.exs
+- [X] T024 [P] [US2] Integration test for accepting King matching suit in test/kadi/card_games_test.exs
+- [X] T025 [P] [US2] Integration test for accepting King matching rank in test/kadi/card_games_test.exs
+- [X] T026 [P] [US2] Integration test for rejecting King not matching suit or rank in test/kadi/card_games_test.exs
+- [X] T027 [P] [US2] Integration test for rejecting multiple King cards in single turn in test/kadi/card_games_test.exs
+- [X] T028 [P] [US2] Integration test for King as start card (allowed, no reversal per FR-003) in test/kadi/card_games_test.exs
 
 ### Implementation for User Story 2
 
-- [ ] T029 [US2] Add error handling for invalid King plays in play_cards/3 in lib/kadi/card_games.ex
-- [ ] T030 [US2] Ensure turn gating (FR-027) rejects non-turn player King plays in lib/kadi/card_games.ex
-- [ ] T031 [US2] Add validation for King as start card scenario in select_start_card/1 in lib/kadi/card_games.ex
+- [X] T029 [US2] Add error handling for invalid King plays in play_cards/3 in lib/kadi/card_games.ex
+- [X] T030 [US2] Ensure turn gating (FR-027) rejects non-turn player King plays in lib/kadi/card_games.ex
+- [X] T031 [US2] Add validation for King as start card scenario in select_start_card/1 in lib/kadi/card_games.ex
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work - King plays validated and direction reversal working
 

@@ -17,7 +17,12 @@
 - Q: When deck recycling occurs, does the most recently played King card remain as the "current card" on top of the played stack, or does it get shuffled back into the deck? → A: King remains on top (not recycled)
 - Q: Can multiple players be in "cardless" state simultaneously, or does entering cardless state trigger an immediate win check? → A: Yes, multiple cardless players allowed
 - Q: In a 2-player game, if one player is cardless and the other player is in normal play, does the cardless player's automatic draw still occur on their turn, or does the game have special handling? → A: Cardless draw works same as multi-player
+## Clarifications
+
+### Session 2025-11-06
+
 - Q: If a King somehow becomes the start card (e.g., due to a bug or future rule change), should the system actively prevent it or handle it gracefully? → A: Allow it (no direction change on start)
+- **Update (2025-11-08)**: This clarification has been implemented. Kings are now explicitly allowed as start cards in `select_start_card/1`. The original feature 001-deal-start-card has been updated to reflect this change.
 - Q: After recycling, if no drawable cards remain (extremely unlikely), what happens to the player required to draw? → A: Log anomaly and skip (pass turn)
 - Q: For the rare case where, after recycling, no drawable cards remain and the player is skipped, what player-facing notification should be shown? → A: Non-blocking info banner to all players: "Deck exhausted. Skipping <Player> this turn."
 - Q: What level of event logging granularity should we use for King-related actions and anomalies? → A: Structured events: direction_change, cardless_entered, anomaly_skip with metadata (game_id, player_id, timestamp, context)
@@ -91,7 +96,7 @@ The system must maintain and expose the current game direction state so players 
 
 ### Edge Cases
 
-- What happens when a King is the first card in the played stack (start card)? According to existing rules, special cards (including Kings) should not be start cards. However, if a King does become the start card, it is allowed but does NOT trigger a direction reversal. The game starts in default clockwise direction and the King acts as a normal reference card for matching
+- What happens when a King is the first card in the played stack (start card)? **Updated as of 2025-11-08**: Kings are now ALLOWED as start cards. When a King is the start card, it does NOT trigger a direction reversal. The game starts in default clockwise direction and the King acts as a normal reference card for matching. This change modifies the original feature 001-deal-start-card specification to allow Kings in the start card selection pool.
 - What happens when a player plays a King as their last card? The direction reverses and the player enters a "cardless" state (does NOT win). When their turn comes around again, they automatically draw a card from the deck (no choice), and their turn ends immediately after the draw
 - What happens if a cardless player draws another King card? Their turn ends after the draw. On their next turn, they can play the King if it matches the last played card (normal rules apply)
 - What happens if multiple Kings are played in consecutive turns? Each King reverses the direction, so the direction toggles with each King played. The next player can immediately play another King if it matches the last played card (no waiting period or restrictions)
