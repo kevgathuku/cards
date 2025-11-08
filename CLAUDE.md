@@ -185,3 +185,48 @@ Card locations are tracked through the `deck_cards` join table with a `location_
 - Elixir 1.14+ (OTP 25+) + Phoenix 1.7, Phoenix LiveView, Ecto 3.x
 - PostgreSQL (via Ecto) - `deck_cards` table with `order_index` and `location_type` columns
 
+## Player Actions & Turn Management
+
+The game implements turn-based gameplay where players can:
+- **Draw a card from deck**: Players can draw one card during their turn, which automatically advances the turn to the next player
+- **Play cards from hand**: Play valid card combinations onto the played pile
+- Turn order is determined by join time (`game_session_players.inserted_at`), wrapping around from last to first player
+
+## Key Implementation Patterns
+
+### Broadcast-Only Updates
+LiveView handlers often do NOT update socket state directly. Instead:
+1. Handler calls context function (e.g., `CardGames.draw_card_from_deck/2`)
+2. Context function performs database transaction
+3. Context broadcasts `game_updated` event via PubSub
+4. LiveView `handle_info` receives broadcast and updates socket
+5. This ensures all connected players receive updates simultaneously
+
+Example:
+```elixir
+def handle_event("draw_card", _params, socket) do
+  case CardGames.draw_card_from_deck(game_session, player_id) do
+    {:ok, _updated} -> {:noreply, socket}  # Don't update - wait for broadcast
+    {:error, reason} -> {:noreply, put_flash(socket, :error, reason)}
+  end
+end
+
+def handle_info({:game_updated, game_session}, socket) do
+  {:noreply, assign_game_state(socket, game_session)}  # Update from broadcast
+end
+```
+
+### Atomic Transactions
+Game state changes use `Ecto.Multi` for atomicity:
+```elixir
+Ecto.Multi.new()
+|> Ecto.Multi.update(:card, card_changeset)
+|> Ecto.Multi.update(:game_session, session_changeset)
+|> Repo.transaction()
+```
+
+### Turn Order Calculation
+- Players ordered by `game_session_players.inserted_at ASC`
+- Helper function `get_next_player/2` wraps around using `rem/2`
+- Turn stored in `game_sessions.current_turn_player_id`
+
