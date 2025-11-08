@@ -249,14 +249,91 @@ defmodule Kadi.CardGames do
                 |> Enum.sort_by(& &1.order_index)
 
               if Enum.empty?(recycled_deck_cards) do
-                {:error, :deck_empty_after_recycle}
+                # Anomaly: No drawable cards after recycle (FR-018)
+                # Skip player and advance turn
+                players = get_game_session_players(recycled_game_session.id)
+
+                next_player =
+                  get_next_player_with_direction(
+                    players,
+                    player_id,
+                    recycled_game_session.direction
+                  )
+
+                # Emit anomaly event
+                emit_anomaly_skip_event(
+                  recycled_game_session.id,
+                  player_id,
+                  "no_cards_after_recycle"
+                )
+
+                # Update game session with next player
+                updated_game =
+                  GameSession.changeset(recycled_game_session, %{
+                    current_turn_player_id: next_player.id
+                  })
+                  |> Repo.update!()
+
+                # Get player name for banner message
+                player = Repo.get!(Kadi.Accounts.Player, player_id)
+
+                # Broadcast anomaly banner (FR-019)
+                broadcast_anomaly_banner(
+                  updated_game,
+                  "Deck exhausted. Skipping #{player.email} this turn."
+                )
+
+                # Broadcast game update
+                broadcast_game_update(updated_game)
+
+                {:ok, updated_game}
               else
                 # Retry draw (will broadcast after success)
                 draw_card_from_deck(recycled_game_session, player_id)
               end
 
+            {:error, :insufficient_cards_to_recycle} ->
+              # Anomaly: Cannot recycle (FR-018)
+              # Skip player and advance turn
+              players = get_game_session_players(game_session.id)
+
+              next_player =
+                get_next_player_with_direction(
+                  players,
+                  player_id,
+                  game_session.direction
+                )
+
+              # Emit anomaly event
+              emit_anomaly_skip_event(
+                game_session.id,
+                player_id,
+                "insufficient_cards_to_recycle"
+              )
+
+              # Update game session with next player
+              updated_game =
+                GameSession.changeset(game_session, %{
+                  current_turn_player_id: next_player.id
+                })
+                |> Repo.update!()
+
+              # Get player name for banner message
+              player = Repo.get!(Kadi.Accounts.Player, player_id)
+
+              # Broadcast anomaly banner (FR-019)
+              broadcast_anomaly_banner(
+                updated_game,
+                "Deck exhausted. Skipping #{player.email} this turn."
+              )
+
+              # Broadcast game update
+              broadcast_game_update(updated_game)
+
+              {:ok, updated_game}
+
             {:error, reason} ->
-              # Cannot recycle - return error
+              # Other errors - return error
               {:error, reason}
           end
 
@@ -901,6 +978,19 @@ defmodule Kadi.CardGames do
         neutral: neutral?,
         timestamp: DateTime.utc_now()
       }
+    )
+  end
+
+  # Broadcasts anomaly banner notification to all players (FR-019).
+  #
+  # ## Parameters
+  # - game_session: Current game session
+  # - message: Banner message to display
+  defp broadcast_anomaly_banner(game_session, message) do
+    Phoenix.PubSub.broadcast(
+      Kadi.PubSub,
+      "game_session:#{game_session.id}",
+      {:anomaly_banner, %{message: message, game_id: game_session.id}}
     )
   end
 

@@ -144,9 +144,9 @@ This is an Elixir/Phoenix project with the following structure:
 - [X] T045 Update execute_play/3 to detect cardless state and update player status in lib/kadi/card_games.ex (FR-011, FR-026)
 - [X] T046 Update draw_card_from_deck/2 to check cardless status and auto-draw in lib/kadi/card_games.ex (FR-012, FR-013)
 - [X] T047 Add cardless status reset in draw transaction in lib/kadi/card_games.ex
-- [ ] T048 [P] Integration test for deck exhaustion anomaly skip in test/kadi/card_games_test.exs
-- [ ] T049 Update recycle_played_stack/1 error handling to emit anomaly_skip event in lib/kadi/card_games.ex (FR-018)
-- [ ] T050 Add broadcast_anomaly_banner/2 helper function in lib/kadi/card_games.ex for UI notifications (FR-019)
+- [X] T048 [P] Integration test for deck exhaustion anomaly skip in test/kadi/card_games_test.exs
+- [X] T049 Update recycle_played_stack/1 error handling to emit anomaly_skip event in lib/kadi/card_games.ex (FR-018)
+- [X] T050 Add broadcast_anomaly_banner/2 helper function in lib/kadi/card_games.ex for UI notifications (FR-019)
 
 ---
 

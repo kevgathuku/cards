@@ -2351,11 +2351,60 @@ defmodule Kadi.CardGamesTest do
   describe "edge cases and anomalies" do
     @tag :phase6
     @tag :anomaly
-    @tag :skip
     test "T048: deck exhaustion anomaly handled gracefully", %{player: player} do
-      # This test would require emptying both deck and played pile
-      # Complex setup - skipping for initial implementation
-      IO.puts("⏭️  T048: Skipped - Complex anomaly scenario")
+      player2 = player_fixture(%{email: "anomaly-player2@example.com"})
+
+      {:ok, game_session} =
+        CardGames.create_game_session(player, %{short_code: "anomaly-test"})
+
+      CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      # Setup: Create scenario where deck is empty and played stack has only 1 card
+      # This will trigger anomaly when trying to draw
+      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+
+      # Move all deck cards to player hands (emptying the deck)
+      deck_cards =
+        game_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "deck"))
+
+      deck_cards
+      |> Enum.with_index()
+      |> Enum.each(fn {dc, idx} ->
+        # Alternate between player1 and player2
+        assigned_player_id = if rem(idx, 2) == 0, do: player.id, else: player2.id
+
+        Repo.update!(
+          Ecto.Changeset.change(dc, %{
+            location_type: "player_hand",
+            player_id: assigned_player_id,
+            order_index: nil
+          })
+        )
+      end)
+
+      # Ensure only 1 card in played stack (the top card from start_game)
+      # This means recycle will fail with insufficient_cards_to_recycle
+
+      # Set current turn
+      current_player_id = game_session.current_turn_player_id
+
+      # Reload game session
+      game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
+
+      # Attempt to draw - should trigger anomaly handling
+      {:ok, updated_game} = CardGames.draw_card_from_deck(game_session, current_player_id)
+
+      # Verify turn advanced to next player (anomaly skip)
+      assert updated_game.current_turn_player_id != current_player_id
+
+      # Verify game continues (no crash, turn advanced)
+      # Reload with associations to verify state
+      updated_game = Repo.preload(updated_game, [:game_session_players], force: true)
+      assert length(updated_game.game_session_players) == 2
+
+      IO.puts("✓ T048: Deck exhaustion anomaly handled gracefully")
     end
   end
 end
