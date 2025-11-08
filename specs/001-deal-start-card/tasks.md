@@ -33,14 +33,14 @@ The feature will be implemented in a single phase focused on User Story 1, as it
 - [X] T002 [US1] In `test/kadi/card_games_test.exs`, add a new `describe` block for the `start_game` logic.
 - [X] T003 [US1] In `test/kadi/card_games_test.exs`, write a test to ensure `start_game/1` changes the `GameSession` status to `"live"`.
 - [X] T004 [US1] In `test/kadi/card_games_test.exs`, write a test to verify that after `start_game/1`, exactly one card has its `location_type` set to `"played_stack"`.
-- [X] T005 [US1] In `test/kadi/card_games_test.exs`, write a test to ensure the card in `"played_stack"` is not a special card (2, 3, J, Q, K, A).
+- [X] T005 [US1] In `test/kadi/card_games_test.exs`, write a test to ensure the card in `"played_stack"` is not a special card (2, 3, J, Q, A). **Update (2025-11-08)**: As of feature 006-king-card, Kings are now allowed as start cards, so this test now excludes only 2, 3, J, Q, A (not K).
 - [X] T006 [US1] In `test/kadi/card_games_test.exs`, write a test to confirm the correct number of cards have `location_type` of `"player_hand"` for each player.
 - [X] T025 [US1] Add test to `test/kadi/card_games_test.exs` to verify a random player is assigned as `current_turn_player`.
 
 ### Backend: Implementation
 
 - [X] T007 [US1] Modify the `start_game/1` function in `lib/kadi/card_games.ex` to contain the main logic.
-- [X] T008 [US1] In `lib/kadi/card_games.ex`, implement the logic to shuffle the deck and recursively find a valid starting card, avoiding special cards.
+- [X] T008 [US1] In `lib/kadi/card_games.ex`, implement the logic to shuffle the deck and recursively find a valid starting card, avoiding special cards. **Update (2025-11-08)**: As of feature 006-king-card, the special_ranks list in `select_start_card/1` has been updated to exclude Kings - Kings are now allowed as start cards.
 - [X] T009 [US1] In `lib/kadi/card_games.ex`, use `Ecto.Multi` to atomically update the `GameSession` status and all `DeckCard` `location_type` changes within the `start_game/1` function.
 - [X] T010 [US1] In `lib/kadi/card_games.ex`, after the `Ecto.Multi` transaction succeeds, broadcast the `"game_updated"` event via `Phoenix.PubSub`.
 - [X] T019 [US1] Modify `select_start_card/1` in `lib/kadi/card_games.ex` to set `order_index=1` on the starting card changeset.

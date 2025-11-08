@@ -5,6 +5,8 @@
 **Status**: Draft  
 **Input**: User description: "Flesh out the start game action. After assigning cards to each player, deal a start card from the deck. It cannot be 2,3,J,K,Q or A. Add some visualisation on the frontend so that the player can see their own cards, the cards played and the deck"
 
+**Update (2025-11-08)**: As of feature 006-king-card, Kings are now allowed as start cards. The restriction now applies only to 2, 3, Jack, Queen, and Ace.
+
 ## Clarifications
 
 ### Session 2025-11-03
@@ -32,7 +34,7 @@ As a player, when the game starts, I want to see my assigned cards, the first ca
 
 ### Edge Cases
 
-- What happens if the first N cards drawn from the deck are all special cards (2, 3, J, Q, K, A)? The system should handle this gracefully by moving each special card to the bottom of the deck and continuing sequentially until a valid card is found.
+- What happens if the first N cards drawn from the deck are all special cards (2, 3, J, Q, A)? The system should handle this gracefully by moving each special card to the bottom of the deck and continuing sequentially until a valid card is found. **Note**: As of feature 006-king-card, Kings are allowed as start cards.
 - What happens if the deck has fewer cards than (4 × number of players) + 1? (This should be prevented by game setup rules, but is an edge case to consider).
 
 ## Requirements *(mandatory)*
@@ -40,7 +42,7 @@ As a player, when the game starts, I want to see my assigned cards, the first ca
 ### Functional Requirements
 
 - **FR-001**: The system MUST deal exactly 4 cards to each player as their initial hand, then automatically deal one additional card from the deck to serve as the starting card.
-- **FR-002**: The starting card MUST NOT be a 2, 3, Jack, Queen, King, or Ace.
+- **FR-002**: The starting card MUST NOT be a 2, 3, Jack, Queen, or Ace. **Note**: As of feature 006-king-card, Kings are now allowed as start cards but do not trigger direction reversal when used as the starting card.
 - **FR-003**: If a special card (as defined in FR-002) is encountered when seeking the starting card, the system MUST move it to the bottom of the deck and continue to the next sequential card (by `order_index`) until a valid one is found.
 - **FR-004**: The user interface MUST render a view of the current player's own hand of cards with face-up values visible.
 - **FR-004a**: The user interface MUST render other players' hands as face-down card backs with the card count displayed for each player.

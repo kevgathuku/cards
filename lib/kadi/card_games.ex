@@ -167,7 +167,8 @@ defmodule Kadi.CardGames do
           GameSession.changeset(game_session, %{
             status: "live",
             current_turn_player_id: random_player.id,
-            top_card_id: start_card_id
+            top_card_id: start_card_id,
+            direction: "clockwise"
           })
         )
 
@@ -248,14 +249,91 @@ defmodule Kadi.CardGames do
                 |> Enum.sort_by(& &1.order_index)
 
               if Enum.empty?(recycled_deck_cards) do
-                {:error, :deck_empty_after_recycle}
+                # Anomaly: No drawable cards after recycle (FR-018)
+                # Skip player and advance turn
+                players = get_game_session_players(recycled_game_session.id)
+
+                next_player =
+                  get_next_player_with_direction(
+                    players,
+                    player_id,
+                    recycled_game_session.direction
+                  )
+
+                # Emit anomaly event
+                emit_anomaly_skip_event(
+                  recycled_game_session.id,
+                  player_id,
+                  "no_cards_after_recycle"
+                )
+
+                # Update game session with next player
+                updated_game =
+                  GameSession.changeset(recycled_game_session, %{
+                    current_turn_player_id: next_player.id
+                  })
+                  |> Repo.update!()
+
+                # Get player name for banner message
+                player = Repo.get!(Kadi.Accounts.Player, player_id)
+
+                # Broadcast anomaly banner (FR-019)
+                broadcast_anomaly_banner(
+                  updated_game,
+                  "Deck exhausted. Skipping #{player.email} this turn."
+                )
+
+                # Broadcast game update
+                broadcast_game_update(updated_game)
+
+                {:ok, updated_game}
               else
                 # Retry draw (will broadcast after success)
                 draw_card_from_deck(recycled_game_session, player_id)
               end
 
+            {:error, :insufficient_cards_to_recycle} ->
+              # Anomaly: Cannot recycle (FR-018)
+              # Skip player and advance turn
+              players = get_game_session_players(game_session.id)
+
+              next_player =
+                get_next_player_with_direction(
+                  players,
+                  player_id,
+                  game_session.direction
+                )
+
+              # Emit anomaly event
+              emit_anomaly_skip_event(
+                game_session.id,
+                player_id,
+                "insufficient_cards_to_recycle"
+              )
+
+              # Update game session with next player
+              updated_game =
+                GameSession.changeset(game_session, %{
+                  current_turn_player_id: next_player.id
+                })
+                |> Repo.update!()
+
+              # Get player name for banner message
+              player = Repo.get!(Kadi.Accounts.Player, player_id)
+
+              # Broadcast anomaly banner (FR-019)
+              broadcast_anomaly_banner(
+                updated_game,
+                "Deck exhausted. Skipping #{player.email} this turn."
+              )
+
+              # Broadcast game update
+              broadcast_game_update(updated_game)
+
+              {:ok, updated_game}
+
             {:error, reason} ->
-              # Cannot recycle - return error
+              # Other errors - return error
               {:error, reason}
           end
 
@@ -263,6 +341,15 @@ defmodule Kadi.CardGames do
           # 4. Get all players in order and calculate next player
           players = get_game_session_players(game_session.id)
           next_player = get_next_player(players, player_id)
+
+          # Check if player is cardless and handle auto-draw (FR-012)
+          player_session =
+            Repo.get_by!(GameSessionPlayer,
+              game_session_id: game_session.id,
+              player_id: player_id
+            )
+
+          is_cardless = player_session.status == "cardless"
 
           # 5. Build transaction
           multi =
@@ -275,7 +362,22 @@ defmodule Kadi.CardGames do
                 order_index: nil
               })
             )
-            |> Ecto.Multi.update(
+
+          # If player was cardless, reset status (FR-013)
+          multi_with_status =
+            if is_cardless do
+              Ecto.Multi.update(
+                multi,
+                :player_status,
+                GameSessionPlayer.changeset(player_session, %{status: "normal"})
+              )
+            else
+              multi
+            end
+
+          multi_with_game =
+            Ecto.Multi.update(
+              multi_with_status,
               :game_session,
               GameSession.changeset(game_session, %{
                 current_turn_player_id: next_player.id
@@ -283,7 +385,7 @@ defmodule Kadi.CardGames do
             )
 
           # 6. Execute transaction
-          case Repo.transaction(multi) do
+          case Repo.transaction(multi_with_game) do
             {:ok, %{game_session: updated_game_session}} ->
               # 7. Reload with all associations
               reloaded_game_session =
@@ -544,12 +646,31 @@ defmodule Kadi.CardGames do
   end
 
   defp execute_play(game_session, player, cards_to_play) do
+    require Logger
+
     # Get current max order_index in played_stack
     max_order = get_max_played_stack_order(game_session)
 
-    # Get next player
+    # Detect King play (FR-002)
+    king_played? = Enum.any?(cards_to_play, &(&1.rank == "king"))
+
+    # Calculate new direction (FR-002)
+    new_direction =
+      if king_played? do
+        reverse_direction(game_session.direction)
+      else
+        game_session.direction
+      end
+
+    # Get next player with new direction (FR-008)
     players = get_game_session_players(game_session.id)
-    next_player = get_next_player(players, player.id)
+    player_count = length(players)
+    next_player = get_next_player_with_direction(players, player.id, new_direction)
+
+    # Check if player will be cardless after this play (FR-011)
+    player_hand = get_player_hand_count(game_session, player.id)
+    cards_played_count = length(cards_to_play)
+    will_be_cardless = player_hand == cards_played_count and king_played?
 
     # Build transaction
     multi = Ecto.Multi.new()
@@ -572,7 +693,7 @@ defmodule Kadi.CardGames do
         Ecto.Multi.update(acc_multi, {:move_card, idx}, changeset)
       end)
 
-    # Update game_session with new top_card and turn
+    # Update game_session with new direction and turn (FR-002, FR-015)
     last_card = List.last(cards_to_play)
 
     multi_with_game =
@@ -581,13 +702,51 @@ defmodule Kadi.CardGames do
         :game_session,
         GameSession.changeset(game_session, %{
           top_card_id: last_card.id,
-          current_turn_player_id: next_player.id
+          current_turn_player_id: next_player.id,
+          direction: new_direction
         })
       )
 
+    # Update player status if cardless (FR-011, FR-026)
+    multi_with_status =
+      if will_be_cardless do
+        player_session =
+          Repo.get_by!(GameSessionPlayer,
+            game_session_id: game_session.id,
+            player_id: player.id
+          )
+
+        Ecto.Multi.update(
+          multi_with_game,
+          :player_status,
+          GameSessionPlayer.changeset(player_session, %{status: "cardless"})
+        )
+      else
+        multi_with_game
+      end
+
     # Execute transaction
-    case Repo.transaction(multi_with_game) do
-      {:ok, %{game_session: updated_game}} ->
+    case Repo.transaction(multi_with_status) do
+      {:ok, results} ->
+        updated_game = results.game_session
+
+        # Emit telemetry events (FR-020)
+        if king_played? do
+          emit_direction_change_event(
+            game_session.id,
+            player.id,
+            game_session.direction,
+            new_direction,
+            last_card.id,
+            # neutral flag for 2-player (FR-009)
+            player_count == 2
+          )
+        end
+
+        if will_be_cardless do
+          emit_cardless_event(game_session.id, player.id, last_card.id)
+        end
+
         # Reload with fresh associations
         reloaded =
           GameSession
@@ -611,6 +770,19 @@ defmodule Kadi.CardGames do
   defp find_player_deck_card(game_session, player_id, card_id) do
     game_session.deck.deck_cards
     |> Enum.find(&(&1.player_id == player_id and &1.card_id == card_id))
+  end
+
+  # Helper to count player's hand.
+  #
+  # ## Parameters
+  # - game_session: GameSession struct with preloaded deck.deck_cards
+  # - player_id: ID of the player
+  #
+  # ## Returns
+  # - Integer count of cards in player's hand
+  defp get_player_hand_count(game_session, player_id) do
+    game_session.deck.deck_cards
+    |> Enum.count(&(&1.location_type == "player_hand" and &1.player_id == player_id))
   end
 
   defp broadcast_game_update(game_session) do
@@ -656,7 +828,9 @@ defmodule Kadi.CardGames do
   end
 
   defp select_start_card(deck_cards) do
-    special_ranks = ["2", "3", "jack", "queen", "king", "ace"]
+    # Per FR-003: Kings are allowed as start cards (no direction reversal occurs)
+    # Other special cards (2, 3, jack, queen, ace) are still excluded
+    special_ranks = ["2", "3", "jack", "queen", "ace"]
     shuffled_cards = Enum.shuffle(deck_cards)
 
     start_card =
@@ -702,6 +876,61 @@ defmodule Kadi.CardGames do
     Enum.at(players, next_index)
   end
 
+  # Returns the next player based on current game direction.
+  #
+  # In clockwise: player1 → player2 → player3 → player1
+  # In counter_clockwise: player1 → player3 → player2 → player1
+  #
+  # For 2-player games, direction has no effect (FR-009).
+  #
+  # ## Parameters
+  # - players: List of Player structs
+  # - current_player_id: ID of the current player
+  # - direction: "clockwise" or "counter_clockwise"
+  #
+  # ## Returns
+  # - Player struct of the next player
+  defp get_next_player_with_direction(players, current_player_id, direction) do
+    player_count = length(players)
+
+    if player_count == 2 do
+      # 2-player: direction irrelevant per FR-009
+      get_next_player(players, current_player_id)
+    else
+      case direction do
+        "clockwise" ->
+          get_next_player(players, current_player_id)
+
+        "counter_clockwise" ->
+          get_previous_player(players, current_player_id)
+      end
+    end
+  end
+
+  # Returns the previous player in the turn order.
+  #
+  # ## Parameters
+  # - players: List of Player structs
+  # - current_player_id: ID of the current player
+  #
+  # ## Returns
+  # - Player struct of the previous player
+  defp get_previous_player(players, current_player_id) do
+    current_index = Enum.find_index(players, &(&1.id == current_player_id))
+    prev_index = rem(current_index - 1 + length(players), length(players))
+    Enum.at(players, prev_index)
+  end
+
+  # Reverses the game direction.
+  #
+  # ## Parameters
+  # - direction: Current direction ("clockwise" or "counter_clockwise")
+  #
+  # ## Returns
+  # - Opposite direction string
+  defp reverse_direction("clockwise"), do: "counter_clockwise"
+  defp reverse_direction("counter_clockwise"), do: "clockwise"
+
   # Validates if the given player is the current turn player.
   #
   # ## Parameters
@@ -725,5 +954,82 @@ defmodule Kadi.CardGames do
     else
       {:error, :not_your_turn}
     end
+  end
+
+  # Emits telemetry event for direction change.
+  #
+  # ## Parameters
+  # - game_id: Game session ID
+  # - player_id: Player who played the King
+  # - old_dir: Previous direction
+  # - new_dir: New direction after King play
+  # - card_id: ID of the King card played
+  # - neutral?: True for 2-player games (direction has no effect)
+  defp emit_direction_change_event(game_id, player_id, old_dir, new_dir, card_id, neutral?) do
+    :telemetry.execute(
+      [:kadi, :king, :direction_change],
+      %{},
+      %{
+        game_id: game_id,
+        player_id: player_id,
+        previous_direction: old_dir,
+        new_direction: new_dir,
+        card_id: card_id,
+        neutral: neutral?,
+        timestamp: DateTime.utc_now()
+      }
+    )
+  end
+
+  # Broadcasts anomaly banner notification to all players (FR-019).
+  #
+  # ## Parameters
+  # - game_session: Current game session
+  # - message: Banner message to display
+  defp broadcast_anomaly_banner(game_session, message) do
+    Phoenix.PubSub.broadcast(
+      Kadi.PubSub,
+      "game_session:#{game_session.id}",
+      {:anomaly_banner, %{message: message, game_id: game_session.id}}
+    )
+  end
+
+  # Emits telemetry event when player enters cardless state.
+  #
+  # ## Parameters
+  # - game_id: Game session ID
+  # - player_id: Player who became cardless
+  # - card_id: ID of the King card played as last card
+  defp emit_cardless_event(game_id, player_id, card_id) do
+    :telemetry.execute(
+      [:kadi, :king, :cardless_entered],
+      %{},
+      %{
+        game_id: game_id,
+        player_id: player_id,
+        reason: "king_last_card",
+        card_id: card_id,
+        timestamp: DateTime.utc_now()
+      }
+    )
+  end
+
+  # Emits telemetry event when anomaly skip occurs.
+  #
+  # ## Parameters
+  # - game_id: Game session ID
+  # - player_id: Player who was skipped
+  # - deck_state: Description of deck state causing skip
+  defp emit_anomaly_skip_event(game_id, player_id, deck_state) do
+    :telemetry.execute(
+      [:kadi, :king, :anomaly_skip],
+      %{},
+      %{
+        game_id: game_id,
+        player_id: player_id,
+        deck_state: deck_state,
+        timestamp: DateTime.utc_now()
+      }
+    )
   end
 end

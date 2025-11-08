@@ -22,7 +22,21 @@ defmodule Kadi.Application do
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Kadi.Supervisor]
-    Supervisor.start_link(children, opts)
+    result = Supervisor.start_link(children, opts)
+
+    # Attach telemetry handlers for King feature
+    :telemetry.attach_many(
+      "king-card-telemetry",
+      [
+        [:kadi, :king, :direction_change],
+        [:kadi, :king, :cardless_entered],
+        [:kadi, :king, :anomaly_skip]
+      ],
+      &handle_king_telemetry/4,
+      nil
+    )
+
+    result
   end
 
   # Tell Phoenix to update the endpoint configuration
@@ -31,5 +45,15 @@ defmodule Kadi.Application do
   def config_change(changed, _new, removed) do
     KadiWeb.Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  # Handles telemetry events for King card feature.
+  #
+  # Logs all King-related events (direction_change, cardless_entered, anomaly_skip)
+  # with their metadata for observability.
+  defp handle_king_telemetry(event, _measurements, metadata, _config) do
+    require Logger
+    event_name = Enum.join(event, ".")
+    Logger.info("#{event_name}: #{inspect(metadata)}")
   end
 end
