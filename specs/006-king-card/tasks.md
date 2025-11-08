@@ -116,17 +116,17 @@ This is an Elixir/Phoenix project with the following structure:
 
 ### Tests for User Story 3
 
-- [ ] T032 [P] [US3] Unit test for default direction "clockwise" on new games in test/kadi/card_games_test.exs
-- [ ] T033 [P] [US3] Integration test for direction persistence after King play in test/kadi/card_games_test.exs
-- [ ] T034 [P] [US3] Integration test for direction toggle on consecutive King plays in test/kadi/card_games_test.exs
+- [X] T032 [P] [US3] Unit test for default direction "clockwise" on new games in test/kadi/card_games_test.exs
+- [X] T033 [P] [US3] Integration test for direction persistence after King play in test/kadi/card_games_test.exs
+- [X] T034 [P] [US3] Integration test for direction toggle on consecutive King plays in test/kadi/card_games_test.exs
 
 ### Implementation for User Story 3
 
-- [ ] T035 [US3] Add direction field to broadcast_game_update/1 payload in lib/kadi/card_games.ex
-- [ ] T036 [US3] Update GameLive mount to include direction in assigns in lib/kadi_web/live/game_live.ex
-- [ ] T037 [US3] Add build_player_statuses_map/1 helper in lib/kadi_web/live/game_live.ex for status tracking
-- [ ] T038 [US3] Add persistent direction indicator component in lib/kadi_web/live/game_live.html.heex with icon and text
-- [ ] T039 [US3] Add direction_icon/1 and direction_label/1 helpers in lib/kadi_web/live/game_live.ex
+- [X] T035 [US3] Add direction field to broadcast_game_update/1 payload in lib/kadi/card_games.ex
+- [X] T036 [US3] Update GameLive mount to include direction in assigns in lib/kadi_web/live/game_live.ex
+- [X] T037 [US3] Add build_player_statuses_map/1 helper in lib/kadi_web/live/game_live.ex for status tracking
+- [X] T038 [US3] Add persistent direction indicator component in lib/kadi_web/live/game_live.html.heex with icon and text
+- [X] T039 [US3] Add direction_icon/1 and direction_label/1 helpers in lib/kadi_web/live/game_live.ex
 
 **Checkpoint**: All three user stories should now be independently functional - direction tracked, validated, and displayed
 

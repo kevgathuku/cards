@@ -32,6 +32,18 @@
     </div>
   <% end %>
 
+  <%!-- T038: Direction Indicator --%>
+  <div
+    class="mt-4 p-3 bg-gray-50 border border-gray-300 rounded-lg flex items-center justify-center gap-2"
+    role="status"
+    aria-live="polite"
+  >
+    <.icon name={direction_icon(@direction)} class="w-5 h-5 text-gray-700" />
+    <span class="font-medium text-gray-900">
+      Turn Order: {direction_label(@direction)}
+    </span>
+  </div>
+
   <div class="mt-8 p-4 border rounded-lg">
     <h2 class="text-xl font-bold mb-4">Game Board</h2>
     <div class="flex space-x-8">

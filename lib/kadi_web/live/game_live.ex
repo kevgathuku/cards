@@ -13,7 +13,8 @@ defmodule KadiWeb.GameLive do
        deck_size: 0,
        current_turn_player: nil,
        other_players_hands: [],
-       selected_cards: []
+       selected_cards: [],
+       direction: "clockwise"
      )}
   end
 
@@ -239,7 +240,27 @@ defmodule KadiWeb.GameLive do
       deck_size: deck_size,
       current_turn_player: game_session.current_turn_player,
       other_players_hands: other_players_hands,
-      selected_cards: socket.assigns[:selected_cards] || []
+      selected_cards: socket.assigns[:selected_cards] || [],
+      direction: game_session.direction || "clockwise"
     )
   end
+
+  # T037: Helper function to build player status map for UI tracking
+  # Maps player_id -> status ("normal" | "cardless")
+  # Used for future UI indicators of player states
+  defp build_player_statuses_map(game_session) do
+    game_session.game_session_players
+    |> Enum.into(%{}, fn gsp -> {gsp.player_id, gsp.status} end)
+  end
+
+  # T039: Direction display helpers for UI
+  # Returns Heroicon name for direction indicator
+  defp direction_icon("clockwise"), do: "hero-arrow-path"
+  defp direction_icon("counter_clockwise"), do: "hero-arrow-path"
+  defp direction_icon(_), do: "hero-arrow-path"
+
+  # Returns human-readable label for direction
+  defp direction_label("clockwise"), do: "Clockwise"
+  defp direction_label("counter_clockwise"), do: "Counter-clockwise"
+  defp direction_label(_), do: "Clockwise"
 end

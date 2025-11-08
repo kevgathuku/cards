@@ -1853,4 +1853,157 @@ defmodule Kadi.CardGamesTest do
       end
     end
   end
+
+  # ============================================================================
+  # Phase 5: User Story 3 - Track Game Direction State
+  # ============================================================================
+  # Purpose: Persist and expose game direction state so players can understand turn flow
+  # Tests verify direction tracking and persistence after King plays
+
+  describe "direction state tracking" do
+    @tag :phase5
+    @tag :us3
+    test "T032: new games start with direction 'clockwise' by default", %{player: player} do
+      player2 = player_fixture(%{email: "player2@example.com"})
+
+      {:ok, game_session} =
+        CardGames.create_game_session(player, %{short_code: "default-direction"})
+
+      CardGames.join_game_session(player2, game_session.id)
+
+      {:ok, started_game} = CardGames.start_game(game_session)
+
+      # Verify default direction is clockwise
+      assert started_game.direction == "clockwise"
+
+      # Reload from DB to verify persistence
+      reloaded = Repo.get!(Kadi.Games.GameSession, started_game.id)
+      assert reloaded.direction == "clockwise"
+
+      IO.puts("✓ T032: New game starts with direction='clockwise'")
+    end
+
+    @tag :phase5
+    @tag :us3
+    test "T033: direction persists after playing a King card", %{player: player} do
+      player2 = player_fixture(%{email: "player2@example.com"})
+
+      {:ok, game_session} =
+        CardGames.create_game_session(player, %{short_code: "king-direction-persist"})
+
+      CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      # Verify initial direction
+      assert game_session.direction == "clockwise"
+
+      # Setup: Find the current turn player and give them a King matching top card
+      current_player_id = game_session.current_turn_player_id
+
+      # Get top card
+      top_card = Repo.get!(Kadi.Games.Card, game_session.top_card_id)
+
+      # Find or create a King card that matches the top card's suit
+      king_card =
+        Repo.one(
+          from c in Kadi.Games.Card,
+            where: c.rank == "king" and c.suit == ^top_card.suit
+        )
+
+      # Find the deck card for this King
+      deck_card =
+        Repo.one!(
+          from dc in Kadi.Games.DeckCard,
+            join: d in Kadi.Games.Deck,
+            on: dc.deck_id == d.id,
+            where: d.game_session_id == ^game_session.id and dc.card_id == ^king_card.id
+        )
+
+      # Move King to current player's hand
+      Repo.update!(
+        Ecto.Changeset.change(deck_card, %{
+          location_type: "player_hand",
+          player_id: current_player_id,
+          order_index: nil
+        })
+      )
+
+      # Play the King
+      {:ok, updated_game} = CardGames.play_cards(game_session, current_player_id, [king_card.id])
+
+      # Verify direction changed to counter_clockwise
+      assert updated_game.direction == "counter_clockwise"
+
+      # Reload from DB to verify persistence
+      reloaded = Repo.get!(Kadi.Games.GameSession, updated_game.id)
+      assert reloaded.direction == "counter_clockwise"
+
+      IO.puts("✓ T033: Direction persists as 'counter_clockwise' after King play")
+    end
+
+    @tag :phase5
+    @tag :us3
+    test "T034: direction toggles correctly on consecutive King plays", %{player: player} do
+      player2 = player_fixture(%{email: "player2@example.com"})
+
+      {:ok, game_session} =
+        CardGames.create_game_session(player, %{short_code: "king-direction-toggle"})
+
+      CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      # Verify initial direction
+      assert game_session.direction == "clockwise"
+
+      # Helper to play a King
+      play_king = fn game, player_id ->
+        top_card = Repo.get!(Kadi.Games.Card, game.top_card_id)
+
+        king_card =
+          Repo.one(
+            from c in Kadi.Games.Card,
+              where: c.rank == "king" and c.suit == ^top_card.suit
+          )
+
+        deck_card =
+          Repo.one!(
+            from dc in Kadi.Games.DeckCard,
+              join: d in Kadi.Games.Deck,
+              on: dc.deck_id == d.id,
+              where: d.game_session_id == ^game.id and dc.card_id == ^king_card.id
+          )
+
+        Repo.update!(
+          Ecto.Changeset.change(deck_card, %{
+            location_type: "player_hand",
+            player_id: player_id,
+            order_index: nil
+          })
+        )
+
+        {:ok, updated} = CardGames.play_cards(game, player_id, [king_card.id])
+        updated
+      end
+
+      # First King: clockwise → counter_clockwise
+      game_after_first_king = play_king.(game_session, game_session.current_turn_player_id)
+      assert game_after_first_king.direction == "counter_clockwise"
+
+      # Reload to verify persistence
+      reloaded1 = Repo.get!(Kadi.Games.GameSession, game_after_first_king.id)
+      assert reloaded1.direction == "counter_clockwise"
+
+      # Second King: counter_clockwise → clockwise
+      game_after_second_king =
+        play_king.(game_after_first_king, game_after_first_king.current_turn_player_id)
+
+      assert game_after_second_king.direction == "clockwise"
+
+      # Reload to verify persistence
+      reloaded2 = Repo.get!(Kadi.Games.GameSession, game_after_second_king.id)
+      assert reloaded2.direction == "clockwise"
+
+      IO.puts("✓ T034: Direction toggles clockwise→counter_clockwise→clockwise")
+    end
+  end
 end
