@@ -1,14 +1,17 @@
 defmodule Kadi.Games.PlayValidator do
   @moduledoc """
-  Pure validation functions for card play validation.
+  Pure validation logic for card plays.
 
-  Validates whether a card play is valid according to game rules:
-  - Single card: Must match suit OR rank of top card
-  - Multiple cards (combo): All same rank AND at least one matches top card
+  Responsibilities:
 
-  ## Phase 1 - Regular Cards Only
-  Currently only regular cards (4,5,6,7,9,10) can be played.
-  Special cards (2,3,8,Jack,Queen,King,Ace) will be implemented in later phases.
+    * Enforce matching rules for the "regular" ranks (4, 5, 6, 7, 9, 10) where combos
+      require identical ranks and the lead card must match the top card by suit or rank.
+    * Guard the King special-case: exactly one king per play and it must match suit or rank.
+    * Guard the Jack special-case introduced in Feature 007: every card in the play must be
+      a jack and the first jack has to match the top card by suit or rank.
+
+  The validator remains intentionally side-effect free so it can be exercised directly in
+  unit tests and re-used by both the LiveView and OTP server gameplay flows.
   """
 
   # Regular cards allowed in current phase (005-basic-gameplay)

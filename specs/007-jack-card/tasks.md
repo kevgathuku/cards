@@ -254,17 +254,17 @@
 
 ### Code Quality
 
-- [ ] T066 [P] Run formatter: `mix format`
-- [ ] T067 [P] Verify no compilation warnings: `mix compile --warnings-as-errors`
-- [ ] T068 [P] Run full test suite: `mix test`
-- [ ] T069 [P] Verify test coverage for Jack-specific logic
+- [x] T066 [P] Run formatter: `mix format`
+- [x] T067 [P] Verify no compilation warnings: `mix compile --warnings-as-errors`
+- [x] T068 [P] Run full test suite: `mix test`
+- [x] T069 [P] Verify test coverage for Jack-specific logic
 
 ### Documentation
 
-- [ ] T070 [P] Review and update module docs for `CardGames` in lib/kadi/card_games.ex
-- [ ] T071 [P] Review and update module docs for `PlayValidator` in lib/kadi/games/play_validator.ex
-- [ ] T072 [P] Create feature documentation in docs/jack-card-feature.md
-- [ ] T073 Update README.md with brief Jack card summary and link to docs/jack-card-feature.md
+- [x] T070 [P] Review and update module docs for `CardGames` in lib/kadi/card_games.ex
+- [x] T071 [P] Review and update module docs for `PlayValidator` in lib/kadi/games/play_validator.ex
+- [x] T072 [P] Create feature documentation in docs/jack-card-feature.md
+- [x] T073 Update README.md with brief Jack card summary and link to docs/jack-card-feature.md
 
 ### Final Verification
 

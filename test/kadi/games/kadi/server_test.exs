@@ -285,7 +285,7 @@ defmodule Kadi.Games.Poker.ServerTest do
       assert initial_played == played
     end
 
-    test "does not accept an invalid hand from the correct player", %{registry: registry} do
+    test "does not accept an invalid hand from the correct player", %{registry: _registry} do
     end
   end
 

@@ -1,9 +1,20 @@
 defmodule Kadi.CardGames do
   @moduledoc """
-  CardGames keeps the contexts common to all the card games
+  Server-side gameplay engine for Kadi sessions.
 
-  Contexts are also responsible for managing your data, regardless
-  if it comes from the database, an external API or others.
+  This context owns the full lifecycle for multiplayer games:
+
+    * creates and joins game sessions backed by PostgreSQL records
+    * deals cards, manages the deck, and tracks the played stack via `DeckCard`
+    * advances turns while respecting table direction (clockwise / counter-clockwise)
+    * applies special-card effects such as King direction reversal and Jack skip logic
+    * transitions players into the `"cardless"` state when they play out with a Jack or King
+    * emits telemetry events for analytics (e.g. `[:kadi, :jack, :skip_executed]`)
+
+  Jack behaviour added in Feature 007 uses the existing King patterns: jack plays skip
+  `N` players where `N` equals the number of jacks played, reuse the cardless workflow
+  when a jack combo empties a hand, and never trigger a skip when a jack is selected as
+  the starting card.
   """
 
   import Ecto.Query, warn: false

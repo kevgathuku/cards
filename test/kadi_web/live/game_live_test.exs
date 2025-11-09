@@ -725,7 +725,7 @@ defmodule KadiWeb.GameLiveTest do
 
       if player2_card do
         conn = log_in_player(build_conn(), player2)
-        {:ok, view, html} = live(conn, ~p"/games/#{game_session.id}")
+        {:ok, _view, html} = live(conn, ~p"/games/#{game_session.id}")
 
         # Player2 should not see play button (not their turn)
         refute html =~ "Play Selected Cards"
@@ -829,7 +829,7 @@ defmodule KadiWeb.GameLiveTest do
       )
 
       Process.sleep(100)
-      html = render(view1)
+      _html = render(view1)
 
       # Player no longer sees play button (not their turn)
       # But selection should be cleared internally

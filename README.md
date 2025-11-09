@@ -244,10 +244,10 @@ This ensures code is properly formatted before commits. The hook will:
 
 **Implemented**:
 - **King**: Reverses turn order (clockwise ⟷ counter-clockwise). See [King Card Feature Documentation](docs/king-card-feature.md) for details.
+- **Jack**: Skips `N` players based on the number of Jacks played and integrates with the cardless state. See [Jack Card Feature Documentation](docs/jack-card-feature.md) for details.
 
 **Coming Soon**:
 - **2, 3**: Pick cards
-- **Jack**: Skip next player
 - **Queen / 8**: Question cards -> Need to be played in combination with an "answer" This could be:
   - another card
   - A combination of compatible cards (same suit as the question)
@@ -275,9 +275,10 @@ graph TD;
 - **Real-time Updates**: Phoenix LiveView with PubSub for live game state
 - **Player Authentication**: Registration, login, session management
 - **King Card (Feature 006)**: Direction reversal, cardless state, auto-draw mechanics - [Full Documentation](docs/king-card-feature.md)
+- **Jack Card (Feature 007)**: Skip mechanics, combo support, King interaction, telemetry - [Full Documentation](docs/jack-card-feature.md)
 
 ### Coming Soon
-- Additional special cards (2, 3, Jack, Queen, Ace)
+- Additional special cards (2, 3, Queen, Ace)
 - Game completion and winner detection
 - Player statistics and leaderboards
 
