@@ -106,22 +106,10 @@ defmodule Kadi.CardGamesTest do
       assert started_game_session.status == "live"
 
       # Check cards for player 1
-      player1_cards =
-        Repo.all(
-          from dc in Kadi.Games.DeckCard,
-            where: dc.player_id == ^player.id and dc.location_type == "player_hand"
-        )
-
-      assert Enum.count(player1_cards) == 4
+      assert CardGames.count_player_cards(started_game_session, player.id) == 4
 
       # Check cards for player 2
-      player2_cards =
-        Repo.all(
-          from dc in Kadi.Games.DeckCard,
-            where: dc.player_id == ^player2.id and dc.location_type == "player_hand"
-        )
-
-      assert Enum.count(player2_cards) == 4
+      assert CardGames.count_player_cards(started_game_session, player2.id) == 4
 
       # Check remaining cards in deck
       deck_cards =
@@ -249,20 +237,18 @@ defmodule Kadi.CardGamesTest do
       # Verify top_card_id is set
       assert started_game_session.top_card_id != nil
 
-      # Reload with preloads to verify the top_card relationship
-      started_game_session =
-        Repo.preload(started_game_session, [:top_card, deck: [deck_cards: :card]])
+      # Verify there's exactly 1 card in the played stack
+      assert CardGames.count_played_cards(started_game_session) == 1
 
-      # Verify top_card is the card on the played_stack
-      played_cards =
-        started_game_session.deck.deck_cards
-        |> Enum.filter(&(&1.location_type == "played_stack"))
+      # Get the top played card
+      assert {:ok, top_card} = CardGames.get_top_played_card(started_game_session)
 
-      assert length(played_cards) == 1
+      # Reload to get top_card association for comparison
+      started_game_session = Repo.preload(started_game_session, [:top_card])
 
-      start_card = hd(played_cards)
-      assert started_game_session.top_card_id == start_card.card_id
-      assert started_game_session.top_card.id == start_card.card_id
+      # Verify top_card matches the played card
+      assert started_game_session.top_card_id == top_card.card_id
+      assert started_game_session.top_card.id == top_card.card_id
     end
   end
 
@@ -329,18 +315,14 @@ defmodule Kadi.CardGamesTest do
 
       {:ok, started_game_session} = CardGames.start_game(game_session)
 
-      # Reload with all associations
-      started_game_session =
-        Repo.preload(started_game_session, [:deck], force: true)
-        |> Repo.preload([deck: [deck_cards: :card]], force: true)
-
       # Get all dealt cards (player_hand location_type)
-      dealt_cards =
-        started_game_session.deck.deck_cards
-        |> Enum.filter(&(&1.location_type == "player_hand"))
+      dealt_card_count =
+        CardGames.count_player_cards(started_game_session, player.id) +
+          CardGames.count_player_cards(started_game_session, player2.id) +
+          CardGames.count_player_cards(started_game_session, player3.id)
 
       # Verify: 12 cards dealt (3 players × 4 cards)
-      assert length(dealt_cards) == 12
+      assert dealt_card_count == 12
 
       # Note: We cannot directly verify order_index sequence since order_index
       # is set to nil for player_hand location_type. This test verifies dealing
@@ -357,18 +339,13 @@ defmodule Kadi.CardGamesTest do
 
       {:ok, started_game_session} = CardGames.start_game(game_session)
 
-      # Reload with associations
-      started_game_session =
-        Repo.preload(started_game_session, [deck: [deck_cards: :card]], force: true)
-
+      # Get player cards
       player1_cards =
-        started_game_session.deck.deck_cards
-        |> Enum.filter(&(&1.location_type == "player_hand" && &1.player_id == player.id))
+        CardGames.get_player_hand(started_game_session, player.id)
         |> Enum.map(& &1.card)
 
       player2_cards =
-        started_game_session.deck.deck_cards
-        |> Enum.filter(&(&1.location_type == "player_hand" && &1.player_id == player2.id))
+        CardGames.get_player_hand(started_game_session, player2.id)
         |> Enum.map(& &1.card)
 
       # Verify each player got 4 cards
@@ -450,16 +427,8 @@ defmodule Kadi.CardGamesTest do
       {:ok, updated_session} =
         CardGames.draw_card_from_deck(game_session, current_player_id)
 
-      # Reload to check database state
-      updated_session = Kadi.Repo.preload(updated_session, deck: [deck_cards: :card])
-
-      # Player should have one more card
-      player_cards =
-        updated_session.deck.deck_cards
-        |> Enum.filter(&(&1.location_type == "player_hand" && &1.player_id == current_player_id))
-
-      # Started with 4, drew 1
-      assert length(player_cards) == 5
+      # Player should have one more card (started with 4, drew 1)
+      assert CardGames.count_player_cards(updated_session, current_player_id) == 5
 
       # Turn should have advanced
       assert updated_session.current_turn_player_id != current_player_id

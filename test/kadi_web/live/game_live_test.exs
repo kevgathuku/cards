@@ -226,19 +226,13 @@ defmodule KadiWeb.GameLiveTest do
 
       # Get the updated game state
       updated_game_session = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
-      updated_game_session = Kadi.Repo.preload(updated_game_session, deck: [deck_cards: :card])
 
       # Verify cards were dealt
-      player1_cards =
-        updated_game_session.deck.deck_cards
-        |> Enum.filter(&(&1.location_type == "player_hand" && &1.player_id == player1.id))
+      assert CardGames.count_player_cards(updated_game_session, player1.id) == 4,
+             "Player 1 should have 4 cards"
 
-      player2_cards =
-        updated_game_session.deck.deck_cards
-        |> Enum.filter(&(&1.location_type == "player_hand" && &1.player_id == player2.id))
-
-      assert length(player1_cards) == 4, "Player 1 should have 4 cards"
-      assert length(player2_cards) == 4, "Player 2 should have 4 cards"
+      assert CardGames.count_player_cards(updated_game_session, player2.id) == 4,
+             "Player 2 should have 4 cards"
 
       # Verify both views are still responsive
       assert render(view1) != nil
@@ -510,11 +504,7 @@ defmodule KadiWeb.GameLiveTest do
       {:ok, view, _html} = live(conn, ~p"/games/#{game_session.id}")
 
       # Get a card from player's hand
-      game_session = Kadi.Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
-
-      player_card =
-        game_session.deck.deck_cards
-        |> Enum.find(&(&1.location_type == "player_hand" and &1.player_id == player1.id))
+      [player_card | _] = CardGames.get_player_hand(game_session, player1.id)
 
       # Click to select card
       render_click(view, "toggle_card", %{"card_id" => to_string(player_card.card_id)})
