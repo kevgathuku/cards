@@ -226,11 +226,11 @@
 
 ### Edge Case Implementation
 
-- [ ] T057 [P] Add test: 2-player game, Jack returns to same player in test/kadi/card_games_test.exs
-- [ ] T058 [P] Add test: Jack after King respects counter-clockwise direction in test/kadi/card_games_test.exs
-- [ ] T059 [P] Add test: King after Jack preserves skip logic in test/kadi/card_games_test.exs
-- [ ] T060 [P] Add test: Jack excluded from starting cards (like other special cards) in test/kadi/card_games_test.exs
-- [ ] T061 [P] Add test: 4 Jacks in 3-player game multi-wrap scenario in test/kadi/card_games_test.exs
+- [x] T057 [P] Add test: 2-player game, Jack returns to same player in test/kadi/card_games_test.exs
+- [x] T058 [P] Add test: Jack after King respects counter-clockwise direction in test/kadi/card_games_test.exs
+- [x] T059 [P] Add test: King after Jack preserves skip logic in test/kadi/card_games_test.exs
+- [x] T060 [P] Add test: Jack excluded from starting cards (like other special cards) in test/kadi/card_games_test.exs
+- [x] T061 [P] Add test: 4 Jacks in 3-player game multi-wrap scenario in test/kadi/card_games_test.exs
 
 ### Starting Card Logic
 
@@ -239,7 +239,7 @@
 
 ### Verification
 
-- [ ] T064 Run edge case tests: `mix test test/kadi/card_games_test.exs`
+- [x] T064 Run edge case tests: `mix test test/kadi/card_games_test.exs`
 - [ ] T065 Manual test: Trigger wrap-around scenarios via UI
 
 **Checkpoint**: All edge cases handled correctly
