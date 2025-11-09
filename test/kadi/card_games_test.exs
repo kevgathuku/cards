@@ -2706,6 +2706,19 @@ defmodule Kadi.CardGamesTest do
       # Get the current player
       current_player = game_session.current_turn_player
 
+      # Get ordered players list
+      players =
+        game_session.id
+        |> CardGames.get_game_session_players()
+        |> Enum.sort_by(& &1.inserted_at, DateTime)
+
+      current_index = Enum.find_index(players, &(&1.id == current_player.id))
+
+      # Calculate expected next player: skip 2 players in 3-player game
+      # current + 2 positions (wraps around)
+      expected_next_index = rem(current_index + 2, 3)
+      expected_next_player = Enum.at(players, expected_next_index)
+
       # Setup: Give current player two Jacks that match the top card
       top_card = game_session.top_card
       setup_player_with_jacks(game_session, current_player.id, 2, top_card)
@@ -2732,9 +2745,8 @@ defmodule Kadi.CardGamesTest do
           Enum.map(jacks_to_play, & &1.card.id)
         )
 
-      # In 3-player game: player1 plays 2 Jacks → skips 2 players → wraps to player1
-      # Since we don't know the exact turn order, just verify the turn changed
-      assert updated_session.current_turn_player_id != game_session.current_turn_player_id
+      # In 3-player game: player1 plays 2 Jacks → skips 2 players → wraps around
+      assert updated_session.current_turn_player_id == expected_next_player.id
       IO.puts("✓ T029: 2 Jacks skip 2 players in 3-player game")
     end
 
@@ -2762,6 +2774,19 @@ defmodule Kadi.CardGamesTest do
       # Get the current player
       current_player = game_session.current_turn_player
 
+      # Get ordered players list
+      players =
+        game_session.id
+        |> CardGames.get_game_session_players()
+        |> Enum.sort_by(& &1.inserted_at, DateTime)
+
+      current_index = Enum.find_index(players, &(&1.id == current_player.id))
+
+      # Calculate expected next player: skip 3 players in 5-player game
+      # current + 3 positions
+      expected_next_index = rem(current_index + 3, 5)
+      expected_next_player = Enum.at(players, expected_next_index)
+
       # Setup: Give current player three Jacks that match the top card
       top_card = game_session.top_card
       setup_player_with_jacks(game_session, current_player.id, 3, top_card)
@@ -2788,9 +2813,8 @@ defmodule Kadi.CardGamesTest do
           Enum.map(jacks_to_play, & &1.card.id)
         )
 
-      # In 5-player game: player1 plays 3 Jacks → skips player2,3,4 → next should be player5
-      # Since we don't know the exact turn order, just verify the turn changed
-      assert updated_session.current_turn_player_id != game_session.current_turn_player_id
+      # In 5-player game: player1 plays 3 Jacks → skips 3 players
+      assert updated_session.current_turn_player_id == expected_next_player.id
       IO.puts("✓ T030: 3 Jacks skip 3 players in 5-player game")
     end
 
@@ -2815,6 +2839,19 @@ defmodule Kadi.CardGamesTest do
 
       # Get the current player
       current_player = game_session.current_turn_player
+
+      # Get ordered players list
+      players =
+        game_session.id
+        |> CardGames.get_game_session_players()
+        |> Enum.sort_by(& &1.inserted_at, DateTime)
+
+      current_index = Enum.find_index(players, &(&1.id == current_player.id))
+
+      # Calculate expected next player: skip 4 players in 4-player game
+      # current + 4 positions = full cycle, back to same player
+      expected_next_index = rem(current_index + 4, 4)
+      expected_next_player = Enum.at(players, expected_next_index)
 
       # Setup: Give current player four Jacks that match the top card
       top_card = game_session.top_card
@@ -2843,7 +2880,8 @@ defmodule Kadi.CardGamesTest do
         )
 
       # In 4-player game: current player plays 4 Jacks → skips all other 3 players → wraps back to same player
-      assert updated_session.current_turn_player_id == current_player.id
+      assert updated_session.current_turn_player_id == expected_next_player.id
+      assert expected_next_player.id == current_player.id
       IO.puts("✓ T031: 4 Jacks in 4-player game wraps to same player")
     end
 
@@ -2866,6 +2904,19 @@ defmodule Kadi.CardGamesTest do
 
       # Get the current player
       current_player = game_session.current_turn_player
+
+      # Get ordered players list
+      players =
+        game_session.id
+        |> CardGames.get_game_session_players()
+        |> Enum.sort_by(& &1.inserted_at, DateTime)
+
+      current_index = Enum.find_index(players, &(&1.id == current_player.id))
+
+      # Calculate expected next player: skip 4 players in 3-player game
+      # 4 mod 3 = 1, so skip 1 player: current + 1 position
+      expected_next_index = rem(current_index + 4, 3)
+      expected_next_player = Enum.at(players, expected_next_index)
 
       # Setup: Give current player four Jacks that match the top card
       top_card = game_session.top_card
@@ -2893,11 +2944,9 @@ defmodule Kadi.CardGamesTest do
           Enum.map(jacks_to_play, & &1.card.id)
         )
 
-      # In 3-player game: player1 plays → skips player2,3 → wraps to player1
-      # 4 Jacks = skip 4 players, but only 3 players exist
-      # 4 mod 3 = 1, so skip 1 player: player1 → player2 (skipped) → player3
-      # Since we don't know the exact turn order, just verify the turn changed
-      assert updated_session.current_turn_player_id != game_session.current_turn_player_id
+      # In 3-player game: player1 plays → skips 4 players (wraps)
+      # 4 mod 3 = 1, so effectively skips 1 player
+      assert updated_session.current_turn_player_id == expected_next_player.id
       IO.puts("✓ T032: 4 Jacks in 3-player game wraps correctly (skip through full cycle)")
     end
   end
