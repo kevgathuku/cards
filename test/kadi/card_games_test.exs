@@ -1361,7 +1361,7 @@ defmodule Kadi.CardGamesTest do
       {:ok, _} = CardGames.join_game_session(player2, game_session.id)
       {:ok, _} = CardGames.join_game_session(player3, game_session.id)
 
-      {:ok, started_game} = CardGames.start_game(game_session)
+      {:ok, started_game} = CardGames.start_game(game_session, exclude_ranks: ["king"])
 
       %{
         game_session: started_game,
@@ -1397,10 +1397,10 @@ defmodule Kadi.CardGamesTest do
 
       top_card = game_session.top_card
 
-      # Find a King in current player's hand that matches top card
+      # Find a King in deck that matches top card suit (Kings excluded from deal)
       king_card =
         game_session.deck.deck_cards
-        |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == current_player.id))
+        |> Enum.filter(&(&1.location_type == "deck"))
         |> Enum.find(fn deck_card ->
           card = deck_card.card
 
@@ -1408,23 +1408,28 @@ defmodule Kadi.CardGamesTest do
             (card.suit == top_card.suit or card.rank == top_card.rank)
         end)
 
-      if king_card do
-        {:ok, updated_game} =
-          CardGames.play_cards(game_session, current_player.id, [king_card.card_id])
+      # Move King to current player's hand
+      {:ok, _} =
+        Kadi.Games.DeckCard.changeset(king_card, %{
+          location_type: "player_hand",
+          player_id: current_player.id,
+          order_index: nil
+        })
+        |> Repo.update()
 
-        # Verify direction reversed
-        assert updated_game.direction == "counter_clockwise"
+      game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
 
-        # Verify turn advanced (in counter_clockwise direction)
-        refute updated_game.current_turn_player_id == current_player.id
-      else
-        # Skip test if no matching King found (this is acceptable for random setups)
-        IO.puts(
-          "⏭️  Skipping test: No matching King card found in current player's hand (top_card: #{top_card.rank} of #{top_card.suit})"
-        )
+      game_session =
+        Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
 
-        :ok
-      end
+      {:ok, updated_game} =
+        CardGames.play_cards(game_session, current_player.id, [king_card.card_id])
+
+      # Verify direction reversed
+      assert updated_game.direction == "counter_clockwise"
+
+      # Verify turn advanced (in counter_clockwise direction)
+      refute updated_game.current_turn_player_id == current_player.id
     end
 
     test "reverses direction from counter_clockwise to clockwise when King is played", %{
@@ -1459,10 +1464,10 @@ defmodule Kadi.CardGamesTest do
 
       top_card = game_session.top_card
 
-      # Find a King in current player's hand that matches top card
+      # Find a King in deck that matches top card (Kings excluded from deal)
       king_card =
         game_session.deck.deck_cards
-        |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == current_player.id))
+        |> Enum.filter(&(&1.location_type == "deck"))
         |> Enum.find(fn deck_card ->
           card = deck_card.card
 
@@ -1470,23 +1475,28 @@ defmodule Kadi.CardGamesTest do
             (card.suit == top_card.suit or card.rank == top_card.rank)
         end)
 
-      if king_card do
-        {:ok, updated_game} =
-          CardGames.play_cards(game_session, current_player.id, [king_card.card_id])
+      # Move King to current player's hand
+      {:ok, _} =
+        Kadi.Games.DeckCard.changeset(king_card, %{
+          location_type: "player_hand",
+          player_id: current_player.id,
+          order_index: nil
+        })
+        |> Repo.update()
 
-        # Verify direction reversed back to clockwise
-        assert updated_game.direction == "clockwise"
+      game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
 
-        # Verify turn advanced
-        refute updated_game.current_turn_player_id == current_player.id
-      else
-        # Skip test if no matching King found
-        IO.puts(
-          "⏭️  Skipping test: No matching King card found in current player's hand (top_card: #{top_card.rank} of #{top_card.suit})"
-        )
+      game_session =
+        Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
 
-        :ok
-      end
+      {:ok, updated_game} =
+        CardGames.play_cards(game_session, current_player.id, [king_card.card_id])
+
+      # Verify direction reversed back to clockwise
+      assert updated_game.direction == "clockwise"
+
+      # Verify turn advanced
+      refute updated_game.current_turn_player_id == current_player.id
     end
 
     test "2-player game: direction changes but turn alternates normally (FR-009)", %{
@@ -1496,7 +1506,7 @@ defmodule Kadi.CardGamesTest do
       # Create a 2-player game
       {:ok, game_session} = CardGames.create_game_session(player1, %{short_code: "king-2player"})
       {:ok, _} = CardGames.join_game_session(player2, game_session.id)
-      {:ok, started_game} = CardGames.start_game(game_session)
+      {:ok, started_game} = CardGames.start_game(game_session, exclude_ranks: ["king"])
 
       # Verify initial direction
       started_game = Repo.get!(Kadi.Games.GameSession, started_game.id)
@@ -1513,10 +1523,10 @@ defmodule Kadi.CardGamesTest do
 
       top_card = started_game.top_card
 
-      # Find a King in current player's hand that matches top card
+      # Find a King in deck that matches top card (Kings excluded from deal)
       king_card =
         started_game.deck.deck_cards
-        |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == current_player.id))
+        |> Enum.filter(&(&1.location_type == "deck"))
         |> Enum.find(fn deck_card ->
           card = deck_card.card
 
@@ -1524,23 +1534,28 @@ defmodule Kadi.CardGamesTest do
             (card.suit == top_card.suit or card.rank == top_card.rank)
         end)
 
-      if king_card do
-        {:ok, updated_game} =
-          CardGames.play_cards(started_game, current_player.id, [king_card.card_id])
+      # Move King to current player's hand
+      {:ok, _} =
+        Kadi.Games.DeckCard.changeset(king_card, %{
+          location_type: "player_hand",
+          player_id: current_player.id,
+          order_index: nil
+        })
+        |> Repo.update()
 
-        # Verify direction changed
-        assert updated_game.direction == "counter_clockwise"
+      started_game = Repo.get!(Kadi.Games.GameSession, started_game.id)
 
-        # Verify turn went to other player (2-player always alternates)
-        assert updated_game.current_turn_player_id == other_player.id
-      else
-        # Skip test if no matching King found
-        IO.puts(
-          "⏭️  Skipping test: No matching King card found in current player's hand (top_card: #{top_card.rank} of #{top_card.suit})"
-        )
+      started_game =
+        Repo.preload(started_game, [:top_card, deck: [deck_cards: :card]], force: true)
 
-        :ok
-      end
+      {:ok, updated_game} =
+        CardGames.play_cards(started_game, current_player.id, [king_card.card_id])
+
+      # Verify direction changed
+      assert updated_game.direction == "counter_clockwise"
+
+      # Verify turn went to other player (2-player always alternates)
+      assert updated_game.current_turn_player_id == other_player.id
     end
   end
 
@@ -1553,7 +1568,7 @@ defmodule Kadi.CardGamesTest do
         CardGames.create_game_session(player1, %{short_code: "king-validation"})
 
       {:ok, _} = CardGames.join_game_session(player2, game_session.id)
-      {:ok, started_game} = CardGames.start_game(game_session)
+      {:ok, started_game} = CardGames.start_game(game_session, exclude_ranks: ["king"])
 
       %{
         game_session: started_game,
@@ -2261,7 +2276,7 @@ defmodule Kadi.CardGamesTest do
 
       CardGames.join_game_session(player2, game_session.id)
       CardGames.join_game_session(player3, game_session.id)
-      {:ok, game_session} = CardGames.start_game(game_session)
+      {:ok, game_session} = CardGames.start_game(game_session, exclude_ranks: ["king"])
 
       # Preload all deck cards and top card
       game_session =
@@ -2273,91 +2288,81 @@ defmodule Kadi.CardGamesTest do
       current_player_id = game_session.current_turn_player_id
 
       # Make current player cardless by playing King as their last card
-      # Find a King matching top card suit (from anywhere in deck)
+      # Find a King matching top card suit in deck (Kings excluded from deal)
       king_deck_card =
         Enum.find(game_session.deck.deck_cards, fn dc ->
-          dc.card.rank == "king" and dc.card.suit == top_card.suit
+          dc.card.rank == "king" and dc.card.suit == top_card.suit and dc.location_type == "deck"
         end)
 
-      # If no matching King found, skip test (acceptable for random setups)
-      if king_deck_card do
-        # Get all current player's cards
-        player_cards =
-          game_session.deck.deck_cards
-          |> Enum.filter(
-            &(&1.location_type == "player_hand" and &1.player_id == current_player_id)
-          )
+      # Get all current player's cards
+      player_cards =
+        game_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == current_player_id))
 
-        # Remove all cards except the King (if it's already in hand)
-        player_cards
-        |> Enum.reject(&(&1.id == king_deck_card.id))
-        |> Enum.with_index()
-        |> Enum.each(fn {dc, idx} ->
-          Repo.update!(
-            Ecto.Changeset.change(dc, %{
-              location_type: "deck",
-              player_id: nil,
-              order_index: 950 + idx
-            })
-          )
-        end)
-
-        # Give the King to current player
+      # Remove all cards except we'll add the King
+      player_cards
+      |> Enum.with_index()
+      |> Enum.each(fn {dc, idx} ->
         Repo.update!(
-          Ecto.Changeset.change(king_deck_card, %{
-            location_type: "player_hand",
-            player_id: current_player_id,
-            order_index: nil
+          Ecto.Changeset.change(dc, %{
+            location_type: "deck",
+            player_id: nil,
+            order_index: 950 + idx
           })
         )
+      end)
 
-        # Reload and play the King (making player cardless)
-        game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
+      # Give the King to current player
+      Repo.update!(
+        Ecto.Changeset.change(king_deck_card, %{
+          location_type: "player_hand",
+          player_id: current_player_id,
+          order_index: nil
+        })
+      )
 
-        game_session =
-          Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
+      # Reload and play the King (making player cardless)
+      game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
 
-        {:ok, game_session} =
-          CardGames.play_cards(game_session, current_player_id, [king_deck_card.card.id])
+      game_session =
+        Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
 
-        # Reload with game_session_players
-        game_session =
-          Repo.preload(game_session, [:game_session_players], force: true)
+      {:ok, game_session} =
+        CardGames.play_cards(game_session, current_player_id, [king_deck_card.card.id])
 
-        # Now manually set a second player to cardless to test independent tracking
-        # (This simulates another player becoming cardless through normal gameplay)
-        other_players =
-          game_session.game_session_players
-          |> Enum.reject(&(&1.player_id == current_player_id))
+      # Reload with game_session_players
+      game_session =
+        Repo.preload(game_session, [:game_session_players], force: true)
 
-        second_cardless_player = List.first(other_players)
+      # Now manually set a second player to cardless to test independent tracking
+      # (This simulates another player becoming cardless through normal gameplay)
+      other_players =
+        game_session.game_session_players
+        |> Enum.reject(&(&1.player_id == current_player_id))
 
-        Repo.update!(Ecto.Changeset.change(second_cardless_player, %{status: "cardless"}))
+      second_cardless_player = List.first(other_players)
 
-        # Verify both are cardless using preloaded data
-        game_session =
-          Repo.get!(Kadi.Games.GameSession, game_session.id)
-          |> Repo.preload([:game_session_players], force: true)
+      Repo.update!(Ecto.Changeset.change(second_cardless_player, %{status: "cardless"}))
 
-        cardless_players =
-          game_session.game_session_players
-          |> Enum.filter(&(&1.status == "cardless"))
+      # Verify both are cardless using preloaded data
+      game_session =
+        Repo.get!(Kadi.Games.GameSession, game_session.id)
+        |> Repo.preload([:game_session_players], force: true)
 
-        assert length(cardless_players) == 2
+      cardless_players =
+        game_session.game_session_players
+        |> Enum.filter(&(&1.status == "cardless"))
 
-        # Verify the third player is still normal
-        normal_players =
-          game_session.game_session_players
-          |> Enum.filter(&(&1.status == "normal"))
+      assert length(cardless_players) == 2
 
-        assert length(normal_players) == 1
+      # Verify the third player is still normal
+      normal_players =
+        game_session.game_session_players
+        |> Enum.filter(&(&1.status == "normal"))
 
-        IO.puts("✓ T044: Multiple cardless players tracked independently")
-      else
-        IO.puts(
-          "⏭️  Skipping T044: No matching King found (top_card: #{top_card.rank} of #{top_card.suit})"
-        )
-      end
+      assert length(normal_players) == 1
+
+      IO.puts("✓ T044: Multiple cardless players tracked independently")
     end
   end
 
@@ -3217,32 +3222,6 @@ defmodule Kadi.CardGamesTest do
 
     # Combine: matching Jack first, then others
     jacks_to_move = if matching_jack, do: [matching_jack | other_jacks], else: other_jacks
-
-    # Debug: If we don't have enough Jacks, show where all Jacks are located
-    if length(jacks_to_move) < jack_count do
-      all_jacks =
-        Repo.all(
-          from dc in DeckCard,
-            join: c in Card,
-            on: dc.card_id == c.id,
-            where: dc.deck_id == ^game_session.deck.id and c.rank == "jack",
-            select: {c.suit, dc.location_type, dc.player_id}
-        )
-
-      IO.puts(
-        "🔍 DEBUG: Need #{jack_count} Jacks, found #{length(jacks_to_move)}. All Jack locations:"
-      )
-
-      Enum.each(all_jacks, fn {suit, location, pid} ->
-        IO.puts(
-          "  - Jack of #{suit}: location=#{location}, player_id=#{inspect(pid)} (target: #{player_id})"
-        )
-      end)
-
-      IO.puts(
-        "  Matching card: #{matching_card.rank} of #{matching_card.suit}, matching_jack found: #{matching_jack != nil}"
-      )
-    end
 
     # Move Jacks to player's hand (if not already there)
     Enum.each(jacks_to_move, fn deck_card ->
