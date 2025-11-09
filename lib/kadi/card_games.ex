@@ -1,9 +1,20 @@
 defmodule Kadi.CardGames do
   @moduledoc """
-  CardGames keeps the contexts common to all the card games
+  Server-side gameplay engine for Kadi sessions.
 
-  Contexts are also responsible for managing your data, regardless
-  if it comes from the database, an external API or others.
+  This context owns the full lifecycle for multiplayer games:
+
+    * creates and joins game sessions backed by PostgreSQL records
+    * deals cards, manages the deck, and tracks the played stack via `DeckCard`
+    * advances turns while respecting table direction (clockwise / counter-clockwise)
+    * applies special-card effects such as King direction reversal and Jack skip logic
+    * transitions players into the `"cardless"` state when they play out with a Jack or King
+    * emits telemetry events for analytics (e.g. `[:kadi, :jack, :skip_executed]`)
+
+  Jack behaviour added in Feature 007 uses the existing King patterns: jack plays skip
+  `N` players where `N` equals the number of jacks played, reuse the cardless workflow
+  when a jack combo empties a hand, and never trigger a skip when a jack is selected as
+  the starting card.
   """
 
   import Ecto.Query, warn: false
@@ -27,6 +38,33 @@ defmodule Kadi.CardGames do
       _ ->
         {:error, :not_found}
     end
+  end
+
+  @doc """
+  Returns all players in a game session, ordered by join time.
+
+  Players are ordered by the time they joined the game session (inserted_at),
+  which determines turn order.
+
+  ## Parameters
+  - game_session_id: ID of the game session
+
+  ## Returns
+  - List of Player structs, ordered by join time
+
+  ## Examples
+
+      iex> get_game_session_players(game_session.id)
+      [%Player{id: 1, email: "player1@example.com"}, %Player{id: 2, email: "player2@example.com"}]
+  """
+  def get_game_session_players(game_session_id) do
+    query =
+      from gsp in GameSessionPlayer,
+        where: gsp.game_session_id == ^game_session_id,
+        order_by: [asc: gsp.inserted_at],
+        select: gsp.player_id
+
+    Repo.all(from p in Player, where: p.id in subquery(query))
   end
 
   @doc """
@@ -137,24 +175,27 @@ defmodule Kadi.CardGames do
   @doc """
   Starts a game session, deals cards to players and changes the status to "live"
   """
-  def start_game(game_session) do
+  def start_game(game_session, opts \\ []) do
     players = get_game_session_players(game_session.id)
 
     if Enum.count(players) < 2 do
       {:error, :not_enough_players}
     else
-      do_start_game(game_session, players)
+      do_start_game(game_session, players, opts)
     end
   end
 
-  defp do_start_game(game_session, players) do
+  defp do_start_game(game_session, players, opts) do
     game_session = game_session |> Repo.preload(deck: [deck_cards: :card])
     deck_cards = game_session.deck.deck_cards
 
     # Select a random player to start the turn
     random_player = Enum.random(players)
 
-    with {:ok, dealt_card_changesets, remaining_cards} <- deal_cards(players, deck_cards),
+    exclude_ranks = Keyword.get(opts, :exclude_ranks, [])
+
+    with {:ok, dealt_card_changesets, remaining_cards} <-
+           deal_cards(players, deck_cards, exclude_ranks),
          {:ok, start_card_changeset, _final_cards} <- select_start_card(remaining_cards) do
       # Get the start card's card_id for top_card_id
       start_card_id = start_card_changeset.data.card_id
@@ -566,7 +607,149 @@ defmodule Kadi.CardGames do
     end
   end
 
+  # ============================================================================
+  # Query Helper Functions
+  # ============================================================================
+
+  @doc """
+  Get all cards in a player's hand for a game session.
+
+  Returns a list of `DeckCard` structs with card details preloaded.
+
+  ## Examples
+
+      iex> get_player_hand(game_session, player.id)
+      [%DeckCard{card: %Card{rank: "5", suit: "hearts"}, ...}, ...]
+
+      iex> get_player_hand(game_session, player.id)
+      []
+  """
+  def get_player_hand(%GameSession{} = game_session, player_id) do
+    from(dc in DeckCard,
+      join: d in Deck,
+      on: dc.deck_id == d.id,
+      where: d.game_session_id == ^game_session.id
+    )
+    |> DeckCard.in_hand()
+    |> DeckCard.for_player(player_id)
+    |> DeckCard.with_card()
+    |> Repo.all()
+  end
+
+  @doc """
+  Get count of cards in a player's hand.
+
+  ## Examples
+
+      iex> count_player_cards(game_session, player.id)
+      5
+
+      iex> count_player_cards(game_session, player.id)
+      0
+  """
+  def count_player_cards(%GameSession{} = game_session, player_id) do
+    from(dc in DeckCard,
+      join: d in Deck,
+      on: dc.deck_id == d.id,
+      where: d.game_session_id == ^game_session.id
+    )
+    |> DeckCard.in_hand()
+    |> DeckCard.for_player(player_id)
+    |> Repo.aggregate(:count)
+  end
+
+  @doc """
+  Get cards of a specific rank in a player's hand.
+
+  ## Examples
+
+      iex> get_player_cards_by_rank(game_session, player.id, "jack")
+      [%DeckCard{card: %Card{rank: "jack", suit: "hearts"}, ...}, ...]
+  """
+  def get_player_cards_by_rank(%GameSession{} = game_session, player_id, rank) do
+    from(dc in DeckCard,
+      join: d in Deck,
+      on: dc.deck_id == d.id,
+      where: d.game_session_id == ^game_session.id
+    )
+    |> DeckCard.in_hand()
+    |> DeckCard.for_player(player_id)
+    |> DeckCard.of_rank(rank)
+    |> DeckCard.with_card()
+    |> Repo.all()
+  end
+
+  @doc """
+  Get count of cards remaining in the deck pile.
+
+  ## Examples
+
+      iex> count_deck_cards(game_session)
+      42
+  """
+  def count_deck_cards(%GameSession{} = game_session) do
+    from(dc in DeckCard,
+      join: d in Deck,
+      on: dc.deck_id == d.id,
+      where: d.game_session_id == ^game_session.id
+    )
+    |> DeckCard.in_deck()
+    |> Repo.aggregate(:count)
+  end
+
+  @doc """
+  Get count of cards in the played stack.
+
+  ## Examples
+
+      iex> count_played_cards(game_session)
+      10
+  """
+  def count_played_cards(%GameSession{} = game_session) do
+    from(dc in DeckCard,
+      join: d in Deck,
+      on: dc.deck_id == d.id,
+      where: d.game_session_id == ^game_session.id
+    )
+    |> DeckCard.played()
+    |> Repo.aggregate(:count)
+  end
+
+  @doc """
+  Get the top card from the played stack.
+
+  Uses the game session's `top_card_id` to efficiently retrieve the DeckCard.
+
+  ## Examples
+
+      iex> get_top_played_card(game_session)
+      {:ok, %DeckCard{card: %Card{rank: "5", suit: "hearts"}, ...}}
+
+      iex> get_top_played_card(game_session)
+      {:error, :no_cards_played}
+  """
+  def get_top_played_card(%GameSession{top_card_id: nil}), do: {:error, :no_cards_played}
+
+  def get_top_played_card(%GameSession{} = game_session) do
+    card =
+      from(dc in DeckCard,
+        join: d in Deck,
+        on: dc.deck_id == d.id,
+        where: d.game_session_id == ^game_session.id and dc.card_id == ^game_session.top_card_id
+      )
+      |> DeckCard.played()
+      |> DeckCard.with_card()
+      |> Repo.one()
+
+    case card do
+      nil -> {:error, :no_cards_played}
+      card -> {:ok, card}
+    end
+  end
+
+  # ============================================================================
   # Helper functions for play_cards/3
+  # ============================================================================
 
   defp get_game_session_preloaded(%GameSession{} = game_session) do
     preloaded =
@@ -654,6 +837,10 @@ defmodule Kadi.CardGames do
     # Detect King play (FR-002)
     king_played? = Enum.any?(cards_to_play, &(&1.rank == "king"))
 
+    # Detect Jack play (Feature 007)
+    jack_played? = Enum.any?(cards_to_play, &(&1.rank == "jack"))
+    jack_count = if jack_played?, do: length(cards_to_play), else: 0
+
     # Calculate new direction (FR-002)
     new_direction =
       if king_played? do
@@ -662,15 +849,23 @@ defmodule Kadi.CardGames do
         game_session.direction
       end
 
-    # Get next player with new direction (FR-008)
+    # Calculate skip count: Jack skips N players where N = number of Jacks
+    # Skip count = positions to advance = N players skipped + 1 (normal advancement)
+    # Example: 1 Jack skips 1 player → advance 2 positions (P1 → skip P2 → land P3)
+    skip_count = if jack_played?, do: jack_count + 1, else: 1
+
+    # Get next player with new direction and skip count (FR-008, Feature 007)
     players = get_game_session_players(game_session.id)
     player_count = length(players)
-    next_player = get_next_player_with_direction(players, player.id, new_direction)
 
-    # Check if player will be cardless after this play (FR-011)
+    # Per spec: "Skip calculation counts all players in the game, including cardless players waiting to draw"
+    # Cardless players are included in the skip count calculation (they occupy positions in turn order)
+    next_player = get_next_player_with_direction(players, player.id, new_direction, skip_count)
+
+    # Check if player will be cardless after this play (FR-011, FR-012)
     player_hand = get_player_hand_count(game_session, player.id)
     cards_played_count = length(cards_to_play)
-    will_be_cardless = player_hand == cards_played_count and king_played?
+    will_be_cardless = player_hand == cards_played_count and (king_played? or jack_played?)
 
     # Build transaction
     multi = Ecto.Multi.new()
@@ -743,8 +938,22 @@ defmodule Kadi.CardGames do
           )
         end
 
+        if jack_played? do
+          emit_jack_skip_event(
+            game_session.id,
+            player.id,
+            next_player.id,
+            jack_count,
+            Enum.map(cards_to_play, & &1.id)
+          )
+        end
+
         if will_be_cardless do
-          emit_cardless_event(game_session.id, player.id, last_card.id)
+          if jack_played? do
+            emit_jack_cardless_event(game_session.id, player.id, last_card.id)
+          else
+            emit_cardless_event(game_session.id, player.id, last_card.id)
+          end
         end
 
         # Reload with fresh associations
@@ -793,11 +1002,18 @@ defmodule Kadi.CardGames do
     )
   end
 
-  defp deal_cards(players, deck_cards) do
+  defp deal_cards(players, deck_cards, exclude_ranks) do
     # Sort by randomized order_index to ensure non-sequential distribution
     cards_in_deck =
       deck_cards
       |> Enum.filter(&(&1.location_type == "deck"))
+      |> Enum.filter(fn deck_card ->
+        if exclude_ranks == [] do
+          true
+        else
+          deck_card.card.rank not in exclude_ranks
+        end
+      end)
       |> Enum.sort_by(& &1.order_index)
 
     cards_to_deal_count = Enum.count(players) * 4
@@ -847,33 +1063,6 @@ defmodule Kadi.CardGames do
     end
   end
 
-  @doc """
-  Returns all players in a game session, ordered by join time.
-
-  Players are ordered by the time they joined the game session (inserted_at),
-  which determines turn order.
-
-  ## Parameters
-  - game_session_id: ID of the game session
-
-  ## Returns
-  - List of Player structs, ordered by join time
-
-  ## Examples
-
-      iex> get_game_session_players(game_session.id)
-      [%Player{id: 1, email: "player1@example.com"}, %Player{id: 2, email: "player2@example.com"}]
-  """
-  def get_game_session_players(game_session_id) do
-    query =
-      from gsp in GameSessionPlayer,
-        where: gsp.game_session_id == ^game_session_id,
-        order_by: [asc: gsp.inserted_at],
-        select: gsp.player_id
-
-    Repo.all(from p in Player, where: p.id in subquery(query))
-  end
-
   # Returns the next player in turn order after the current player.
   #
   # Players are ordered by join time (inserted_at), and the order wraps around
@@ -907,37 +1096,27 @@ defmodule Kadi.CardGames do
   #
   # ## Returns
   # - Player struct of the next player
-  defp get_next_player_with_direction(players, current_player_id, direction) do
+  defp get_next_player_with_direction(players, current_player_id, direction, skip_count \\ 1) do
     player_count = length(players)
+    current_index = Enum.find_index(players, &(&1.id == current_player_id))
 
-    if player_count == 2 do
-      # 2-player: direction irrelevant per FR-009
-      get_next_player(players, current_player_id)
-    else
+    # Calculate offset based on direction and skip count
+    offset =
       case direction do
-        "clockwise" ->
-          get_next_player(players, current_player_id)
-
-        "counter_clockwise" ->
-          get_previous_player(players, current_player_id)
+        "clockwise" -> skip_count
+        "counter_clockwise" -> -skip_count
       end
-    end
+
+    # Handle wrap-around using modulo arithmetic. For negative offsets (counter-clockwise)
+    # we need to add a positive multiple of player_count so the dividend stays ≥ 0 before
+    # calling rem/2. Example: current_index = 0, offset = -2, player_count = 3 ⇒
+    # rem(0 - 2 + 3 * 2, 3) = rem(4, 3) = 1 (player at index 1).
+    next_index = rem(current_index + offset + player_count * abs(offset), player_count)
+
+    Enum.at(players, next_index)
   end
 
   # Returns the previous player in the turn order.
-  #
-  # ## Parameters
-  # - players: List of Player structs
-  # - current_player_id: ID of the current player
-  #
-  # ## Returns
-  # - Player struct of the previous player
-  defp get_previous_player(players, current_player_id) do
-    current_index = Enum.find_index(players, &(&1.id == current_player_id))
-    prev_index = rem(current_index - 1 + length(players), length(players))
-    Enum.at(players, prev_index)
-  end
-
   # Reverses the game direction.
   #
   # ## Parameters
@@ -1045,6 +1224,50 @@ defmodule Kadi.CardGames do
         game_id: game_id,
         player_id: player_id,
         deck_state: deck_state,
+        timestamp: DateTime.utc_now()
+      }
+    )
+  end
+
+  # Emits telemetry event when Jack skip is executed.
+  #
+  # ## Parameters
+  # - game_id: Game session ID
+  # - from_player_id: Player who played the Jack(s)
+  # - to_player_id: Player who receives the turn after skip
+  # - skip_count: Number of players skipped
+  # - card_ids: List of Jack card IDs played
+  defp emit_jack_skip_event(game_id, from_player_id, to_player_id, skip_count, card_ids) do
+    :telemetry.execute(
+      [:kadi, :jack, :skip_executed],
+      %{skip_count: skip_count},
+      %{
+        game_session_id: game_id,
+        player_id: from_player_id,
+        from_player_id: from_player_id,
+        to_player_id: to_player_id,
+        jack_count: skip_count,
+        card_ids: card_ids,
+        timestamp: DateTime.utc_now()
+      }
+    )
+  end
+
+  # Emits telemetry event when player enters cardless state from Jack.
+  #
+  # ## Parameters
+  # - game_id: Game session ID
+  # - player_id: Player who became cardless
+  # - card_id: ID of the Jack card played as last card
+  defp emit_jack_cardless_event(game_id, player_id, card_id) do
+    :telemetry.execute(
+      [:kadi, :jack, :cardless_entered],
+      %{},
+      %{
+        game_session_id: game_id,
+        player_id: player_id,
+        reason: "jack_last_card",
+        card_id: card_id,
         timestamp: DateTime.utc_now()
       }
     )

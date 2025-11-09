@@ -27,6 +27,106 @@ defmodule Kadi.TelemetryTest do
     :ok
   end
 
+  describe "jack telemetry events" do
+    setup do
+      test_pid = self()
+
+      :telemetry.attach_many(
+        "test-jack-telemetry",
+        [[:kadi, :jack, :cardless_entered], [:kadi, :jack, :skip_executed]],
+        fn event, measurements, metadata, _config ->
+          send(test_pid, {:telemetry_event, event, measurements, metadata})
+        end,
+        nil
+      )
+
+      on_exit(fn -> :telemetry.detach("test-jack-telemetry") end)
+
+      :ok
+    end
+
+    @tag :phase7
+    @tag :telemetry
+    test "T051: emits jack:cardless_entered when player plays Jack as last card" do
+      # Setup players and game
+      player1 = AccountsFixtures.player_fixture()
+      player2 = AccountsFixtures.player_fixture(%{email: "jack-telemetry@example.com"})
+
+      {:ok, game_session} =
+        CardGames.create_game_session(player1, %{short_code: "telemetry-jack-cardless"})
+
+      CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      game_session =
+        Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
+
+      top_card = game_session.top_card
+
+      # Find a Jack that can be played (first must match top card)
+      jack_deck_card =
+        Enum.find(game_session.deck.deck_cards, fn dc ->
+          dc.card.rank == "jack" and
+            (dc.card.suit == top_card.suit or dc.card.rank == top_card.rank)
+        end)
+
+      if jack_deck_card do
+        # Move all other player cards back to deck so current player has only the jack
+        current_player_id = game_session.current_turn_player_id
+
+        player_cards =
+          game_session.deck.deck_cards
+          |> Enum.filter(
+            &(&1.location_type == "player_hand" and &1.player_id == current_player_id)
+          )
+
+        player_cards
+        |> Enum.reject(&(&1.id == jack_deck_card.id))
+        |> Enum.with_index()
+        |> Enum.each(fn {dc, idx} ->
+          Repo.update!(
+            Ecto.Changeset.change(dc, %{
+              location_type: "deck",
+              player_id: nil,
+              order_index: 900 + idx
+            })
+          )
+        end)
+
+        # Ensure the Jack is in player's hand
+        Repo.update!(
+          Ecto.Changeset.change(jack_deck_card, %{
+            location_type: "player_hand",
+            player_id: current_player_id,
+            order_index: nil
+          })
+        )
+
+        # Reload
+        game_session =
+          Repo.get!(Kadi.Games.GameSession, game_session.id)
+          |> Repo.preload([:deck, :top_card], force: true)
+
+        {:ok, _updated_game} =
+          CardGames.play_cards(game_session, current_player_id, [jack_deck_card.card.id])
+
+        # Expect telemetry
+        assert_receive {:telemetry_event, [:kadi, :jack, :cardless_entered], _measurements,
+                        metadata}
+
+        assert metadata.game_session_id == game_session.id
+        assert metadata.player_id == current_player_id
+        assert metadata.reason == "jack_last_card"
+        assert metadata.card_id == jack_deck_card.card.id
+        assert %DateTime{} = metadata.timestamp
+
+        IO.puts("✓ T051: Telemetry event emitted when player becomes cardless from Jack")
+      else
+        IO.puts("⏭️  Skipping T051: No matching Jack found for top card")
+      end
+    end
+  end
+
   describe "cardless telemetry events" do
     @tag :phase6
     @tag :telemetry

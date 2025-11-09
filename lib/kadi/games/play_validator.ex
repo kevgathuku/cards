@@ -1,14 +1,17 @@
 defmodule Kadi.Games.PlayValidator do
   @moduledoc """
-  Pure validation functions for card play validation.
+  Pure validation logic for card plays.
 
-  Validates whether a card play is valid according to game rules:
-  - Single card: Must match suit OR rank of top card
-  - Multiple cards (combo): All same rank AND at least one matches top card
+  Responsibilities:
 
-  ## Phase 1 - Regular Cards Only
-  Currently only regular cards (4,5,6,7,9,10) can be played.
-  Special cards (2,3,8,Jack,Queen,King,Ace) will be implemented in later phases.
+    * Enforce matching rules for the "regular" ranks (4, 5, 6, 7, 9, 10) where combos
+      require identical ranks and the lead card must match the top card by suit or rank.
+    * Guard the King special-case: exactly one king per play and it must match suit or rank.
+    * Guard the Jack special-case introduced in Feature 007: every card in the play must be
+      a jack and the first jack has to match the top card by suit or rank.
+
+  The validator remains intentionally side-effect free so it can be exercised directly in
+  unit tests and re-used by both the LiveView and OTP server gameplay flows.
   """
 
   # Regular cards allowed in current phase (005-basic-gameplay)
@@ -45,6 +48,9 @@ defmodule Kadi.Games.PlayValidator do
       single_card.rank == "king" ->
         valid_king_play?([single_card], top_card)
 
+      single_card.rank == "jack" ->
+        valid_jack_play?([single_card], top_card)
+
       valid_regular_card?(single_card) ->
         validate_single_card(single_card, top_card)
 
@@ -57,6 +63,9 @@ defmodule Kadi.Games.PlayValidator do
     cond do
       Enum.any?(cards, &(&1.rank == "king")) ->
         valid_king_play?(cards, top_card)
+
+      Enum.any?(cards, &(&1.rank == "jack")) ->
+        valid_jack_play?(cards, top_card)
 
       all_regular_cards?(cards) ->
         validate_combo(cards, top_card)
@@ -97,6 +106,41 @@ defmodule Kadi.Games.PlayValidator do
   def valid_king_play?(_cards, _top_card), do: false
 
   @doc """
+  Validates if a Jack card play is valid.
+
+  Rules:
+  - Single Jack: Must match suit OR rank of top card
+  - Multiple Jacks: All cards must be Jacks, first must match top card
+  - Jack combos are allowed (unlike King - FR-003)
+
+  ## Parameters
+  - cards: List of Card structs (must contain Jack(s))
+  - top_card: The current top card on the played stack
+
+  ## Returns
+  - `true` if the Jack play is valid
+  - `false` if the Jack play is invalid
+
+  ## Examples
+
+      iex> top_card = %Kadi.Games.Card{suit: "hearts", rank: "5"}
+      iex> jack = %Kadi.Games.Card{suit: "hearts", rank: "jack"}
+      iex> Kadi.Games.PlayValidator.valid_jack_play?([jack], top_card)
+      true
+
+      iex> top_card = %Kadi.Games.Card{suit: "diamonds", rank: "jack"}
+      iex> jack = %Kadi.Games.Card{suit: "clubs", rank: "jack"}
+      iex> Kadi.Games.PlayValidator.valid_jack_play?([jack], top_card)
+      true
+  """
+  def valid_jack_play?([], _top_card), do: false
+  def valid_jack_play?(_cards, nil), do: false
+
+  def valid_jack_play?(cards, top_card) when is_list(cards) do
+    all_jacks?(cards) and first_card_matches?(cards, top_card)
+  end
+
+  @doc """
   Validates if player has all the specified cards in their hand.
 
   ## Parameters
@@ -115,6 +159,10 @@ defmodule Kadi.Games.PlayValidator do
   end
 
   # Private Functions
+
+  defp all_jacks?(cards) do
+    Enum.all?(cards, &(&1.rank == "jack"))
+  end
 
   defp valid_regular_card?(%{rank: rank}) do
     rank in @regular_ranks
