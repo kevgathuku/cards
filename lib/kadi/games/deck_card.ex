@@ -1,6 +1,9 @@
 defmodule Kadi.Games.DeckCard do
   use Ecto.Schema
   import Ecto.Changeset
+  import Ecto.Query
+
+  alias Kadi.Games.DeckCard
 
   schema "deck_cards" do
     belongs_to :deck, Kadi.Games.Deck
@@ -53,5 +56,134 @@ defmodule Kadi.Games.DeckCard do
     else
       add_error(changeset, field, message)
     end
+  end
+
+  # ============================================================================
+  # Query Functions (Rails-style scopes)
+  # ============================================================================
+
+  @doc """
+  Filter cards in player hands.
+
+  ## Examples
+
+      DeckCard
+      |> DeckCard.in_hand()
+      |> Repo.all()
+  """
+  def in_hand(query \\ DeckCard) do
+    from dc in query, where: dc.location_type == "player_hand"
+  end
+
+  @doc """
+  Filter cards in deck pile.
+
+  ## Examples
+
+      DeckCard
+      |> DeckCard.in_deck()
+      |> Repo.all()
+  """
+  def in_deck(query \\ DeckCard) do
+    from dc in query, where: dc.location_type == "deck"
+  end
+
+  @doc """
+  Filter cards in played stack.
+
+  ## Examples
+
+      DeckCard
+      |> DeckCard.played()
+      |> Repo.all()
+  """
+  def played(query \\ DeckCard) do
+    from dc in query, where: dc.location_type == "played_stack"
+  end
+
+  @doc """
+  Filter cards for a specific player.
+
+  ## Examples
+
+      DeckCard
+      |> DeckCard.in_hand()
+      |> DeckCard.for_player(player_id)
+      |> Repo.all()
+  """
+  def for_player(query \\ DeckCard, player_id) do
+    from dc in query, where: dc.player_id == ^player_id
+  end
+
+  @doc """
+  Filter cards by rank.
+
+  ## Examples
+
+      DeckCard
+      |> DeckCard.of_rank("jack")
+      |> Repo.all()
+  """
+  def of_rank(query \\ DeckCard, rank) do
+    from dc in query,
+      join: c in assoc(dc, :card),
+      where: c.rank == ^rank
+  end
+
+  @doc """
+  Filter cards by suit.
+
+  ## Examples
+
+      DeckCard
+      |> DeckCard.of_suit("hearts")
+      |> Repo.all()
+  """
+  def of_suit(query \\ DeckCard, suit) do
+    from dc in query,
+      join: c in assoc(dc, :card),
+      where: c.suit == ^suit
+  end
+
+  @doc """
+  Preload card details.
+
+  ## Examples
+
+      DeckCard
+      |> DeckCard.in_hand()
+      |> DeckCard.with_card()
+      |> Repo.all()
+  """
+  def with_card(query \\ DeckCard) do
+    from dc in query, preload: [:card]
+  end
+
+  @doc """
+  Order by index (for deck/played stack). Lower index = top of deck, higher index = top of played stack.
+
+  ## Examples
+
+      DeckCard
+      |> DeckCard.in_deck()
+      |> DeckCard.ordered()
+      |> Repo.all()
+  """
+  def ordered(query \\ DeckCard) do
+    from dc in query, order_by: [asc: dc.order_index]
+  end
+
+  @doc """
+  Order by index descending (for played stack - highest index = top/visible card).
+
+  ## Examples
+
+      DeckCard
+      |> DeckCard.played()
+      |> DeckCard.ordered_desc()
+      |> Repo.all()
+  """
+  def ordered_desc(query \\ DeckCard) do
+    from dc in query, order_by: [desc: dc.order_index]
   end
 end

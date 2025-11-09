@@ -30,6 +30,33 @@ defmodule Kadi.CardGames do
   end
 
   @doc """
+  Returns all players in a game session, ordered by join time.
+
+  Players are ordered by the time they joined the game session (inserted_at),
+  which determines turn order.
+
+  ## Parameters
+  - game_session_id: ID of the game session
+
+  ## Returns
+  - List of Player structs, ordered by join time
+
+  ## Examples
+
+      iex> get_game_session_players(game_session.id)
+      [%Player{id: 1, email: "player1@example.com"}, %Player{id: 2, email: "player2@example.com"}]
+  """
+  def get_game_session_players(game_session_id) do
+    query =
+      from gsp in GameSessionPlayer,
+        where: gsp.game_session_id == ^game_session_id,
+        order_by: [asc: gsp.inserted_at],
+        select: gsp.player_id
+
+    Repo.all(from p in Player, where: p.id in subquery(query))
+  end
+
+  @doc """
   Returns all the Game Sessions that the player is a part of
   """
   def list_user_games(player_id) do
@@ -566,7 +593,149 @@ defmodule Kadi.CardGames do
     end
   end
 
+  # ============================================================================
+  # Query Helper Functions
+  # ============================================================================
+
+  @doc """
+  Get all cards in a player's hand for a game session.
+
+  Returns a list of `DeckCard` structs with card details preloaded.
+
+  ## Examples
+
+      iex> get_player_hand(game_session, player.id)
+      [%DeckCard{card: %Card{rank: "5", suit: "hearts"}, ...}, ...]
+
+      iex> get_player_hand(game_session, player.id)
+      []
+  """
+  def get_player_hand(%GameSession{} = game_session, player_id) do
+    from(dc in DeckCard,
+      join: d in Deck,
+      on: dc.deck_id == d.id,
+      where: d.game_session_id == ^game_session.id
+    )
+    |> DeckCard.in_hand()
+    |> DeckCard.for_player(player_id)
+    |> DeckCard.with_card()
+    |> Repo.all()
+  end
+
+  @doc """
+  Get count of cards in a player's hand.
+
+  ## Examples
+
+      iex> count_player_cards(game_session, player.id)
+      5
+
+      iex> count_player_cards(game_session, player.id)
+      0
+  """
+  def count_player_cards(%GameSession{} = game_session, player_id) do
+    from(dc in DeckCard,
+      join: d in Deck,
+      on: dc.deck_id == d.id,
+      where: d.game_session_id == ^game_session.id
+    )
+    |> DeckCard.in_hand()
+    |> DeckCard.for_player(player_id)
+    |> Repo.aggregate(:count)
+  end
+
+  @doc """
+  Get cards of a specific rank in a player's hand.
+
+  ## Examples
+
+      iex> get_player_cards_by_rank(game_session, player.id, "jack")
+      [%DeckCard{card: %Card{rank: "jack", suit: "hearts"}, ...}, ...]
+  """
+  def get_player_cards_by_rank(%GameSession{} = game_session, player_id, rank) do
+    from(dc in DeckCard,
+      join: d in Deck,
+      on: dc.deck_id == d.id,
+      where: d.game_session_id == ^game_session.id
+    )
+    |> DeckCard.in_hand()
+    |> DeckCard.for_player(player_id)
+    |> DeckCard.of_rank(rank)
+    |> DeckCard.with_card()
+    |> Repo.all()
+  end
+
+  @doc """
+  Get count of cards remaining in the deck pile.
+
+  ## Examples
+
+      iex> count_deck_cards(game_session)
+      42
+  """
+  def count_deck_cards(%GameSession{} = game_session) do
+    from(dc in DeckCard,
+      join: d in Deck,
+      on: dc.deck_id == d.id,
+      where: d.game_session_id == ^game_session.id
+    )
+    |> DeckCard.in_deck()
+    |> Repo.aggregate(:count)
+  end
+
+  @doc """
+  Get count of cards in the played stack.
+
+  ## Examples
+
+      iex> count_played_cards(game_session)
+      10
+  """
+  def count_played_cards(%GameSession{} = game_session) do
+    from(dc in DeckCard,
+      join: d in Deck,
+      on: dc.deck_id == d.id,
+      where: d.game_session_id == ^game_session.id
+    )
+    |> DeckCard.played()
+    |> Repo.aggregate(:count)
+  end
+
+  @doc """
+  Get the top card from the played stack.
+
+  Uses the game session's `top_card_id` to efficiently retrieve the DeckCard.
+
+  ## Examples
+
+      iex> get_top_played_card(game_session)
+      {:ok, %DeckCard{card: %Card{rank: "5", suit: "hearts"}, ...}}
+
+      iex> get_top_played_card(game_session)
+      {:error, :no_cards_played}
+  """
+  def get_top_played_card(%GameSession{top_card_id: nil}), do: {:error, :no_cards_played}
+
+  def get_top_played_card(%GameSession{} = game_session) do
+    card =
+      from(dc in DeckCard,
+        join: d in Deck,
+        on: dc.deck_id == d.id,
+        where: d.game_session_id == ^game_session.id and dc.card_id == ^game_session.top_card_id
+      )
+      |> DeckCard.played()
+      |> DeckCard.with_card()
+      |> Repo.one()
+
+    case card do
+      nil -> {:error, :no_cards_played}
+      card -> {:ok, card}
+    end
+  end
+
+  # ============================================================================
   # Helper functions for play_cards/3
+  # ============================================================================
 
   defp get_game_session_preloaded(%GameSession{} = game_session) do
     preloaded =
@@ -866,33 +1035,6 @@ defmodule Kadi.CardGames do
     else
       {:error, :no_valid_start_card_found}
     end
-  end
-
-  @doc """
-  Returns all players in a game session, ordered by join time.
-
-  Players are ordered by the time they joined the game session (inserted_at),
-  which determines turn order.
-
-  ## Parameters
-  - game_session_id: ID of the game session
-
-  ## Returns
-  - List of Player structs, ordered by join time
-
-  ## Examples
-
-      iex> get_game_session_players(game_session.id)
-      [%Player{id: 1, email: "player1@example.com"}, %Player{id: 2, email: "player2@example.com"}]
-  """
-  def get_game_session_players(game_session_id) do
-    query =
-      from gsp in GameSessionPlayer,
-        where: gsp.game_session_id == ^game_session_id,
-        order_by: [asc: gsp.inserted_at],
-        select: gsp.player_id
-
-    Repo.all(from p in Player, where: p.id in subquery(query))
   end
 
   # Returns the next player in turn order after the current player.
