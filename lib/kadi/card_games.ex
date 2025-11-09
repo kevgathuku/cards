@@ -1107,8 +1107,10 @@ defmodule Kadi.CardGames do
         "counter_clockwise" -> -skip_count
       end
 
-    # Handle wrap-around using modulo arithmetic
-    # Add player_count * abs(offset) to handle negative values correctly
+    # Handle wrap-around using modulo arithmetic. For negative offsets (counter-clockwise)
+    # we need to add a positive multiple of player_count so the dividend stays ≥ 0 before
+    # calling rem/2. Example: current_index = 0, offset = -2, player_count = 3 ⇒
+    # rem(0 - 2 + 3 * 2, 3) = rem(4, 3) = 1 (player at index 1).
     next_index = rem(current_index + offset + player_count * abs(offset), player_count)
 
     Enum.at(players, next_index)
