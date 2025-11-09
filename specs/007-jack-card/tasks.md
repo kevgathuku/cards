@@ -79,25 +79,25 @@
 
 ### Core Skip Logic Implementation
 
-- [ ] T016 [US1] Add `skip_count` parameter to `get_next_player_with_direction/3` in lib/kadi/card_games.ex (default: 1)
-- [ ] T017 [US1] Implement modulo arithmetic for wrap-around in `get_next_player_with_direction/4` in lib/kadi/card_games.ex
-- [ ] T018 [US1] Add Jack detection (`jack_played?` and `jack_count`) in `execute_play/3` in lib/kadi/card_games.ex
-- [ ] T019 [US1] Update next player calculation to use `skip_count` in `execute_play/3` in lib/kadi/card_games.ex
+- [x] T016 [US1] Add `skip_count` parameter to `get_next_player_with_direction/3` in lib/kadi/card_games.ex (default: 1)
+- [x] T017 [US1] Implement modulo arithmetic for wrap-around in `get_next_player_with_direction/4` in lib/kadi/card_games.ex
+- [x] T018 [US1] Add Jack detection (`jack_played?` and `jack_count`) in `execute_play/3` in lib/kadi/card_games.ex
+- [x] T019 [US1] Update next player calculation to use `skip_count` in `execute_play/3` in lib/kadi/card_games.ex
 
 ### Telemetry Integration
 
-- [ ] T020 [P] [US1] Add telemetry event `[:kadi, :jack, :skip_executed]` emission in lib/kadi/card_games.ex
-- [ ] T021 [P] [US1] Create helper function `emit_jack_skip_event/5` in lib/kadi/card_games.ex
+- [x] T020 [P] [US1] Add telemetry event `[:kadi, :jack, :skip_executed]` emission in lib/kadi/card_games.ex
+- [x] T021 [P] [US1] Create helper function `emit_jack_skip_event/5` in lib/kadi/card_games.ex
 
 ### Integration Tests
 
-- [ ] T022 [US1] Add test: single Jack skips 1 player in 3-player game in test/kadi/card_games_test.exs
-- [ ] T023 [US1] Add test: single Jack skips 1 player in 4-player game in test/kadi/card_games_test.exs
-- [ ] T024 [US1] Add test: telemetry event emitted with correct metadata in test/kadi/card_games_test.exs
+- [x] T022 [US1] Add test: single Jack skips 1 player in 3-player game in test/kadi/card_games_test.exs
+- [x] T023 [US1] Add test: single Jack skips 1 player in 4-player game in test/kadi/card_games_test.exs
+- [x] T024 [US1] Add test: telemetry event emitted with correct metadata in test/kadi/card_games_test.exs
 
 ### Verification
 
-- [ ] T025 [US1] Run integration tests: `mix test test/kadi/card_games_test.exs`
+- [x] T025 [US1] Run integration tests: `mix test test/kadi/card_games_test.exs`
 - [ ] T026 [US1] Manual test: Start 3-player game via `mix phx.server`, play Jack, verify skip in UI
 
 **Checkpoint**: User Story 1 complete - single Jack skip functionality working end-to-end

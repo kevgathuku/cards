@@ -654,6 +654,10 @@ defmodule Kadi.CardGames do
     # Detect King play (FR-002)
     king_played? = Enum.any?(cards_to_play, &(&1.rank == "king"))
 
+    # Detect Jack play (Feature 007)
+    jack_played? = Enum.any?(cards_to_play, &(&1.rank == "jack"))
+    jack_count = if jack_played?, do: length(cards_to_play), else: 0
+
     # Calculate new direction (FR-002)
     new_direction =
       if king_played? do
@@ -662,15 +666,18 @@ defmodule Kadi.CardGames do
         game_session.direction
       end
 
-    # Get next player with new direction (FR-008)
+    # Calculate skip count: Jack skips N players where N = number of Jacks
+    skip_count = if jack_played?, do: jack_count, else: 1
+
+    # Get next player with new direction and skip count (FR-008, Feature 007)
     players = get_game_session_players(game_session.id)
     player_count = length(players)
-    next_player = get_next_player_with_direction(players, player.id, new_direction)
+    next_player = get_next_player_with_direction(players, player.id, new_direction, skip_count)
 
-    # Check if player will be cardless after this play (FR-011)
+    # Check if player will be cardless after this play (FR-011, FR-012)
     player_hand = get_player_hand_count(game_session, player.id)
     cards_played_count = length(cards_to_play)
-    will_be_cardless = player_hand == cards_played_count and king_played?
+    will_be_cardless = player_hand == cards_played_count and (king_played? or jack_played?)
 
     # Build transaction
     multi = Ecto.Multi.new()
@@ -743,8 +750,22 @@ defmodule Kadi.CardGames do
           )
         end
 
+        if jack_played? do
+          emit_jack_skip_event(
+            game_session.id,
+            player.id,
+            next_player.id,
+            jack_count,
+            Enum.map(cards_to_play, & &1.id)
+          )
+        end
+
         if will_be_cardless do
-          emit_cardless_event(game_session.id, player.id, last_card.id)
+          if jack_played? do
+            emit_jack_cardless_event(game_session.id, player.id, last_card.id)
+          else
+            emit_cardless_event(game_session.id, player.id, last_card.id)
+          end
         end
 
         # Reload with fresh associations
@@ -907,37 +928,25 @@ defmodule Kadi.CardGames do
   #
   # ## Returns
   # - Player struct of the next player
-  defp get_next_player_with_direction(players, current_player_id, direction) do
+  defp get_next_player_with_direction(players, current_player_id, direction, skip_count \\ 1) do
     player_count = length(players)
+    current_index = Enum.find_index(players, &(&1.id == current_player_id))
 
-    if player_count == 2 do
-      # 2-player: direction irrelevant per FR-009
-      get_next_player(players, current_player_id)
-    else
+    # Calculate offset based on direction and skip count
+    offset =
       case direction do
-        "clockwise" ->
-          get_next_player(players, current_player_id)
-
-        "counter_clockwise" ->
-          get_previous_player(players, current_player_id)
+        "clockwise" -> skip_count
+        "counter_clockwise" -> -skip_count
       end
-    end
+
+    # Handle wrap-around using modulo arithmetic
+    # Add player_count * abs(offset) to handle negative values correctly
+    next_index = rem(current_index + offset + player_count * abs(offset), player_count)
+
+    Enum.at(players, next_index)
   end
 
   # Returns the previous player in the turn order.
-  #
-  # ## Parameters
-  # - players: List of Player structs
-  # - current_player_id: ID of the current player
-  #
-  # ## Returns
-  # - Player struct of the previous player
-  defp get_previous_player(players, current_player_id) do
-    current_index = Enum.find_index(players, &(&1.id == current_player_id))
-    prev_index = rem(current_index - 1 + length(players), length(players))
-    Enum.at(players, prev_index)
-  end
-
   # Reverses the game direction.
   #
   # ## Parameters
@@ -1045,6 +1054,50 @@ defmodule Kadi.CardGames do
         game_id: game_id,
         player_id: player_id,
         deck_state: deck_state,
+        timestamp: DateTime.utc_now()
+      }
+    )
+  end
+
+  # Emits telemetry event when Jack skip is executed.
+  #
+  # ## Parameters
+  # - game_id: Game session ID
+  # - from_player_id: Player who played the Jack(s)
+  # - to_player_id: Player who receives the turn after skip
+  # - skip_count: Number of players skipped
+  # - card_ids: List of Jack card IDs played
+  defp emit_jack_skip_event(game_id, from_player_id, to_player_id, skip_count, card_ids) do
+    :telemetry.execute(
+      [:kadi, :jack, :skip_executed],
+      %{skip_count: skip_count},
+      %{
+        game_session_id: game_id,
+        player_id: from_player_id,
+        from_player_id: from_player_id,
+        to_player_id: to_player_id,
+        jack_count: skip_count,
+        card_ids: card_ids,
+        timestamp: DateTime.utc_now()
+      }
+    )
+  end
+
+  # Emits telemetry event when player enters cardless state from Jack.
+  #
+  # ## Parameters
+  # - game_id: Game session ID
+  # - player_id: Player who became cardless
+  # - card_id: ID of the Jack card played as last card
+  defp emit_jack_cardless_event(game_id, player_id, card_id) do
+    :telemetry.execute(
+      [:kadi, :jack, :cardless_entered],
+      %{},
+      %{
+        game_session_id: game_id,
+        player_id: player_id,
+        reason: "jack_last_card",
+        card_id: card_id,
         timestamp: DateTime.utc_now()
       }
     )
