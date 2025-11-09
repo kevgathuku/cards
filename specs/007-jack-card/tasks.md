@@ -229,13 +229,13 @@
 - [ ] T057 [P] Add test: 2-player game, Jack returns to same player in test/kadi/card_games_test.exs
 - [ ] T058 [P] Add test: Jack after King respects counter-clockwise direction in test/kadi/card_games_test.exs
 - [ ] T059 [P] Add test: King after Jack preserves skip logic in test/kadi/card_games_test.exs
-- [ ] T060 [P] Add test: Jack allowed as starting card, no skip on game start in test/kadi/card_games_test.exs
+- [ ] T060 [P] Add test: Jack excluded from starting cards (like other special cards) in test/kadi/card_games_test.exs
 - [ ] T061 [P] Add test: 4 Jacks in 3-player game multi-wrap scenario in test/kadi/card_games_test.exs
 
 ### Starting Card Logic
 
-- [ ] T062 Update `start_game/1` comments to document Jack start card behavior in lib/kadi/card_games.ex
-- [ ] T063 Verify Jack NOT in excluded start cards list in lib/kadi/card_games.ex
+- [x] T062 Update `select_start_card/1` to exclude "jack" from valid starting cards in lib/kadi/card_games.ex (ALREADY DONE: line 1023)
+- [x] T063 Verify "jack" added to excluded start cards list (special_ranks) in lib/kadi/card_games.ex (VERIFIED: line 1023)
 
 ### Verification
 

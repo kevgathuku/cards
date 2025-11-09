@@ -91,7 +91,7 @@ When a player plays Jack(s) as their last card(s), they enter cardless state ins
 
 - **Wrap-around in small games**: In a 2-player game, playing a single Jack skips the other player and returns to the current player
 - **Multiple wrap-arounds**: In a 3-player game, playing 4 Jacks skips through the full turn order and continues (P1 → skip P2, P3, P1, P2 → lands on P3)
-- **Jack as starting card**: When Jack is the starting card at game begin, no skip effect occurs - the game starts normally with the first player's turn
+- **Jack as starting card**: Jack is excluded from valid starting cards (like other special cards 2, 3, 8, Queen, Ace). If Jack is the only remaining candidate after dealing cards, the selection continues until a valid regular card (4, 5, 6, 7, 9, 10) or King is found
 - **Jack as last card - Cardless state**: Playing Jack(s) as the last card(s) in hand results in the player becoming cardless (not winning). The player must wait for their next turn to draw a card
 - **Direction interaction**: Jack skip count respects the current direction (clockwise vs counter-clockwise set by King cards)
 - **Cardless player interaction**: When calculating skips, cardless players waiting for their turn to draw are counted in the skip calculation
@@ -110,12 +110,10 @@ When a player plays Jack(s) as their last card(s), they enter cardless state ins
 - **FR-008**: System MUST move Jack card(s) from player's hand to the played stack with proper order_index
 - **FR-009**: System MUST reject Jack plays that don't match the top card by suit or rank
 - **FR-010**: System MUST handle wrap-around scenarios correctly in games with fewer players than Jacks played (e.g., playing 4 Jacks in a 3-player game)
-- **FR-011**: System MUST treat Jack cards as special cards (not regular cards) in card validation
+- **FR-011**: System MUST treat Jack cards as special cards (excluded from valid starting cards) in start card selection, along with other special cards (2, 3, 8, Queen, Ace)
 - **FR-012**: System MUST transition player to cardless state when Jack(s) are played as the last card(s) in hand (Jack cannot be used to win the game)
 - **FR-013**: System MUST skip N other players (not including the cardless player) when Jack(s) cause a player to enter cardless state
-- **FR-014**: System MUST allow Jack to be selected as the starting card when a game begins
-- **FR-015**: System MUST NOT activate the Jump/skip effect when Jack is the starting card (game starts with first player's turn normally)
-- **FR-016**: System MUST allow cardless player (from playing Jack) to draw exactly one card when their turn arrives, regardless of the number of Jacks played
+- **FR-014**: System MUST allow cardless player (from playing Jack) to draw exactly one card when their turn arrives, regardless of the number of Jacks played
 
 ### Key Entities
 
@@ -141,7 +139,7 @@ When a player plays Jack(s) as their last card(s), they enter cardless state ins
 - Skip calculation counts all players in the game, including cardless players waiting to draw
 - Jack plays do not affect the turn direction (only King cards toggle direction)
 - Jack validation follows the same pattern as King: dedicated validation function in PlayValidator module
-- Jack can be played as a starting card when a game begins, but the Jump/skip effect does NOT activate for the starting card (game starts normally with first player)
+- Jack is excluded from valid starting cards (treated like other special cards: 2, 3, 8, Queen, Ace), only regular cards (4, 5, 6, 7, 9, 10) and King can be starting cards
 - Maximum combo size is 4 Jacks (one of each suit)
 - When calculating skips with wrap-around, the same player can be "skipped" multiple times if the combo size exceeds player count
 
@@ -151,6 +149,10 @@ When a player plays Jack(s) as their last card(s), they enter cardless state ins
 
 - Q: Can Jack be played as the last card to win the game? → A: No, playing Jack(s) as the last card(s) results in the player becoming cardless (not winning). Jack cannot be used as a winning card.
 - Q: Does the cardless player themselves count in the skip calculation, or do we skip N other players beyond the cardless player? → A: Skip N other players from cardless player's position (cardless player not counted in skip)
-- Q: Can Jack appear as the initial card on the played stack when a game starts, or should it be excluded like other special cards? → A: Allow Jack as starting card with no Jump effect on game start
+- Q: Can Jack appear as the initial card on the played stack when a game starts, or should it be excluded like other special cards? → A: Exclude Jack from starting cards (treat consistently with other special cards 2, 3, 8, Queen, Ace)
 - Q: When the cardless player's turn comes back around (after the skips), do they draw exactly one card, or do they draw N cards (where N = number of Jacks they played)? → A: Draw exactly one card (standard cardless behavior)
 - Q: Should Jack validation use the same pattern as King (with a dedicated validation function), or should Jack be handled differently in the validation logic? → A: Create dedicated `valid_jack_play?/2` function (consistent with King pattern)
+
+### Session 2025-11-09
+
+- Q: Should Jack be excluded from valid starting cards (like other special cards 2, 3, 8, Queen, Ace)? → A: Yes, exclude Jack from starting cards (treat consistently with other special cards)

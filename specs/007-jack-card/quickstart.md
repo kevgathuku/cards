@@ -276,27 +276,28 @@
 
 ---
 
-### Phase 4: Starting Card Logic (30 min)
+### Phase 4: Starting Card Exclusion (30 min)
 
-**Goal**: Allow Jack as starting card without skip effect
+**Goal**: Verify Jack is excluded from valid starting cards
 
-**Files to modify**:
+**Files to verify**:
 - `lib/kadi/card_games.ex`
 
 **Steps**:
 
-1. **Update start_game/1 comments** (15 min)
+1. **Verify Jack in excluded ranks list** (15 min)
    
-   Find the start card selection logic (~line 831):
+   Find the `select_start_card/1` function (~line 1020):
    ```elixir
-   # Current comment:
-   # Per FR-003: Kings are allowed as start cards (no direction reversal occurs)
-   
-   # Enhanced comment:
-   # Per FR-003 (feature 006): Kings are allowed as start cards (no direction reversal)
-   # Per FR-015 (feature 007): Jacks are allowed as start cards (no skip effect)
-   # Special effects only trigger when cards are played during gameplay
+   defp select_start_card(deck_cards) do
+     # Per FR-003: Kings are allowed as start cards (no direction reversal occurs)
+     # Other special cards (2, 3, jack, queen, ace) are still excluded
+     special_ranks = ["2", "3", "jack", "queen", "ace"]
+     # ... rest of function
+   end
    ```
+   
+   **ALREADY IMPLEMENTED**: Jack is already in the `special_ranks` list, so no code changes needed.
 
 2. **Verify start card exclusions** (15 min)
    
@@ -392,8 +393,9 @@
      # Play 4 Jacks, verify wrap-around math (skip 4 positions)
    end
    
-   test "Jack allowed as starting card, no skip on game start" do
-     # Check start_game with Jack start card, P1 goes first
+   test "Jack excluded from starting cards" do
+     # Verify Jack cannot be selected as starting card
+     # Verify only regular cards (4-10) or King can be starting cards
    end
    ```
 

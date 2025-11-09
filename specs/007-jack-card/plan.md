@@ -7,7 +7,7 @@
 
 ## Summary
 
-Implement Jack card as a "Jump" card that skips N players in turn order, where N equals the number of Jacks played. When played as the last card, player enters cardless state instead of winning. Jack follows standard matching rules (suit or rank) and can be played as combo. Starting Jack cards have no skip effect.
+Implement Jack card as a "Jump" card that skips N players in turn order, where N equals the number of Jacks played. When played as the last card, player enters cardless state instead of winning. Jack follows standard matching rules (suit or rank) and can be played as combo. Jack is excluded from valid starting cards (like other special cards 2, 3, 8, Queen, Ace).
 
 ## Technical Context
 
