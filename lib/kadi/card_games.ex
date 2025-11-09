@@ -164,24 +164,27 @@ defmodule Kadi.CardGames do
   @doc """
   Starts a game session, deals cards to players and changes the status to "live"
   """
-  def start_game(game_session) do
+  def start_game(game_session, opts \\ []) do
     players = get_game_session_players(game_session.id)
 
     if Enum.count(players) < 2 do
       {:error, :not_enough_players}
     else
-      do_start_game(game_session, players)
+      do_start_game(game_session, players, opts)
     end
   end
 
-  defp do_start_game(game_session, players) do
+  defp do_start_game(game_session, players, opts) do
     game_session = game_session |> Repo.preload(deck: [deck_cards: :card])
     deck_cards = game_session.deck.deck_cards
 
     # Select a random player to start the turn
     random_player = Enum.random(players)
 
-    with {:ok, dealt_card_changesets, remaining_cards} <- deal_cards(players, deck_cards),
+    exclude_ranks = Keyword.get(opts, :exclude_ranks, [])
+
+    with {:ok, dealt_card_changesets, remaining_cards} <-
+           deal_cards(players, deck_cards, exclude_ranks),
          {:ok, start_card_changeset, _final_cards} <- select_start_card(remaining_cards) do
       # Get the start card's card_id for top_card_id
       start_card_id = start_card_changeset.data.card_id
@@ -983,11 +986,18 @@ defmodule Kadi.CardGames do
     )
   end
 
-  defp deal_cards(players, deck_cards) do
+  defp deal_cards(players, deck_cards, exclude_ranks) do
     # Sort by randomized order_index to ensure non-sequential distribution
     cards_in_deck =
       deck_cards
       |> Enum.filter(&(&1.location_type == "deck"))
+      |> Enum.filter(fn deck_card ->
+        if exclude_ranks == [] do
+          true
+        else
+          deck_card.card.rank not in exclude_ranks
+        end
+      end)
       |> Enum.sort_by(& &1.order_index)
 
     cards_to_deal_count = Enum.count(players) * 4
