@@ -143,18 +143,18 @@
 
 ### Validation Verification
 
-- [ ] T035 [US3] Verify `valid_jack_play?/2` enforces suit/rank matching (completed in Phase 2)
-- [ ] T036 [US3] Verify `valid_play?/2` routes Jack validation correctly (completed in Phase 2)
+- [x] T035 [US3] Verify `valid_jack_play?/2` enforces suit/rank matching (completed in Phase 2)
+- [x] T036 [US3] Verify `valid_play?/2` routes Jack validation correctly (completed in Phase 2)
 
 ### Integration Tests
 
-- [ ] T037 [P] [US3] Add test: Jack matching by suit is accepted in test/kadi/card_games_test.exs
-- [ ] T038 [P] [US3] Add test: Jack matching by rank is accepted in test/kadi/card_games_test.exs
-- [ ] T039 [P] [US3] Add test: Jack not matching suit or rank is rejected in test/kadi/card_games_test.exs
+- [x] T037 [P] [US3] Add test: Jack matching by suit is accepted in test/kadi/card_games_test.exs
+- [x] T038 [P] [US3] Add test: Jack matching by rank is accepted in test/kadi/card_games_test.exs
+- [x] T039 [P] [US3] Add test: Jack not matching suit or rank is rejected in test/kadi/card_games_test.exs
 
 ### Verification
 
-- [ ] T040 [US3] Run matching validation tests: `mix test test/kadi/card_games_test.exs`
+- [x] T040 [US3] Run matching validation tests: `mix test test/kadi/card_games_test.exs`
 
 **Checkpoint**: User Story 3 complete - Jack validation enforces matching rules
 
@@ -170,18 +170,18 @@
 
 ### Combo Validation Tests
 
-- [ ] T041 [P] [US4] Add test: combo with all Jacks, first matches top card - accepted in test/kadi/games/play_validator_test.exs
-- [ ] T042 [P] [US4] Add test: combo with Jack + regular card - rejected in test/kadi/games/play_validator_test.exs
-- [ ] T043 [P] [US4] Add test: combo where neither Jack matches top card - rejected in test/kadi/games/play_validator_test.exs
+- [x] T041 [P] [US4] Add test: combo with all Jacks, first matches top card - accepted in test/kadi/games/play_validator_test.exs
+- [x] T042 [P] [US4] Add test: combo with Jack + regular card - rejected in test/kadi/games/play_validator_test.exs
+- [x] T043 [P] [US4] Add test: combo where neither Jack matches top card - rejected in test/kadi/games/play_validator_test.exs
 
 ### Integration Tests
 
-- [ ] T044 [P] [US4] Add test: play 2-Jack combo matching by suit in test/kadi/card_games_test.exs
-- [ ] T045 [P] [US4] Add test: play 3-Jack combo matching by rank in test/kadi/card_games_test.exs
+- [x] T044 [P] [US4] Add test: play 2-Jack combo matching by suit in test/kadi/card_games_test.exs
+- [x] T045 [P] [US4] Add test: play 3-Jack combo matching by rank in test/kadi/card_games_test.exs
 
 ### Verification
 
-- [ ] T046 [US4] Run combo validation tests: `mix test test/kadi/games/play_validator_test.exs test/kadi/card_games_test.exs`
+- [x] T046 [US4] Run combo validation tests: `mix test test/kadi/games/play_validator_test.exs test/kadi/card_games_test.exs`
 
 **Checkpoint**: User Story 4 complete - Jack combo validation works correctly
 

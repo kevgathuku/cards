@@ -301,4 +301,46 @@ defmodule Kadi.Games.PlayValidatorTest do
       refute PlayValidator.valid_jack_play?([jack], nil)
     end
   end
+
+  describe "Jack combo validation (Phase 6 - User Story 4)" do
+    @tag :phase6
+    @tag :us4
+    test "accepts combo with all Jacks when first matches (T041)" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+
+      jacks = [
+        %Card{suit: "hearts", rank: "jack"},
+        %Card{suit: "clubs", rank: "jack"},
+        %Card{suit: "diamonds", rank: "jack"}
+      ]
+
+      assert PlayValidator.valid_jack_play?(jacks, top_card)
+    end
+
+    @tag :phase6
+    @tag :us4
+    test "rejects combo with Jack + regular card (T042)" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+
+      mixed_cards = [
+        %Card{suit: "hearts", rank: "jack"},
+        %Card{suit: "hearts", rank: "6"}
+      ]
+
+      refute PlayValidator.valid_jack_play?(mixed_cards, top_card)
+    end
+
+    @tag :phase6
+    @tag :us4
+    test "rejects combo where no Jack matches (T043)" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+
+      jacks = [
+        %Card{suit: "clubs", rank: "jack"},
+        %Card{suit: "diamonds", rank: "jack"}
+      ]
+
+      refute PlayValidator.valid_jack_play?(jacks, top_card)
+    end
+  end
 end
