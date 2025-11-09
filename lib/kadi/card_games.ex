@@ -839,11 +839,16 @@ defmodule Kadi.CardGames do
       end
 
     # Calculate skip count: Jack skips N players where N = number of Jacks
-    skip_count = if jack_played?, do: jack_count, else: 1
+    # Skip count = positions to advance = N players skipped + 1 (normal advancement)
+    # Example: 1 Jack skips 1 player → advance 2 positions (P1 → skip P2 → land P3)
+    skip_count = if jack_played?, do: jack_count + 1, else: 1
 
     # Get next player with new direction and skip count (FR-008, Feature 007)
     players = get_game_session_players(game_session.id)
     player_count = length(players)
+
+    # Per spec: "Skip calculation counts all players in the game, including cardless players waiting to draw"
+    # Cardless players are included in the skip count calculation (they occupy positions in turn order)
     next_player = get_next_player_with_direction(players, player.id, new_direction, skip_count)
 
     # Check if player will be cardless after this play (FR-011, FR-012)

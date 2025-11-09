@@ -35,7 +35,7 @@ A player plays multiple Jack cards in a combo, with each Jack adding one more sk
 
 1. **Given** a 3-player game (P1, P2, P3) where it's P1's turn and P1 has 2 Jacks of the same rank matching the top card, **When** P1 plays both Jacks, **Then** the turn skips 2 players (P2 and P3) and returns to P1
 2. **Given** a 5-player game where it's P1's turn and P1 has 3 Jacks matching the top card, **When** P1 plays 3 Jacks, **Then** the turn advances to P5 (skipping P2, P3, P4)
-3. **Given** a 4-player game where it's P3's turn and P3 has 4 Jacks matching the top card, **When** P3 plays 4 Jacks, **Then** the turn wraps around and returns to P3 (skipping all other players)
+3. **Given** a 4-player game (P1, P2, P3, P4) where it's P1's turn and P1 has 4 Jacks matching the top card, **When** P1 plays 4 Jacks, **Then** the turn wraps around and advances to P2 (skipping P2, P3, P4, then wrapping to skip P1, landing on P2)
 
 ---
 

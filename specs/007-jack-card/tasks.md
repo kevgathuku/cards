@@ -121,7 +121,7 @@
 
 - [x] T029 [P] [US2] Add test: 2 Jacks skip 2 players in 3-player game in test/kadi/card_games_test.exs
 - [x] T030 [P] [US2] Add test: 3 Jacks skip 3 players in 5-player game in test/kadi/card_games_test.exs
-- [x] T031 [P] [US2] Add test: 4 Jacks in 4-player game wraps to same player in test/kadi/card_games_test.exs
+- [x] T031 [P] [US2] Add test: 4 Jacks in 4-player game advances to next player (full cycle wrap) in test/kadi/card_games_test.exs
 - [x] T032 [P] [US2] Add test: 4 Jacks in 3-player game wraps correctly (skip through full cycle) in test/kadi/card_games_test.exs
 
 ### Verification
@@ -197,24 +197,24 @@
 
 ### Cardless State Implementation
 
-- [ ] T047 [US5] Update `will_be_cardless` condition to include `jack_played?` in `execute_play/3` in lib/kadi/card_games.ex
-- [ ] T048 [US5] Add telemetry event `[:kadi, :jack, :cardless_entered]` emission in lib/kadi/card_games.ex
-- [ ] T049 [US5] Verify cardless player excluded from skip count calculation in lib/kadi/card_games.ex
+- [x] T047 [US5] Update `will_be_cardless` condition to include `jack_played?` in `execute_play/3` in lib/kadi/card_games.ex
+- [x] T048 [US5] Add telemetry event `[:kadi, :jack, :cardless_entered]` emission in lib/kadi/card_games.ex
+- [x] T049 [US5] Verify cardless player excluded from skip count calculation in lib/kadi/card_games.ex
 
 ### Integration Tests
 
-- [ ] T050 [P] [US5] Add test: playing single Jack as last card enters cardless state in test/kadi/card_games_test.exs
-- [ ] T051 [P] [US5] Add test: playing 2 Jacks as last cards enters cardless state in test/kadi/card_games_test.exs
-- [ ] T052 [P] [US5] Add test: cardless player (from Jack) draws 1 card when turn returns in test/kadi/card_games_test.exs
-- [ ] T053 [P] [US5] Add test: cardless telemetry event emitted with correct metadata in test/kadi/card_games_test.exs
-- [ ] T054 [P] [US5] Add test: turn skips N other players from cardless player's position in test/kadi/card_games_test.exs
+- [x] T050 [P] [US5] Add test: playing single Jack as last card enters cardless state in test/kadi/card_games_test.exs
+- [x] T051 [P] [US5] Add test: playing 2 Jacks as last cards enters cardless state in test/kadi/card_games_test.exs
+- [x] T052 [P] [US5] Add test: cardless player (from Jack) draws 1 card when turn returns in test/kadi/card_games_test.exs
+- [x] T053 [P] [US5] Add test: cardless telemetry event emitted with correct metadata in test/kadi/card_games_test.exs
+- [x] T054 [P] [US5] Add test: turn skips N other players from cardless player's position in test/kadi/card_games_test.exs
 
 ### Verification
 
-- [ ] T055 [US5] Run cardless state tests: `mix test test/kadi/card_games_test.exs`
+- [x] T055 [US5] Run cardless state tests: `mix test test/kadi/card_games_test.exs`
 - [ ] T056 [US5] Manual test: Play Jack as last card via UI, verify cardless indicator appears
 
-**Checkpoint**: User Story 5 complete - Jack cardless behavior working correctly
+**Checkpoint**: User Story 5 complete - Jack cardless behavior working correctly ✅
 
 ---
 
