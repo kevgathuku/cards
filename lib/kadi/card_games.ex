@@ -571,7 +571,7 @@ defmodule Kadi.CardGames do
            {:ok, player} <- get_player_in_session(game_session, player_id),
            {:ok, cards_to_play} <- validate_player_has_cards(game_session, player, card_ids),
            {:ok, top_card} <- get_top_card(game_session),
-           :ok <- validate_can_play(cards_to_play, top_card),
+           :ok <- validate_can_play(cards_to_play, top_card, game_session.action_suit),
            {:ok, updated_game} <- execute_play(game_session, player, cards_to_play) do
         broadcast_game_update(updated_game)
         {:ok, updated_game}
@@ -820,8 +820,10 @@ defmodule Kadi.CardGames do
     end
   end
 
-  defp validate_can_play(cards_to_play, top_card) do
-    if PlayValidator.valid_play?(cards_to_play, top_card) do
+  defp validate_can_play(cards_to_play, top_card, action_suit) do
+    opts = if action_suit, do: [action_suit: action_suit], else: []
+
+    if PlayValidator.valid_play?(cards_to_play, top_card, opts) do
       :ok
     else
       {:error, :invalid_play}
@@ -834,10 +836,9 @@ defmodule Kadi.CardGames do
     # Get current max order_index in played_stack
     max_order = get_max_played_stack_order(game_session)
 
-    # Detect King play (FR-002)
+    # Detect special card plays
+    ace_played? = Enum.any?(cards_to_play, &(&1.rank == "ace"))
     king_played? = Enum.any?(cards_to_play, &(&1.rank == "king"))
-
-    # Detect Jack play (Feature 007)
     jack_played? = Enum.any?(cards_to_play, &(&1.rank == "jack"))
     jack_count = if jack_played?, do: length(cards_to_play), else: 0
 
@@ -849,18 +850,25 @@ defmodule Kadi.CardGames do
         game_session.direction
       end
 
-    # Calculate skip count: Jack skips N players where N = number of Jacks
-    # Skip count = positions to advance = N players skipped + 1 (normal advancement)
-    # Example: 1 Jack skips 1 player → advance 2 positions (P1 → skip P2 → land P3)
+    # Calculate skip count for Jacks
     skip_count = if jack_played?, do: jack_count + 1, else: 1
 
-    # Get next player with new direction and skip count (FR-008, Feature 007)
+    # Get players for turn calculation
     players = get_game_session_players(game_session.id)
     player_count = length(players)
 
-    # Per spec: "Skip calculation counts all players in the game, including cardless players waiting to draw"
-    # Cardless players are included in the skip count calculation (they occupy positions in turn order)
-    next_player = get_next_player_with_direction(players, player.id, new_direction, skip_count)
+    # Determine next player and action type
+    {next_player, action_type} =
+      if ace_played? do
+        # When Ace is played, turn does not advance, awaits suit selection
+        {game_session.current_turn_player, "select_suit"}
+      else
+        # Normal play: advance turn
+        next_player =
+          get_next_player_with_direction(players, player.id, new_direction, skip_count)
+
+        {next_player, nil}
+      end
 
     # Check if player will be cardless after this play (FR-011, FR-012)
     player_hand = get_player_hand_count(game_session, player.id)
@@ -898,7 +906,9 @@ defmodule Kadi.CardGames do
         GameSession.changeset(game_session, %{
           top_card_id: last_card.id,
           current_turn_player_id: next_player.id,
-          direction: new_direction
+          direction: new_direction,
+          action_type: action_type,
+          action_suit: nil
         })
       )
 
@@ -1269,6 +1279,85 @@ defmodule Kadi.CardGames do
         reason: "jack_last_card",
         card_id: card_id,
         timestamp: DateTime.utc_now()
+      }
+    )
+  end
+
+  @doc """
+  Allows the current player to select a suit after playing an Ace.
+
+  Validates that the game is in the "select_suit" state and the player is the
+  current turn player. Updates the game state with the selected suit, advances
+  the turn, and broadcasts the update.
+
+  ## Parameters
+  - game_session: The current game session
+  - player_id: The ID of the player selecting the suit
+  - suit: The suit being selected (e.g., "hearts")
+
+  ## Returns
+  - `{:ok, updated_game_session}`
+  - `{:error, reason}`
+  """
+  def select_suit(game_session, player_id, suit) do
+    with :ok <- validate_current_turn(game_session, player_id),
+         :ok <- validate_action_type(game_session, "select_suit"),
+         :ok <- validate_suit(suit) do
+      players = get_game_session_players(game_session.id)
+      next_player = get_next_player(players, player_id)
+
+      game_session
+      |> GameSession.changeset(%{
+        action_type: nil,
+        action_suit: suit,
+        current_turn_player_id: next_player.id
+      })
+      |> Repo.update()
+      |> case do
+        {:ok, updated_game} ->
+          reloaded_game = Repo.preload(updated_game, [:created_by])
+          broadcast_game_update(reloaded_game)
+
+          emit_ace_suit_selected_event(
+            game_session.id,
+            player_id,
+            suit,
+            reloaded_game.top_card_id
+          )
+
+          {:ok, reloaded_game}
+
+        {:error, changeset} ->
+          {:error, changeset}
+      end
+    end
+  end
+
+  defp validate_action_type(game_session, expected_action) do
+    if game_session.action_type == expected_action do
+      :ok
+    else
+      {:error, :invalid_game_state}
+    end
+  end
+
+  defp validate_suit(suit) do
+    if suit in @suits do
+      :ok
+    else
+      {:error, :invalid_suit}
+    end
+  end
+
+  defp emit_ace_suit_selected_event(game_id, player_id, suit, top_card_id) do
+    :telemetry.execute(
+      [:kadi, :game, :ace_suit_selected],
+      %{count: 1},
+      %{
+        game_id: game_id,
+        player_id: player_id,
+        suit: suit,
+        top_card_id: top_card_id
       }
     )
   end

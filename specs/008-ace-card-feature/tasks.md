@@ -91,38 +91,38 @@
 
 ### Core Ace Play Logic
 
-- [ ] T021 [US1] Add Ace detection in `execute_play/3` in lib/kadi/card_games.ex
-- [ ] T022 [US1] Update `execute_play/3` to set action_type to "select_suit" when Ace played in lib/kadi/card_games.ex
-- [ ] T023 [US1] Ensure turn does NOT advance when Ace played (awaiting suit selection) in lib/kadi/card_games.ex
-- [ ] T024 [US1] Update top_card_id to the played Ace in lib/kadi/card_games.ex
+- [X] T021 [US1] Add Ace detection in `execute_play/3` in lib/kadi/card_games.ex
+- [X] T022 [US1] Update `execute_play/3` to set action_type to "select_suit" when Ace played in lib/kadi/card_games.ex
+- [X] T023 [US1] Ensure turn does NOT advance when Ace played (awaiting suit selection) in lib/kadi/card_games.ex
+- [X] T024 [US1] Update top_card_id to the played Ace in lib/kadi/card_games.ex
 
 ### Suit Selection Logic
 
-- [ ] T025 [US1] Create `select_suit/3` function in lib/kadi/card_games.ex
-- [ ] T026 [US1] Validate player is current turn player in `select_suit/3` in lib/kadi/card_games.ex
-- [ ] T027 [US1] Validate game is in "select_suit" state in `select_suit/3` in lib/kadi/card_games.ex
-- [ ] T028 [US1] Update action_type to nil and action_suit to selected suit in lib/kadi/card_games.ex
-- [ ] T029 [US1] Advance turn to next player after suit selection in lib/kadi/card_games.ex
-- [ ] T030 [US1] Broadcast game update after suit selection in lib/kadi/card_games.ex
+- [X] T025 [US1] Create `select_suit/3` function in lib/kadi/card_games.ex
+- [X] T026 [US1] Validate player is current turn player in `select_suit/3` in lib/kadi/card_games.ex
+- [X] T027 [US1] Validate game is in "select_suit" state in `select_suit/3` in lib/kadi/card_games.ex
+- [X] T028 [US1] Update action_type to nil and action_suit to selected suit in lib/kadi/card_games.ex
+- [X] T029 [US1] Advance turn to next player after suit selection in lib/kadi/card_games.ex
+- [X] T030 [US1] Broadcast game update after suit selection in lib/kadi/card_games.ex
 
 ### Telemetry Integration
 
-- [ ] T031 [P] [US1] Add telemetry event `[:kadi, :ace, :suit_selected]` in lib/kadi/card_games.ex
-- [ ] T032 [P] [US1] Create helper function `emit_ace_suit_selected_event/4` in lib/kadi/card_games.ex
+- [X] T031 [P] [US1] Add telemetry event `[:kadi, :ace, :suit_selected]` in lib/kadi/card_games.ex
+- [X] T032 [P] [US1] Create helper function `emit_ace_suit_selected_event/4` in lib/kadi/card_games.ex
 
 ### Integration Tests
 
-- [ ] T033 [US1] Add test: Playing Ace sets action_type to "select_suit" in test/kadi/card_games_test.exs
-- [ ] T034 [US1] Add test: Turn does not advance when Ace played in test/kadi/card_games_test.exs
-- [ ] T035 [US1] Add test: select_suit updates action_suit and advances turn in test/kadi/card_games_test.exs
-- [ ] T036 [US1] Add test: select_suit with invalid player returns error in test/kadi/card_games_test.exs
-- [ ] T037 [US1] Add test: select_suit with invalid game state returns error in test/kadi/card_games_test.exs
-- [ ] T038 [US1] Add test: Telemetry event emitted on suit selection in test/kadi/card_games_test.exs
+- [X] T033 [US1] Add test: Playing Ace sets action_type to "select_suit" in test/kadi/card_games_test.exs
+- [X] T034 [US1] Add test: Turn does not advance when Ace played in test/kadi/card_games_test.exs
+- [X] T035 [US1] Add test: select_suit updates action_suit and advances turn in test/kadi/card_games_test.exs
+- [X] T036 [US1] Add test: select_suit with invalid player returns error in test/kadi/card_games_test.exs
+- [X] T037 [US1] Add test: select_suit with invalid game state returns error in test/kadi/card_games_test.exs
+- [X] T038 [US1] Add test: Telemetry event emitted on suit selection in test/kadi/card_games_test.exs
 
 ### Verification
 
-- [ ] T039 [US1] Run integration tests: `mix test test/kadi/card_games_test.exs`
-- [ ] T040 [US1] Verify no compilation warnings: `mix compile --warnings-as-errors`
+- [X] T039 [US1] Run integration tests: `mix test test/kadi/card_games_test.exs`
+- [X] T040 [US1] Verify no compilation warnings: `mix compile --warnings-as-errors`
 
 **Checkpoint**: User Story 1 core logic complete - Ace card can be played and suit can be selected via context functions ✅
 
