@@ -88,10 +88,9 @@ defmodule Kadi.Games.PlayValidatorTest do
       end
     end
 
-    test "rejects special cards (2,3,8,Queen,Ace) even when they match - except King and Jack" do
-      # King is now supported in Phase 2 (006-king-card)
-      # Jack is now supported in Phase 3 (007-jack-card)
-      special_ranks = ["2", "3", "8", "queen", "ace"]
+    test "rejects unsupported special cards (2,3,8,Queen) even when they match" do
+      # King is supported in Feature 006, Jack in Feature 007, Ace in Feature 008
+      special_ranks = ["2", "3", "8", "queen"]
 
       for rank <- special_ranks do
         top_card = %Card{suit: "hearts", rank: rank}
@@ -146,6 +145,69 @@ defmodule Kadi.Games.PlayValidatorTest do
       ]
 
       refute PlayValidator.valid_play?(cards, top_card)
+    end
+  end
+
+  describe "valid_play?/3 - ace interactions" do
+    test "accepts ace even when it doesn't match suit or rank" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+      ace = %Card{suit: "clubs", rank: "ace"}
+
+      assert PlayValidator.valid_play?([ace], top_card)
+    end
+
+    test "accepts multiple aces in a single play" do
+      top_card = %Card{suit: "diamonds", rank: "7"}
+
+      cards = [
+        %Card{suit: "clubs", rank: "ace"},
+        %Card{suit: "spades", rank: "ace"}
+      ]
+
+      assert PlayValidator.valid_play?(cards, top_card)
+    end
+
+    test "enforces requested suit for non-ace plays" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+      action_suit = "clubs"
+
+      matching_card = %Card{suit: "clubs", rank: "9"}
+      non_matching_card = %Card{suit: "hearts", rank: "9"}
+
+      assert PlayValidator.valid_play?([matching_card], top_card, action_suit: action_suit)
+      refute PlayValidator.valid_play?([non_matching_card], top_card, action_suit: action_suit)
+    end
+
+    test "allows combo when lead card matches requested suit" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+      action_suit = "spades"
+
+      cards = [
+        %Card{suit: "spades", rank: "9"},
+        %Card{suit: "hearts", rank: "9"}
+      ]
+
+      assert PlayValidator.valid_play?(cards, top_card, action_suit: action_suit)
+    end
+
+    test "rejects combo when lead card mismatches requested suit" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+      action_suit = "spades"
+
+      cards = [
+        %Card{suit: "hearts", rank: "9"},
+        %Card{suit: "spades", rank: "9"}
+      ]
+
+      refute PlayValidator.valid_play?(cards, top_card, action_suit: action_suit)
+    end
+
+    test "allows ace play even when requested suit is enforced" do
+      top_card = %Card{suit: "spades", rank: "10"}
+      action_suit = "hearts"
+      ace = %Card{suit: "clubs", rank: "ace"}
+
+      assert PlayValidator.valid_play?([ace], top_card, action_suit: action_suit)
     end
   end
 

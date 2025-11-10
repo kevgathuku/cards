@@ -78,4 +78,6 @@ test/
 
 ## Complexity Tracking
 
+**Clarification Added (2025-11-10)**: When a suit is requested via Ace, combo plays are validated by checking only the lead (first) card against the requested suit. Subsequent cards in the combo may have different suits. Example: if Spades is requested, playing [9♠, 9♥] is valid because the lead card (9♠) matches the requested suit.
+
 No constitutional violations were identified that require justification.

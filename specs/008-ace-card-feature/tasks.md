@@ -31,11 +31,11 @@
 
 **Estimated Time**: 15-30 minutes
 
-- [ ] T001 Verify all tests pass on main branch: `mix test`
-- [ ] T002 Confirm feature branch `008-ace-card-feature` exists and is checked out
-- [ ] T003 [P] Verify PostgreSQL running and database `kadi_dev` accessible
-- [ ] T004 [P] Review existing King and Jack card implementation patterns in lib/kadi/card_games.ex
-- [ ] T005 [P] Review validation patterns in lib/kadi/games/play_validator.ex
+- [X] T001 Verify all tests pass on main branch: `mix test`
+- [X] T002 Confirm feature branch `008-ace-card-feature` exists and is checked out
+- [X] T003 [P] Verify PostgreSQL running and database `kadi_dev` accessible
+- [X] T004 [P] Review existing King and Jack card implementation patterns in lib/kadi/card_games.ex
+- [X] T005 [P] Review validation patterns in lib/kadi/games/play_validator.ex
 
 ---
 
@@ -49,33 +49,33 @@
 
 ### Database Migration
 
-- [ ] T006 Create migration to add action fields to game_sessions table in priv/repo/migrations/
-- [ ] T007 Run migration: `mix ecto.migrate`
-- [ ] T008 Verify migration rollback works: `mix ecto.rollback`, then re-run migrate
+- [X] T006 Create migration to add action fields to game_sessions table in priv/repo/migrations/
+- [X] T007 Run migration: `mix ecto.migrate`
+- [X] T008 Verify migration rollback works: `mix ecto.rollback`, then re-run migrate
 
 ### Schema Updates
 
-- [ ] T009 Update GameSession schema in lib/kadi/games/game_session.ex with action_type and action_suit fields
-- [ ] T010 Update GameSession changeset in lib/kadi/games/game_session.ex to validate new fields
-- [ ] T011 Add module constants for valid action_types and suits in lib/kadi/games/game_session.ex
+- [X] T009 Update GameSession schema in lib/kadi/games/game_session.ex with action_type and action_suit fields
+- [X] T010 Update GameSession changeset in lib/kadi/games/game_session.ex to validate new fields
+- [X] T011 Add module constants for valid action_types and suits in lib/kadi/games/game_session.ex
 
 ### Validation Infrastructure
 
-- [ ] T012 [P] Add `valid_ace_play?/2` function in lib/kadi/games/play_validator.ex
-- [ ] T013 Update `valid_play?/2` in lib/kadi/games/play_validator.ex to handle Ace detection
-- [ ] T014 Add suit validation when action_suit is set in lib/kadi/games/play_validator.ex
+- [X] T012 [P] Add `valid_ace_play?/2` function in lib/kadi/games/play_validator.ex
+- [X] T013 Update `valid_play?/2` in lib/kadi/games/play_validator.ex to handle Ace detection
+- [X] T014 Add suit validation when action_suit is set in lib/kadi/games/play_validator.ex (Note: Only lead card must match requested suit for combos)
 
 ### Validation Tests
 
-- [ ] T015 [P] Add test: Ace can be played regardless of top card in test/kadi/games/play_validator_test.exs
-- [ ] T016 [P] Add test: Ace matching validates true in test/kadi/games/play_validator_test.exs
-- [ ] T017 [P] Add test: When action_suit set, only matching suit accepted in test/kadi/games/play_validator_test.exs
-- [ ] T018 [P] Add test: When action_suit set, another Ace is also accepted in test/kadi/games/play_validator_test.exs
+- [X] T015 [P] Add test: Ace can be played regardless of top card in test/kadi/games/play_validator_test.exs
+- [X] T016 [P] Add test: Ace matching validates true in test/kadi/games/play_validator_test.exs
+- [X] T017 [P] Add test: When action_suit set, only lead card must match in test/kadi/games/play_validator_test.exs
+- [X] T018 [P] Add test: When action_suit set, another Ace is also accepted in test/kadi/games/play_validator_test.exs
 
 ### Verification
 
-- [ ] T019 Run validation tests: `mix test test/kadi/games/play_validator_test.exs`
-- [ ] T020 Verify no compilation warnings: `mix compile --warnings-as-errors`
+- [X] T019 Run validation tests: `mix test test/kadi/games/play_validator_test.exs`
+- [X] T020 Verify no compilation warnings: `mix compile --warnings-as-errors`
 
 **Checkpoint**: Validation layer and database ready - all user stories can now proceed
 

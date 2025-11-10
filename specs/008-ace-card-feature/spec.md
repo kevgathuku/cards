@@ -47,6 +47,7 @@ As the next player, I must play a card that matches the suit requested by the pl
 1. **Given** the previous player played an Ace and requested 'Diamonds', **When** the current player plays a 'King of Diamonds', **Then** the play is accepted and their turn ends.
 2. **Given** the previous player played an Ace and requested 'Diamonds', **When** the current player attempts to play a 'King of Spades', **Then** the play is rejected and the player is notified they must play a 'Diamond'.
 3. **Given** the previous player played an Ace and requested 'Diamonds' and the current player has no 'Diamonds', **When** the player chooses to draw a card, **Then** they draw one card from the deck and their turn ends.
+4. **Given** the previous player played an Ace and requested 'Spades', **When** the current player plays a combo of '9 of Spades' and '9 of Hearts', **Then** the play is accepted because the lead card matches the requested suit.
 
 ---
 
@@ -79,8 +80,8 @@ As a player, if the previous player set a suit with an Ace, I want to be able to
 - **FR-001**: The system MUST allow a player to play an Ace card at any time during their turn, regardless of the top card's suit or rank.
 - **FR-002**: Upon playing an Ace, the system MUST prompt the player to select a suit by displaying a button for each of the four suits (Clubs, Diamonds, Hearts, Spades).
 - **FR-003**: The system MUST update the game state to reflect the player's chosen suit as the required suit for the next turn.
-- **FR-004**: The system MUST validate the next player's move, enforcing that the played card's suit matches the requested suit.
-- **FR-005**: If a player's card does not match the requested suit, the system MUST reject the play, unless that card is also an Ace.
+- **FR-004**: The system MUST validate the next player's move, enforcing that the lead card's suit matches the requested suit (for combos, subsequent cards may have different suits).
+- **FR-005**: If a player's lead card does not match the requested suit, the system MUST reject the play, unless that card is also an Ace.
 - **FR-006**: If a player does not have any cards of the requested suit, their only valid move is to draw one card from the deck.
 - **FR-007**: Playing an Ace card MUST be a valid move even when a suit has been requested by a previous Ace.
 - **FR-008**: A player MAY play multiple Aces in a single turn if they have them; this action has the same effect as playing a single Ace and only prompts for a suit choice once.

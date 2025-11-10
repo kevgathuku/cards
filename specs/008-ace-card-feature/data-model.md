@@ -21,7 +21,7 @@ To support the Ace card's functionality and other potential special actions, the
   - **Data Type**: `string`
   - **Nullable**: `true`
   - **Default Value**: `NULL`
-  - **Description**: Stores the suit that the next player must follow, as requested by a special card action.
+  - **Description**: Stores the suit that the next player must follow, as requested by a special card action. For combo plays, only the lead (first) card must match this suit.
 
 ## 2. `Kadi.Games.GameSession` Ecto Schema
 

@@ -30,6 +30,7 @@ This document outlines the findings from analyzing the existing codebase to dete
 
 - A new function clause for `valid_play?/2` will be added to handle plays where the `cards_to_play` list contains an Ace. An Ace can be played at any time, so this validation will always return `true`.
 - The main `valid_play?/2` function will be modified to check for a `requested_suit` on the game session. If a `requested_suit` is present, the played card must match that suit (unless it's another Ace).
+- **Combo Validation**: When a requested suit is enforced, only the lead (first) card in a combo needs to match the requested suit. This follows the existing game pattern where combo validation checks if the lead card meets requirements. Example: if Clubs is requested, playing [4♣, 4♥] is valid.
 
 ## 3. User Interface (LiveView)
 
