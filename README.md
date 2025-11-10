@@ -6,7 +6,7 @@ A multiplayer online card game platform built with Elixir and Phoenix LiveView, 
 
 ### Installation
 
-- [Install Elixir](https://elixir-lang.org/install.html) (version 1.14+)
+- [Install Elixir](https://elixir-lang.org/install.html) (version 1.17+)
 - Clone the repo: `git clone https://github.com/yourusername/kadi.git`
 - Run `mix setup` to install and setup dependencies
 - Run `.githooks/install.sh` to install git hooks (optional but recommended)

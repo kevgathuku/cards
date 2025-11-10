@@ -9,7 +9,7 @@ This plan outlines the technical implementation for the "Ace Card Special Action
 
 ## Technical Context
 
-**Language/Version**: Elixir 1.15+ (based on project files)
+**Language/Version**: Elixir 1.17+ (based on project files)
 **Primary Dependencies**: Phoenix 1.7+, Ecto 3.9+
 **Storage**: PostgreSQL
 **Testing**: ExUnit

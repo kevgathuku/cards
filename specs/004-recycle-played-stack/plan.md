@@ -12,7 +12,7 @@ Automatically rebuild the deck from played stack cards when a player attempts to
 
 ## Technical Context
 
-**Language/Version**: Elixir 1.14+ (OTP 25+)  
+**Language/Version**: Elixir 1.17+ (OTP 25+)  
 **Primary Dependencies**: Phoenix 1.7, Phoenix LiveView, Ecto 3.x  
 **Storage**: PostgreSQL (via Ecto) - `deck_cards` table with `location_type`, `order_index`, `player_id` columns  
 **Testing**: ExUnit with Ecto Sandbox (`:manual` mode for async tests where applicable)  

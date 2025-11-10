@@ -13,7 +13,7 @@ Ensure that when cards are dealt to players at game start, they are distributed 
 
 ## Technical Context
 
-**Language/Version**: Elixir 1.14+ (OTP 25+)
+**Language/Version**: Elixir 1.17+ (OTP 25+)
 **Primary Dependencies**: Phoenix 1.7, Phoenix LiveView, Ecto 3.x
 **Storage**: PostgreSQL (via Ecto) - `deck_cards` table with `order_index` column
 **Testing**: ExUnit with Ecto Sandbox (`:manual` mode for async tests)
