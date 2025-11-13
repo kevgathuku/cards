@@ -670,7 +670,7 @@ defmodule KadiWeb.GameLiveTest do
       game_session =
         Kadi.Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
 
-      # Find a non-matching card
+      # Find a non-matching card (excluding aces, which are always valid)
       top_card = game_session.top_card
 
       non_matching_card =
@@ -678,7 +678,7 @@ defmodule KadiWeb.GameLiveTest do
         |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == player1.id))
         |> Enum.find(fn dc ->
           card = dc.card
-          card.suit != top_card.suit and card.rank != top_card.rank
+          card.suit != top_card.suit and card.rank != top_card.rank and card.rank != "ace"
         end)
 
       if non_matching_card do
