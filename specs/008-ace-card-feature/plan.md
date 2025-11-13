@@ -1,51 +1,50 @@
 # Implementation Plan: Ace Card Special Action
 
-**Branch**: `008-ace-card-feature` | **Date**: 2025-11-10 | **Spec**: [spec.md](./spec.md)
+**Branch**: `008-ace-card-feature` | **Date**: 2025-11-10 | **Spec**: [spec.md](spec.md)
 **Input**: Feature specification from `/specs/008-ace-card-feature/spec.md`
+
+**Note**: This plan documents the implementation of the Ace card feature, which allows players to change the required suit for subsequent plays.
 
 ## Summary
 
-This plan outlines the technical implementation for the "Ace Card Special Action" feature. The feature allows a player to play an Ace at any time to change the required suit for the next turn. The implementation involves modifying the core game logic in `Kadi.CardGames`, updating the `GameSession` data model to track the requested suit, and enhancing the `GameLive` view to handle the new user interaction for selecting a suit.
+Implements the Ace card special ability: players can play an Ace at any time (regardless of top card suit/rank), then select a suit that the next player must follow. The implementation uses database-driven state management with two new fields (`action_type` and `action_suit`) on the `game_sessions` table to track the suit-selection workflow and enforce the suit requirement on subsequent plays.
 
 ## Technical Context
 
-**Language/Version**: Elixir 1.17+ (based on project files)
-**Primary Dependencies**: Phoenix 1.7+, Ecto 3.9+
-**Storage**: PostgreSQL
-**Testing**: ExUnit
-**Target Platform**: Web
-**Project Type**: Phoenix Web Application (Monolith)
-**Performance Goals**: LiveView updates should be broadcast and rendered in < 100ms.
-**Constraints**: The implementation must not block the `GameLive` process and should handle the intermediate state (awaiting suit selection) gracefully.
-**Scale/Scope**: The changes are scoped to the existing `Kadi.CardGames` context and the `KadiWeb.GameLive` view.
+**Language/Version**: Elixir 1.17+ with OTP 25+  
+**Primary Dependencies**: Phoenix 1.7, Phoenix LiveView 1.7, Ecto 3.x  
+**Storage**: PostgreSQL via Ecto (database-driven game state)  
+**Testing**: ExUnit with Ecto.Sandbox `:manual` mode  
+**Target Platform**: Web application (Phoenix LiveView real-time updates)
+**Project Type**: Web application (backend + frontend in Phoenix LiveView)  
+**Performance Goals**: Real-time updates via WebSocket, <100ms turn processing  
+**Constraints**: Database-driven state (no in-memory game servers), backward compatible with features 001-007  
+**Scale/Scope**: Multiplayer card game with 2-6 players per session
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-- **[PASS]** 1. Code Quality: The plan adheres to Elixir idioms, respects context boundaries, and proposes adding documentation.
-- **[PASS]** 2. Testing Standards: New logic will require new unit and integration tests.
-- **[PASS]** 3. UX Consistency: The plan uses existing LiveView patterns for user interaction.
-- **[PASS]** 4. Performance: The proposed changes are lightweight and should not impact performance.
-- **[PASS]** 5. Security: The plan relies on existing server-side validation within the `CardGames` context.
-- **[PASS]** 6. Git Workflow: All work is being done on a feature branch.
-- **[PASS]** 7. Documentation: New artifacts (`data-model.md`, `contracts/`, etc.) are being created.
-
-**Result**: All gates pass.
+✅ **Code Quality**: Uses pure functions in `PlayValidator`, database context in `CardGames`  
+✅ **Context Boundaries**: Changes isolated to `Kadi.CardGames` and `Kadi.Games.GameSession`  
+✅ **Error Handling**: Uses `{:ok, result}` / `{:error, reason}` pattern throughout  
+✅ **Feature Reuse**: Extends features 005 (basic gameplay) and 006/007 (King/Jack special cards)  
+✅ **Schema Verification**: Migration `20251110192017_add_action_fields_to_game_sessions.exs` adds `action_type` and `action_suit` fields  
+✅ **DRY Principle**: Tests moved to `Kadi.CardGames.SpecialCardsAceTest` to avoid duplication  
+✅ **Test Coverage**: Comprehensive unit tests for Ace gameplay, suit selection, and validation
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/008-ace-card-feature/
-├── plan.md              # This file
-├── research.md          # Phase 0 output
-├── data-model.md        # Phase 1 output
-├── quickstart.md        # Phase 1 output
-├── contracts/           # Phase 1 output
-│   └── live_view_events.md
-└── tasks.md             # Phase 2 output (NOT created by this command)
+specs/[###-feature]/
+├── plan.md              # This file (/speckit.plan command output)
+├── research.md          # Phase 0 output (/speckit.plan command)
+├── data-model.md        # Phase 1 output (/speckit.plan command)
+├── quickstart.md        # Phase 1 output (/speckit.plan command)
+├── contracts/           # Phase 1 output (/speckit.plan command)
+└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
 ```
 
 ### Source Code (repository root)
@@ -53,31 +52,36 @@ specs/008-ace-card-feature/
 ```text
 lib/
 ├── kadi/
-│   ├── card_games.ex
+│   ├── card_games.ex                    # MODIFIED: Added select_suit/3, updated play_cards
 │   └── games/
-│       ├── game_session.ex
-│       └── play_validator.ex
-└── kadi_web/
-    └── live/
-        └── game_live.ex
+│       ├── game_session.ex               # MODIFIED: Added action_type, action_suit fields
+│       └── play_validator.ex             # MODIFIED: Added valid_play?/3 with action_suit param
+├── kadi_web/
+│   └── live/
+│       ├── game_live.ex                  # MODIFIED: Added select_suit event handler
+│       └── game_live.html.heex           # MODIFIED: Added suit selection UI
 
-priv/
-└── repo/
-    └── migrations/
-        └── <timestamp>_add_action_fields_to_game_sessions.exs
+priv/repo/migrations/
+└── 20251110192017_add_action_fields_to_game_sessions.exs  # NEW: Migration
 
 test/
 ├── kadi/
-│   └── card_games_test.exs
+│   ├── card_games/
+│   │   └── special_cards_ace_test.exs    # NEW: Ace card tests (moved from card_games_test.exs)
+│   └── games/
+│       └── play_validator_test.exs       # MODIFIED: Updated to valid_play?/3
 └── kadi_web/
     └── live/
-        └── game_live_test.exs
+        └── game_live_test.exs            # MODIFIED: Added select_suit tests
 ```
 
-**Structure Decision**: The implementation will modify existing files within the standard Phoenix project structure. No new top-level directories are required. This aligns with the principle of integrating with existing contexts.
+**Structure Decision**: Phoenix LiveView web application. All changes follow existing Phoenix conventions with context-based architecture (`Kadi.CardGames` context, `Kadi.Games` schemas). Tests mirror source structure and have been reorganized to avoid duplication (Ace tests moved to dedicated file `special_cards_ace_test.exs`).
 
 ## Complexity Tracking
 
-**Clarification Added (2025-11-10)**: When a suit is requested via Ace, combo plays are validated by checking only the lead (first) card against the requested suit. Subsequent cards in the combo may have different suits. Example: if Spades is requested, playing [9♠, 9♥] is valid because the lead card (9♠) matches the requested suit.
+> **Fill ONLY if Constitution Check has violations that must be justified**
 
-No constitutional violations were identified that require justification.
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|------------|-------------------------------------|
+| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
+| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
