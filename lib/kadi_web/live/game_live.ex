@@ -131,12 +131,17 @@ defmodule KadiWeb.GameLive do
            |> assign(selected_cards: [])}
 
         {:error, :invalid_play} ->
+          # T063: Show specific error when action_suit requirement not met
+          error_msg =
+            if game_session.action_suit do
+              "Invalid play - you must play a card matching the required suit (#{String.capitalize(game_session.action_suit)}) or an Ace"
+            else
+              "Invalid play - card(s) don't match the top card or are not yet implemented"
+            end
+
           {:noreply,
            socket
-           |> put_flash(
-             :error,
-             "Invalid play - card(s) don't match the top card or are not yet implemented"
-           )
+           |> put_flash(:error, error_msg)
            |> assign(selected_cards: [])}
 
         {:error, :cards_not_in_hand} ->
@@ -342,4 +347,20 @@ defmodule KadiWeb.GameLive do
   defp direction_label("clockwise"), do: "Clockwise"
   defp direction_label("counter_clockwise"), do: "Counter-clockwise"
   defp direction_label(_), do: "Clockwise"
+
+  # T061: Suit symbol helper for UI display
+  defp suit_symbol("hearts"), do: "♥"
+  defp suit_symbol("diamonds"), do: "♦"
+  defp suit_symbol("clubs"), do: "♣"
+  defp suit_symbol("spades"), do: "♠"
+  defp suit_symbol(_), do: ""
+
+  # T062: Helper to determine card CSS class based on selection and required suit
+  defp card_class(is_selected, matches_required_suit) do
+    cond do
+      is_selected -> "bg-blue-100 border-blue-500 border-2 -translate-y-2"
+      matches_required_suit -> "bg-green-100 border-green-500 border-2"
+      true -> "bg-white hover:bg-gray-50"
+    end
+  end
 end
