@@ -1070,8 +1070,8 @@ defmodule Kadi.CardGames do
   defp select_start_card(deck_cards) do
     # Per FR-003: Kings are allowed as start cards (no direction reversal occurs)
     # Aces are also allowed as start cards (player can play any suit, no suit selection required)
-    # Other special cards (2, 3, jack, queen) are excluded
-    special_ranks = ["2", "3", "jack", "queen"]
+    # Other special cards (2, 3, 8, jack, queen) are excluded
+    special_ranks = ["2", "3", "8", "jack", "queen"]
     shuffled_cards = Enum.shuffle(deck_cards)
 
     start_card =
