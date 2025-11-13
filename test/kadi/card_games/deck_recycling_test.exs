@@ -1,5 +1,5 @@
 defmodule Kadi.CardGames.DeckRecyclingTest do
-  use Kadi.DataCase
+  use Kadi.DataCase, async: true
 
   import Ecto.Query, warn: false
   alias Kadi.CardGames
