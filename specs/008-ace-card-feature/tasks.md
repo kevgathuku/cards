@@ -248,12 +248,12 @@
 - [ ] T078 [P] Add test: Ace after King respects counter-clockwise direction in test/kadi/card_games_test.exs
 - [ ] T079 [P] Add test: King after Ace preserves action_suit in test/kadi/card_games_test.exs
 - [ ] T080 [P] Add test: Jack after Ace skips players but preserves action_suit in test/kadi/card_games_test.exs
-- [ ] T081 [P] Add test: Ace excluded from starting cards in test/kadi/card_games_test.exs
+- [ ] T081 [P] Add test: Ace allowed as starting card, first player can play any suit in test/kadi/card_games_test.exs
 
 ### Starting Card Logic
 
-- [ ] T082 Verify "ace" is in excluded start cards list in lib/kadi/card_games.ex
-- [ ] T083 Add "ace" to special_ranks if not already present in lib/kadi/card_games.ex
+- [ ] T082 Verify "ace" is NOT in excluded start cards list in lib/kadi/card_games.ex
+- [ ] T083 Remove "ace" from special_ranks excluded list if present in lib/kadi/card_games.ex
 
 ### Disconnection Handling
 

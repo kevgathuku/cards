@@ -20,6 +20,7 @@
 
 - Q: When should the requested suit requirement be cleared? → A: Persist the requested suit across multiple turns until either (1) a player successfully plays a card matching the requested suit, or (2) a player plays an Ace and sets a new suit.
 - Q: What happens to the requested suit when a player draws a card? → A: The requested suit persists after a player draws (their turn ends but the suit requirement remains active for the next player).
+- Q: Can an Ace be selected as the starting card when dealing? → A: Yes, Aces are allowed as starting cards. When an Ace is the starting card, the first player can play any suit without needing to select a suit requirement (it behaves like a played Ace but without requesting a specific suit).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -75,6 +76,7 @@ As a player, if the previous player set a suit with an Ace, I want to be able to
 ### Edge Cases
 
 - What happens if a player plays an Ace as their very last card? The player wins, and the suit-changing effect does not apply to the next game.
+- What happens if an Ace is selected as the starting card? The Ace is allowed as a starting card. The first player can play any suit without needing to match a specific suit (it behaves like a played Ace but without requesting a specific suit).
 - What happens if the draw deck is empty and a player needs to draw because they don't have the requested suit? The played cards are recycled to form a new draw deck.
 - Can a player play an Ace even if they have other playable cards (of the required suit)? Yes, an Ace can be played at any time.
 - What happens if a player disconnects after playing an Ace but before selecting a suit? The game is paused for that player, who is prompted to complete the move upon reconnecting.
