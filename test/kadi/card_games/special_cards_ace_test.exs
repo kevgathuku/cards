@@ -476,5 +476,289 @@ defmodule Kadi.CardGames.SpecialCardsAceTest do
       # action_suit should now be cleared since matching suit was played
       assert final_game.action_suit == nil
     end
+
+    test "[T070] playing Ace when action_suit is set triggers suit selection", %{
+      game: game_session
+    } do
+      # Reload game session with associations
+      game_session =
+        Repo.preload(game_session, [:top_card, :current_turn_player, deck: [deck_cards: :card]],
+          force: true
+        )
+
+      current_player = game_session.current_turn_player
+
+      # Get ordered players
+      players =
+        game_session.id
+        |> CardGames.get_game_session_players()
+        |> Enum.sort_by(& &1.inserted_at, DateTime)
+
+      current_index = Enum.find_index(players, &(&1.id == current_player.id))
+      next_player_index = rem(current_index + 1, length(players))
+      next_player = Enum.at(players, next_player_index)
+
+      # First, play an Ace and set action_suit to "hearts"
+      ace_deck_card1 =
+        game_session.deck.deck_cards
+        |> Enum.find(&(&1.card.rank == "ace" && &1.location_type == "deck"))
+
+      {:ok, _} =
+        DeckCard.changeset(ace_deck_card1, %{
+          location_type: "player_hand",
+          player_id: current_player.id,
+          order_index: nil
+        })
+        |> Repo.update()
+
+      game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
+
+      {:ok, paused_game} =
+        CardGames.play_cards(game_session, current_player.id, [ace_deck_card1.card.id])
+
+      {:ok, game_with_suit} = CardGames.select_suit(paused_game, current_player.id, "hearts")
+
+      # Verify action_suit is "hearts" and turn advanced
+      assert game_with_suit.action_suit == "hearts"
+      assert game_with_suit.current_turn_player_id == next_player.id
+
+      # Reload and find another Ace for next player
+      game_with_suit = Repo.preload(game_with_suit, [deck: [deck_cards: :card]], force: true)
+
+      ace_deck_card2 =
+        game_with_suit.deck.deck_cards
+        |> Enum.find(
+          &(&1.card.rank == "ace" && &1.location_type == "deck" &&
+              &1.card_id != ace_deck_card1.card_id)
+        )
+
+      {:ok, _} =
+        DeckCard.changeset(ace_deck_card2, %{
+          location_type: "player_hand",
+          player_id: next_player.id,
+          order_index: nil
+        })
+        |> Repo.update()
+
+      game_with_suit = Repo.get!(Kadi.Games.GameSession, game_with_suit.id)
+
+      # Next player plays Ace even though action_suit is set
+      {:ok, paused_again} =
+        CardGames.play_cards(game_with_suit, next_player.id, [ace_deck_card2.card.id])
+
+      # Ace play should succeed and trigger suit selection
+      assert paused_again.action_type == "select_suit"
+      assert paused_again.current_turn_player_id == next_player.id
+      # action_suit should be cleared (nil) until new suit is selected
+      assert paused_again.action_suit == nil
+    end
+
+    test "[T071] new selected suit replaces old action_suit", %{
+      game: game_session
+    } do
+      # Reload game session with associations
+      game_session =
+        Repo.preload(game_session, [:top_card, :current_turn_player, deck: [deck_cards: :card]],
+          force: true
+        )
+
+      current_player = game_session.current_turn_player
+
+      # Get ordered players
+      players =
+        game_session.id
+        |> CardGames.get_game_session_players()
+        |> Enum.sort_by(& &1.inserted_at, DateTime)
+
+      current_index = Enum.find_index(players, &(&1.id == current_player.id))
+      next_player_index = rem(current_index + 1, length(players))
+      next_player = Enum.at(players, next_player_index)
+
+      # First Ace: set action_suit to "clubs"
+      ace_deck_card1 =
+        game_session.deck.deck_cards
+        |> Enum.find(&(&1.card.rank == "ace" && &1.location_type == "deck"))
+
+      {:ok, _} =
+        DeckCard.changeset(ace_deck_card1, %{
+          location_type: "player_hand",
+          player_id: current_player.id,
+          order_index: nil
+        })
+        |> Repo.update()
+
+      game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
+
+      {:ok, paused_game} =
+        CardGames.play_cards(game_session, current_player.id, [ace_deck_card1.card.id])
+
+      {:ok, game_with_clubs} = CardGames.select_suit(paused_game, current_player.id, "clubs")
+
+      assert game_with_clubs.action_suit == "clubs"
+      assert game_with_clubs.current_turn_player_id == next_player.id
+
+      # Reload and find another Ace for next player
+      game_with_clubs = Repo.preload(game_with_clubs, [deck: [deck_cards: :card]], force: true)
+
+      ace_deck_card2 =
+        game_with_clubs.deck.deck_cards
+        |> Enum.find(
+          &(&1.card.rank == "ace" && &1.location_type == "deck" &&
+              &1.card_id != ace_deck_card1.card_id)
+        )
+
+      {:ok, _} =
+        DeckCard.changeset(ace_deck_card2, %{
+          location_type: "player_hand",
+          player_id: next_player.id,
+          order_index: nil
+        })
+        |> Repo.update()
+
+      game_with_clubs = Repo.get!(Kadi.Games.GameSession, game_with_clubs.id)
+
+      # Second Ace: override with "diamonds"
+      {:ok, paused_again} =
+        CardGames.play_cards(game_with_clubs, next_player.id, [ace_deck_card2.card.id])
+
+      {:ok, game_with_diamonds} = CardGames.select_suit(paused_again, next_player.id, "diamonds")
+
+      # Old action_suit should be replaced
+      assert game_with_diamonds.action_suit == "diamonds"
+      refute game_with_diamonds.action_suit == "clubs"
+    end
+
+    test "[T072] next player must follow new suit, not old suit", %{
+      game: game_session
+    } do
+      # Reload game session with associations
+      game_session =
+        Repo.preload(game_session, [:top_card, :current_turn_player, deck: [deck_cards: :card]],
+          force: true
+        )
+
+      current_player = game_session.current_turn_player
+
+      # Get ordered players
+      players =
+        game_session.id
+        |> CardGames.get_game_session_players()
+        |> Enum.sort_by(& &1.inserted_at, DateTime)
+
+      current_index = Enum.find_index(players, &(&1.id == current_player.id))
+      next_player_index = rem(current_index + 1, length(players))
+      next_player = Enum.at(players, next_player_index)
+      third_player_index = rem(next_player_index + 1, length(players))
+      third_player = Enum.at(players, third_player_index)
+
+      # First Ace: set action_suit to "spades"
+      ace_deck_card1 =
+        game_session.deck.deck_cards
+        |> Enum.find(&(&1.card.rank == "ace" && &1.location_type == "deck"))
+
+      {:ok, _} =
+        DeckCard.changeset(ace_deck_card1, %{
+          location_type: "player_hand",
+          player_id: current_player.id,
+          order_index: nil
+        })
+        |> Repo.update()
+
+      game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
+
+      {:ok, paused_game} =
+        CardGames.play_cards(game_session, current_player.id, [ace_deck_card1.card.id])
+
+      {:ok, game_with_spades} = CardGames.select_suit(paused_game, current_player.id, "spades")
+
+      assert game_with_spades.action_suit == "spades"
+
+      # Reload and find another Ace for next player
+      game_with_spades = Repo.preload(game_with_spades, [deck: [deck_cards: :card]], force: true)
+
+      ace_deck_card2 =
+        game_with_spades.deck.deck_cards
+        |> Enum.find(
+          &(&1.card.rank == "ace" && &1.location_type == "deck" &&
+              &1.card_id != ace_deck_card1.card_id)
+        )
+
+      {:ok, _} =
+        DeckCard.changeset(ace_deck_card2, %{
+          location_type: "player_hand",
+          player_id: next_player.id,
+          order_index: nil
+        })
+        |> Repo.update()
+
+      game_with_spades = Repo.get!(Kadi.Games.GameSession, game_with_spades.id)
+
+      # Second Ace: override with "hearts"
+      {:ok, paused_again} =
+        CardGames.play_cards(game_with_spades, next_player.id, [ace_deck_card2.card.id])
+
+      {:ok, game_with_hearts} = CardGames.select_suit(paused_again, next_player.id, "hearts")
+
+      assert game_with_hearts.action_suit == "hearts"
+      assert game_with_hearts.current_turn_player_id == third_player.id
+
+      # Reload and find cards for third player
+      game_with_hearts = Repo.preload(game_with_hearts, [deck: [deck_cards: :card]], force: true)
+
+      regular_ranks = ["4", "5", "6", "7", "9", "10"]
+
+      # Try to play a spade (old suit) - should fail
+      spade_deck_card =
+        game_with_hearts.deck.deck_cards
+        |> Enum.find(
+          &(&1.card.suit == "spades" && &1.card.rank in regular_ranks &&
+              &1.location_type == "deck")
+        )
+
+      if spade_deck_card do
+        {:ok, _} =
+          DeckCard.changeset(spade_deck_card, %{
+            location_type: "player_hand",
+            player_id: third_player.id,
+            order_index: nil
+          })
+          |> Repo.update()
+
+        game_with_hearts = Repo.get!(Kadi.Games.GameSession, game_with_hearts.id)
+
+        # Playing spade should fail (old suit requirement)
+        {:error, reason} =
+          CardGames.play_cards(game_with_hearts, third_player.id, [spade_deck_card.card.id])
+
+        assert reason == :invalid_play
+      end
+
+      # Reload
+      game_with_hearts = Repo.preload(game_with_hearts, [deck: [deck_cards: :card]], force: true)
+
+      # Playing a heart (new suit) should succeed
+      heart_deck_card =
+        game_with_hearts.deck.deck_cards
+        |> Enum.find(
+          &(&1.card.suit == "hearts" && &1.card.rank in regular_ranks &&
+              &1.location_type == "deck")
+        )
+
+      {:ok, _} =
+        DeckCard.changeset(heart_deck_card, %{
+          location_type: "player_hand",
+          player_id: third_player.id,
+          order_index: nil
+        })
+        |> Repo.update()
+
+      game_with_hearts = Repo.get!(Kadi.Games.GameSession, game_with_hearts.id)
+
+      {:ok, final_game} =
+        CardGames.play_cards(game_with_hearts, third_player.id, [heart_deck_card.card.id])
+
+      # action_suit should be cleared after matching suit played
+      assert final_game.action_suit == nil
+    end
   end
 end

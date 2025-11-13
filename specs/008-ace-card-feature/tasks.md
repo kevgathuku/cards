@@ -214,20 +214,20 @@
 
 ### Override Logic
 
-- [ ] T066 [US3] Verify Ace validation already bypasses action_suit check (from T053) in lib/kadi/games/play_validator.ex
-- [ ] T067 [US3] Verify `execute_play/3` handles Ace when action_suit is set in lib/kadi/card_games.ex
-- [ ] T068 [US3] Ensure old action_suit is cleared when new Ace played in lib/kadi/card_games.ex
-- [ ] T069 [US3] Verify `select_suit/3` replaces previous action_suit with new selection in lib/kadi/card_games.ex
+- [X] T066 [US3] Verify Ace validation already bypasses action_suit check (from T053) in lib/kadi/games/play_validator.ex
+- [X] T067 [US3] Verify `execute_play/3` handles Ace when action_suit is set in lib/kadi/card_games.ex
+- [X] T068 [US3] Ensure old action_suit is cleared when new Ace played in lib/kadi/card_games.ex
+- [X] T069 [US3] Verify `select_suit/3` replaces previous action_suit with new selection in lib/kadi/card_games.ex
 
 ### Integration Tests
 
-- [ ] T070 [P] [US3] Add test: Playing Ace when action_suit is set triggers suit selection in test/kadi/card_games/special_cards_ace_test.exs
-- [ ] T071 [P] [US3] Add test: New selected suit replaces old action_suit in test/kadi/card_games/special_cards_ace_test.exs
-- [ ] T072 [P] [US3] Add test: Next player must follow new suit, not old suit in test/kadi/card_games/special_cards_ace_test.exs
+- [X] T070 [P] [US3] Add test: Playing Ace when action_suit is set triggers suit selection in test/kadi/card_games/special_cards_ace_test.exs
+- [X] T071 [P] [US3] Add test: New selected suit replaces old action_suit in test/kadi/card_games/special_cards_ace_test.exs
+- [X] T072 [P] [US3] Add test: Next player must follow new suit, not old suit in test/kadi/card_games/special_cards_ace_test.exs
 
 ### Verification
 
-- [ ] T073 [US3] Run override tests: `mix test test/kadi/card_games/special_cards_ace_test.exs`
+- [X] T073 [US3] Run override tests: `mix test test/kadi/card_games/special_cards_ace_test.exs`
 
 **Checkpoint**: User Story 3 complete - Ace can override existing suit requirements ✅
 
