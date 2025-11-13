@@ -32,6 +32,42 @@
     </div>
   <% end %>
 
+  <%= if @game_session.action_type == "select_suit" and @current_turn_player.id == @current_player.id do %>
+    <div class="mt-4 p-4 bg-yellow-100 border border-yellow-300 rounded-lg text-center">
+      <p class="text-lg font-semibold text-yellow-800">Select a suit:</p>
+      <div class="mt-2 flex justify-center space-x-2">
+        <.button
+          phx-click="select_suit"
+          phx-value-suit="hearts"
+          class="bg-red-500 hover:bg-red-600"
+        >
+          ♥ Hearts
+        </.button>
+        <.button
+          phx-click="select_suit"
+          phx-value-suit="diamonds"
+          class="bg-red-500 hover:bg-red-600"
+        >
+          ♦ Diamonds
+        </.button>
+        <.button
+          phx-click="select_suit"
+          phx-value-suit="clubs"
+          class="bg-gray-800 hover:bg-gray-900"
+        >
+          ♣ Clubs
+        </.button>
+        <.button
+          phx-click="select_suit"
+          phx-value-suit="spades"
+          class="bg-gray-800 hover:bg-gray-900"
+        >
+          ♠ Spades
+        </.button>
+      </div>
+    </div>
+  <% end %>
+
   <%!-- T038: Direction Indicator --%>
   <div
     class="mt-4 p-3 bg-gray-50 border border-gray-300 rounded-lg flex items-center justify-center gap-2"

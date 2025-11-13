@@ -155,6 +155,21 @@ defmodule KadiWeb.GameLive do
   end
 
   @impl true
+  def handle_event("select_suit", %{"suit" => suit}, socket) do
+    game_session = socket.assigns.game_session
+    current_player = socket.assigns.current_player
+
+    case CardGames.select_suit(game_session, current_player.id, suit) do
+      {:ok, _updated_game_session} ->
+        # Wait for broadcast
+        {:noreply, socket}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Error selecting suit: #{reason}")}
+    end
+  end
+
+  @impl true
   def handle_info(
         %Phoenix.Socket.Broadcast{event: "game_updated", payload: %{game_session: nil}},
         socket

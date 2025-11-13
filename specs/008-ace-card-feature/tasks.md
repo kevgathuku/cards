@@ -138,20 +138,20 @@
 
 ### LiveView UI Implementation
 
-- [ ] T041 [US1] Add `handle_event("select_suit", ...)` in lib/kadi_web/live/game_live.ex
-- [ ] T042 [US1] Add conditional rendering for suit selection buttons in lib/kadi_web/live/game_live.html.heex
-- [ ] T043 [US1] Style suit selection buttons using Tailwind CSS in lib/kadi_web/live/game_live.html.heex
-- [ ] T044 [US1] Display message "Select a suit:" when awaiting selection in lib/kadi_web/live/game_live.html.heex
+- [X] T041 [US1] Add `handle_event("select_suit", ...)` in lib/kadi_web/live/game_live.ex
+- [X] T042 [US1] Add conditional rendering for suit selection buttons in lib/kadi_web/live/game_live.html.heex
+- [X] T043 [US1] Style suit selection buttons using Tailwind CSS in lib/kadi_web/live/game_live.html.heex
+- [X] T044 [US1] Display message "Select a suit:" when awaiting selection in lib/kadi_web/live/game_live.html.heex
 
 ### LiveView Tests
 
-- [ ] T045 [US1] Add test: Suit selection buttons appear after Ace played in test/kadi_web/live/game_live_test.exs
-- [ ] T046 [US1] Add test: Clicking suit button calls select_suit event in test/kadi_web/live/game_live_test.exs
-- [ ] T047 [US1] Add test: Suit selection buttons disappear after selection in test/kadi_web/live/game_live_test.exs
+- [X] T045 [US1] Add test: Suit selection buttons appear after Ace played in test/kadi_web/live/game_live_test.exs
+- [X] T046 [US1] Add test: Clicking suit button calls select_suit event in test/kadi_web/live/game_live_test.exs
+- [X] T047 [US1] Add test: Suit selection buttons disappear after selection in test/kadi_web/live/game_live_test.exs
 
 ### Verification
 
-- [ ] T048 [US1] Run LiveView tests: `mix test test/kadi_web/live/game_live_test.exs`
+- [X] T048 [US1] Run LiveView tests: `mix test test/kadi_web/live/game_live_test.exs`
 - [ ] T049 [US1] Manual test: Play Ace via UI, select suit, verify state update
 
 **Checkpoint**: User Story 1 UI complete - Full Ace play and suit selection working in UI ✅

@@ -906,4 +906,131 @@ defmodule KadiWeb.GameLiveTest do
       assert html2 =~ player1.email
     end
   end
+
+  describe "Ace Card UI" do
+    setup do
+      player1 = player_fixture()
+      player2 = player_fixture(%{email: "player2@example.com"})
+
+      {:ok, game_session} = CardGames.create_game_session(player1, %{short_code: "ace-live-test"})
+      {:ok, _} = CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session, exclude_ranks: ["ace"])
+
+      game_session = Kadi.Repo.preload(game_session, :current_turn_player)
+      current_player = game_session.current_turn_player
+
+      other_player = if current_player.id == player1.id, do: player2, else: player1
+
+      # Manually give an Ace to the current player
+      ace_card_id = deal_card_to_player(game_session, current_player, "ace", "spades")
+
+      game_session = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
+
+      %{
+        current_player: current_player,
+        other_player: other_player,
+        game_session: game_session,
+        ace_card_id: ace_card_id
+      }
+    end
+
+    test "Suit selection buttons appear after Ace played", %{
+      current_player: current_player,
+      game_session: game_session,
+      ace_card_id: ace_card_id
+    } do
+      conn = log_in_player(build_conn(), current_player)
+      {:ok, view, _html} = live(conn, ~p"/games/#{game_session.id}")
+
+      # Play the Ace card
+      render_click(view, "toggle_card", %{"card_id" => to_string(ace_card_id)})
+      render_click(view, "play_cards")
+      Process.sleep(100)
+      html = render(view)
+
+      # Verify suit selection UI is visible
+      assert html =~ "Select a suit:"
+      assert html =~ "phx-click=\"select_suit\""
+      assert html =~ "phx-value-suit=\"hearts\""
+      assert html =~ "phx-value-suit=\"diamonds\""
+      assert html =~ "phx-value-suit=\"clubs\""
+      assert html =~ "phx-value-suit=\"spades\""
+    end
+
+    test "Clicking suit button calls select_suit event", %{
+      current_player: current_player,
+      other_player: other_player,
+      game_session: game_session,
+      ace_card_id: ace_card_id
+    } do
+      conn = log_in_player(build_conn(), current_player)
+      {:ok, view, _html} = live(conn, ~p"/games/#{game_session.id}")
+
+      # Play the Ace card
+      render_click(view, "toggle_card", %{"card_id" => to_string(ace_card_id)})
+      render_click(view, "play_cards")
+      Process.sleep(100)
+
+      # Click a suit button
+      render_click(view, "select_suit", %{"suit" => "clubs"})
+      Process.sleep(100)
+      html = render(view)
+
+      # Verify the game state updated and UI changed
+      refute html =~ "Select a suit:"
+      # Turn should have advanced to other_player
+      assert html =~ other_player.email
+
+      {:ok, updated_game} = CardGames.get_game_session(game_session.id)
+      assert updated_game.action_suit == "clubs"
+      assert updated_game.action_type == nil
+    end
+
+    test "Suit selection buttons disappear after selection", %{
+      current_player: current_player,
+      game_session: game_session,
+      ace_card_id: ace_card_id
+    } do
+      conn = log_in_player(build_conn(), current_player)
+      {:ok, view, _html} = live(conn, ~p"/games/#{game_session.id}")
+
+      # Play the Ace
+      render_click(view, "toggle_card", %{"card_id" => to_string(ace_card_id)})
+      render_click(view, "play_cards")
+      Process.sleep(100)
+      html_before = render(view)
+
+      assert html_before =~ "Select a suit:"
+
+      # Select a suit
+      render_click(view, "select_suit", %{"suit" => "spades"})
+      Process.sleep(100)
+      html_after = render(view)
+
+      # Verify buttons are gone
+      refute html_after =~ "Select a suit:"
+      refute html_after =~ "phx-click=\"select_suit\""
+    end
+  end
+
+  defp deal_card_to_player(game_session, player, rank, suit) do
+    card = Kadi.Repo.get_by!(Kadi.Games.Card, rank: rank, suit: suit)
+    deck = Kadi.Repo.get_by!(Kadi.Games.Deck, game_session_id: game_session.id)
+
+    # Find the deck_card for the card to be dealt
+    deck_card =
+      Kadi.Repo.get_by!(Kadi.Games.DeckCard, deck_id: deck.id, card_id: card.id)
+
+    # Update the deck_card to be in the player's hand
+    deck_card
+    |> Kadi.Games.DeckCard.changeset(%{
+      location_type: "player_hand",
+      player_id: player.id,
+      order_index: nil
+    })
+    |> Kadi.Repo.update!()
+
+    # Return the card_id
+    card.id
+  end
 end
