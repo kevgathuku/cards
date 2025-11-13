@@ -194,7 +194,7 @@
 
 ### Verification
 
-- [ ] T064 [US2] Run enforcement tests: `mix test test/kadi/card_games_test.exs`
+- [X] T064 [US2] Run enforcement tests: `mix test test/kadi/card_games_test.exs`
 - [ ] T065 [US2] Manual test: Play non-matching card after Ace, verify rejection
 
 **Checkpoint**: User Story 2 complete - suit requirement enforced ✅

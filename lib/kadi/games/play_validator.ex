@@ -42,15 +42,13 @@ defmodule Kadi.Games.PlayValidator do
       iex> PlayValidator.valid_play?(cards, top_card)
       false
   """
-  def valid_play?(cards, top_card), do: valid_play?(cards, top_card, [])
-
-  def valid_play?([], _top_card, _opts), do: false
-  def valid_play?(_cards, nil, _opts), do: false
+  def valid_play?(_, nil, _), do: false
+  def valid_play?([], _, _), do: false
 
   def valid_play?([single_card], top_card, opts) do
     action_suit = Keyword.get(opts, :action_suit)
 
-    {valid?, type} =
+    {valid?, _type} =
       cond do
         single_card.rank == "ace" ->
           {valid_ace_play?([single_card], top_card, action_suit), :ace}
@@ -68,13 +66,13 @@ defmodule Kadi.Games.PlayValidator do
           {false, :unknown}
       end
 
-    valid? and action_suit_allows?([single_card], action_suit, type)
+    valid?
   end
 
   def valid_play?(cards, top_card, opts) when is_list(cards) do
     action_suit = Keyword.get(opts, :action_suit)
 
-    {valid?, type} =
+    {valid?, _type} =
       cond do
         all_aces?(cards) ->
           {valid_ace_play?(cards, top_card, action_suit), :ace}
@@ -92,7 +90,7 @@ defmodule Kadi.Games.PlayValidator do
           {false, :unknown}
       end
 
-    valid? and action_suit_allows?(cards, action_suit, type)
+    valid?
   end
 
   @doc """
@@ -121,8 +119,7 @@ defmodule Kadi.Games.PlayValidator do
     base_valid = matches_suit_or_rank?(king_card, top_card)
 
     if action_suit do
-      # When action_suit is set, king must match the action_suit OR the top card's rank
-      base_valid and (king_card.suit == action_suit or king_card.rank == top_card.rank)
+      king_card.suit == action_suit
     else
       base_valid
     end
@@ -237,10 +234,8 @@ defmodule Kadi.Games.PlayValidator do
 
   defp validate_single_card(card, top_card, action_suit) do
     if action_suit do
-      # When action_suit is set, card must match the action_suit OR the top card's rank
-      card.suit == action_suit or card.rank == top_card.rank
+      card.suit == action_suit
     else
-      # Normal matching: suit OR rank
       matches_suit_or_rank?(card, top_card)
     end
   end
@@ -262,21 +257,11 @@ defmodule Kadi.Games.PlayValidator do
 
   defp first_card_matches?([first_card | _rest], top_card, action_suit) do
     if action_suit do
-      # When action_suit is set, first card must match the action_suit OR the top card's rank
-      first_card.suit == action_suit or first_card.rank == top_card.rank
+      first_card.suit == action_suit
     else
-      # Normal matching: suit OR rank
       matches_suit_or_rank?(first_card, top_card)
     end
   end
 
   defp first_card_matches?([], _top_card, _action_suit), do: false
-
-  defp action_suit_allows?(_cards, nil, _type), do: true
-  defp action_suit_allows?(_cards, _suit, :ace), do: true
-  defp action_suit_allows?([], _suit, _type), do: false
-
-  defp action_suit_allows?([first_card | _], suit, _type) do
-    first_card.suit == suit
-  end
 end

@@ -421,7 +421,8 @@ defmodule Kadi.CardGames do
               multi_with_status,
               :game_session,
               GameSession.changeset(game_session, %{
-                current_turn_player_id: next_player.id
+                current_turn_player_id: next_player.id,
+                action_suit: nil
               })
             )
 
