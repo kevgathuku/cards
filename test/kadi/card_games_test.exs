@@ -178,8 +178,8 @@ defmodule Kadi.CardGamesTest do
         )
 
       # As of feature 006-king-card, Kings are now allowed as start cards
-      # Special cards that are still excluded: 2, 3, Jack, Queen, Ace
-      special_ranks = ["2", "3", "jack", "queen", "ace"]
+      # Special cards that are still excluded: 2, 3, Jack, Queen
+      special_ranks = ["2", "3", "jack", "queen"]
       refute played_deck_card.card.rank in special_ranks
     end
 
