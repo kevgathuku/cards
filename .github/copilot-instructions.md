@@ -381,6 +381,8 @@ For most development tasks, the commands and patterns documented here are suffic
 ## Active Technologies
 - Elixir 1.17+ with OTP 25+ + Phoenix 1.7, Phoenix LiveView, Ecto 3.x (007-jack-card)
 - PostgreSQL (via Ecto) - existing game_sessions, game_session_players, deck_cards tables (007-jack-card)
+- Elixir 1.17+ with OTP 25+ + Phoenix 1.7, Phoenix LiveView 1.7, Ecto 3.x (008-ace-card-feature)
+- PostgreSQL via Ecto (database-driven game state) (008-ace-card-feature)
 
 ## Recent Changes
 - 007-jack-card: Added Elixir 1.17+ with OTP 25+ + Phoenix 1.7, Phoenix LiveView, Ecto 3.x

@@ -1,9 +1,10 @@
 # LiveView Event Contracts for Ace Card Feature
 
-**Date**: 2025-11-10
+**Date**: 2025-11-10  
+**Updated**: 2025-11-13 (suit persistence behavior)  
 **Feature**: Ace Card Special Action
 
-This document defines the client-server interaction contracts for the Ace card feature, which is implemented using Phoenix LiveView.
+This document defines the client-server interaction contracts for the Ace card feature, with updated behavior for persistent suit requirements.
 
 ## 1. Overview
 
@@ -68,7 +69,7 @@ When the next player plays a card:
 
 This is a more robust way to handle the intermediate state. The `data-model.md` should be updated to reflect this more detailed design.
 
-**Final Contract:**
+**Final Contract (Updated 2025-11-13 for Persistence)**:
 
 - **`play_cards` with an Ace**:
   - Server sets `game_session.action_type` to `"select_suit"`.
@@ -78,6 +79,17 @@ This is a more robust way to handle the intermediate state. The `data-model.md` 
 - **`select_suit` event**:
   - Client sends `%{ "suit": "spades" }`.
   - Server sets `action_type` to `nil`, sets `action_suit` to `"spades"`, advances the turn, and broadcasts `game_updated`.
+  - **`action_suit` persists** across subsequent turns.
+- **`draw_card` event (Updated 2025-11-13)**:
+  - Server draws card for player and advances turn.
+  - **Server DOES NOT clear `action_suit`** - requirement persists for next player.
+  - Server broadcasts `game_updated` with `action_suit` still set.
 - **Next `play_cards` event**:
   - Server validator uses `action_suit` to check for validity.
-  - On valid play, server sets `action_suit` to `nil`.
+  - **On valid play matching `action_suit`**: Server sets `action_suit` to `nil` and broadcasts.
+  - **On Ace play**: Server replaces `action_suit` with new suit selection (via `select_suit` event).
+  - **On invalid play (non-matching suit)**: Server rejects play, `action_suit` remains unchanged.
+- **Client UI (Persistent Indicator)**:
+  - If `socket.assigns.game_session.action_suit` is set, display persistent banner: "Required suit: ♥/♦/♣/♠"
+  - Highlight cards matching `action_suit` (or Aces) in green border.
+  - Show specific error message if player attempts to play non-matching card.

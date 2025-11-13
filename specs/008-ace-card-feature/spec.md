@@ -16,6 +16,11 @@
 - Q: When recycling the played cards to form a new draw deck, should the current top card on the play pile be included in the new deck? → A: No, the top card of the play pile is left in place and is not included in the new draw deck.
 - Q: What should happen if a player must draw, but the draw deck is empty and there are no cards to recycle? → A: Log anomaly and skip (pass turn).
 
+### Session 2025-11-13
+
+- Q: When should the requested suit requirement be cleared? → A: Persist the requested suit across multiple turns until either (1) a player successfully plays a card matching the requested suit, or (2) a player plays an Ace and sets a new suit.
+- Q: What happens to the requested suit when a player draws a card? → A: The requested suit persists after a player draws (their turn ends but the suit requirement remains active for the next player).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Player uses an Ace to change the required suit (Priority: P1)
@@ -44,10 +49,12 @@ As the next player, I must play a card that matches the suit requested by the pl
 
 **Acceptance Scenarios**:
 
-1. **Given** the previous player played an Ace and requested 'Diamonds', **When** the current player plays a 'King of Diamonds', **Then** the play is accepted and their turn ends.
+1. **Given** the previous player played an Ace and requested 'Diamonds', **When** the current player plays a 'King of Diamonds', **Then** the play is accepted, their turn ends, and the requested suit requirement is cleared.
 2. **Given** the previous player played an Ace and requested 'Diamonds', **When** the current player attempts to play a 'King of Spades', **Then** the play is rejected and the player is notified they must play a 'Diamond'.
-3. **Given** the previous player played an Ace and requested 'Diamonds' and the current player has no 'Diamonds', **When** the player chooses to draw a card, **Then** they draw one card from the deck and their turn ends.
-4. **Given** the previous player played an Ace and requested 'Spades', **When** the current player plays a combo of '9 of Spades' and '9 of Hearts', **Then** the play is accepted because the lead card matches the requested suit.
+3. **Given** the previous player played an Ace and requested 'Diamonds' and the current player has no 'Diamonds', **When** the player chooses to draw a card, **Then** they draw one card from the deck, their turn ends, and the requested suit requirement persists for the next player.
+4. **Given** the previous player played an Ace and requested 'Spades', **When** the current player plays a combo of '9 of Spades' and '9 of Hearts', **Then** the play is accepted because the lead card matches the requested suit, and the requested suit requirement is cleared.
+5. **Given** Player A played an Ace and requested 'Hearts', and Player B drew a card (because they had no Hearts), **When** it becomes Player C's turn, **Then** Player C must still play a Heart or draw a card.
+6. **Given** the requested suit is 'Clubs' and has persisted for two turns with players drawing, **When** a player finally plays a 'Club', **Then** the requested suit requirement is cleared.
 
 ---
 
@@ -61,7 +68,7 @@ As a player, if the previous player set a suit with an Ace, I want to be able to
 
 **Acceptance Scenarios**:
 
-1. **Given** the previous player played an Ace and requested 'Hearts', **When** the current player plays an 'Ace of Clubs' and requests 'Spades', **Then** the play is accepted and the new required suit for the next player is 'Spades'.
+1. **Given** the previous player played an Ace and requested 'Hearts', **When** the current player plays an 'Ace of Clubs' and requests 'Spades', **Then** the play is accepted and the new required suit for the next player is 'Spades' (the previous 'Hearts' requirement is cleared).
 
 ---
 
@@ -72,6 +79,7 @@ As a player, if the previous player set a suit with an Ace, I want to be able to
 - Can a player play an Ace even if they have other playable cards (of the required suit)? Yes, an Ace can be played at any time.
 - What happens if a player disconnects after playing an Ace but before selecting a suit? The game is paused for that player, who is prompted to complete the move upon reconnecting.
 - What happens if a player must draw when the draw deck is empty and there are no cards in the play pile to recycle? The system should log this anomaly, and the player's turn is skipped.
+- What happens if multiple players in a row must draw because none of them have the requested suit? The requested suit requirement persists until someone plays a matching card or plays an Ace to change it.
 
 ## Requirements *(mandatory)*
 
@@ -79,10 +87,10 @@ As a player, if the previous player set a suit with an Ace, I want to be able to
 
 - **FR-001**: The system MUST allow a player to play an Ace card at any time during their turn, regardless of the top card's suit or rank.
 - **FR-002**: Upon playing an Ace, the system MUST prompt the player to select a suit by displaying a button for each of the four suits (Clubs, Diamonds, Hearts, Spades).
-- **FR-003**: The system MUST update the game state to reflect the player's chosen suit as the required suit for the next turn.
+- **FR-003**: The system MUST update the game state to reflect the player's chosen suit as the required suit, which persists across multiple turns until either (1) a player successfully plays a card matching the requested suit, or (2) a player plays an Ace and sets a new suit.
 - **FR-004**: The system MUST validate the next player's move, enforcing that the lead card's suit matches the requested suit (for combos, subsequent cards may have different suits).
 - **FR-005**: If a player's lead card does not match the requested suit, the system MUST reject the play, unless that card is also an Ace.
-- **FR-006**: If a player does not have any cards of the requested suit, their only valid move is to draw one card from the deck.
+- **FR-006**: If a player does not have any cards of the requested suit, their only valid move is to draw one card from the deck; after drawing, their turn ends and the requested suit requirement persists for the next player.
 - **FR-007**: Playing an Ace card MUST be a valid move even when a suit has been requested by a previous Ace.
 - **FR-008**: A player MAY play multiple Aces in a single turn if they have them; this action has the same effect as playing a single Ace and only prompts for a suit choice once.
 - **FR-009**: When the draw deck is replenished by recycling the play pile, the top card of the play pile MUST be left in place and not be included in the new draw deck.
@@ -105,5 +113,6 @@ As a player, if the previous player set a suit with an Ace, I want to be able to
 
 ## Assumptions
 
-- After a player draws a card because they cannot play the requested suit, their turn ends. They cannot play the drawn card in the same turn, even if it matches the requested suit.
+- After a player draws a card because they cannot play the requested suit, their turn ends. They cannot play the drawn card in the same turn, even if it matches the requested suit. The requested suit requirement persists for the next player.
 - The game has a mechanism to handle an empty draw deck. If a player must draw but the deck is empty, the played cards are recycled to form a new draw deck.
+- When a player successfully plays a card matching the requested suit, the requested suit requirement is cleared and normal gameplay resumes.

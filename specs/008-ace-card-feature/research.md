@@ -1,9 +1,10 @@
 # Research & Analysis for Ace Card Feature
 
-**Date**: 2025-11-10
+**Date**: 2025-11-10  
+**Updated**: 2025-11-13 (suit persistence clarifications)  
 **Feature**: Ace Card Special Action
 
-This document outlines the findings from analyzing the existing codebase to determine the implementation strategy for the Ace card feature.
+This document outlines the findings from analyzing the existing codebase to determine the implementation strategy for the Ace card feature, with updated decisions based on clarified suit persistence requirements.
 
 ## 1. Core Logic and State Management
 
@@ -52,9 +53,79 @@ This document outlines the findings from analyzing the existing codebase to dete
 
 - **Primary Schema**: `Kadi.Games.GameSession` is the correct place to store game-wide state.
 - **Database Docs**: `docs/database-relationships.md` provides clear guidance on schema conventions.
+- **Existing Fields**: Migration `20251110192017_add_action_fields_to_game_sessions.exs` already added `action_type` and `action_suit` fields.
 
 ### Decision
 
-- A new nullable field, `requested_suit`, will be added to the `game_sessions` table.
-- A new migration will be created to add this column.
-- The `Kadi.Games.GameSession` Ecto schema and changeset will be updated to include the new field. The changeset will validate that the value is one of the four valid suits or `nil`.
+- Use existing `action_suit` field (already in `game_sessions` table) to track the requested suit.
+- **NO NEW MIGRATION NEEDED** - the field exists but wasn't fully activated in gameplay logic.
+- The `Kadi.Games.GameSession` schema already includes `action_suit` with proper validation.
+- **Key Implementation Change (2025-11-13)**: The `action_suit` field will persist across turns and only be cleared when:
+  1. A player successfully plays a card matching the requested suit (in `execute_play/3`), OR
+  2. A player plays an Ace and sets a new suit (in `select_suit/3`)
+- **DO NOT clear** `action_suit` in `draw_card_from_deck/2` - this allows the requirement to persist when players draw.
+
+---
+
+## 5. Suit Persistence Strategy (Updated 2025-11-13)
+
+### Findings from Clarifications
+
+- **Session 2025-11-13 Clarification**: "The requested suit persists across multiple turns until either (1) a player successfully plays a card matching the requested suit, or (2) a player plays an Ace and sets a new suit."
+- **Draw Behavior**: "The requested suit persists after a player draws (their turn ends but the suit requirement remains active for the next player)."
+
+### Decision
+
+**Persistence Lifecycle**:
+```
+NULL (no requirement)
+  ↓ [Ace played + suit selected in select_suit/3]
+"hearts"|"diamonds"|"clubs"|"spades"
+  ↓ [Player draws via draw_card_from_deck/2 - NO CHANGE]
+"hearts"|"diamonds"|"clubs"|"spades" (persists)
+  ↓ [Multiple players may draw in sequence]
+"hearts"|"diamonds"|"clubs"|"spades" (still persists)
+  ↓ [Matching suit played in execute_play/3 OR new Ace]
+NULL (requirement cleared)
+```
+
+**Implementation Points**:
+- `select_suit/3`: Sets `action_suit` to chosen suit
+- `execute_play/3`: Clears `action_suit` to `nil` when non-Ace card matching suit is played
+- `draw_card_from_deck/2`: **Does NOT modify** `action_suit` (previous implementation incorrectly cleared it)
+- `PlayValidator.valid_play?/3`: Checks `action_suit` parameter on every validation
+
+**Rationale**:
+- Creates strategic depth - players cannot bypass requirement by drawing
+- Prevents degenerate "draw until requirement expires" strategy
+- Matches traditional card game mechanics where special effects persist until resolved
+- Guarantees eventual resolution through deck recycling (played cards shuffle back into deck)
+
+---
+
+## 6. Edge Case: Multiple Consecutive Draws
+
+### Scenario
+
+What if all players must draw because none have the required suit?
+
+### Decision
+
+- Requirement persists through all draws until resolution
+- Deck recycling (when empty) ensures cards re-enter circulation
+- Eventually a player will draw the required suit or an Ace
+- This creates game tension and strategic value
+
+**Example Flow**:
+1. Player A plays Ace, requests Hearts
+2. Player B draws (no Hearts) → Hearts requirement persists
+3. Player C draws (no Hearts) → Hearts requirement persists  
+4. Player D draws (no Hearts) → Hearts requirement persists
+5. Back to Player A → still must play Hearts or draw
+6. Continue until someone draws a Heart (plays it next turn) or draws an Ace (overrides)
+
+**Deck Empty Handling** (from spec):
+- Recycle played cards except top card
+- Shuffled deck includes various suits
+- Increases probability of resolution
+

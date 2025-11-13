@@ -1,9 +1,10 @@
 # Data Model for Ace Card Feature
 
-**Date**: 2025-11-10
+**Date**: 2025-11-10  
+**Updated**: 2025-11-13 (suit persistence state transitions)  
 **Feature**: Ace Card Special Action
 
-This document describes the data model changes required to implement the Ace card feature. The design is based on the findings in `research.md`.
+This document describes the data model for the Ace card feature, with updated state transition logic based on clarified suit persistence requirements.
 
 ## 1. `game_sessions` Table Modification
 
@@ -21,7 +22,12 @@ To support the Ace card's functionality and other potential special actions, the
   - **Data Type**: `string`
   - **Nullable**: `true`
   - **Default Value**: `NULL`
-  - **Description**: Stores the suit that the next player must follow, as requested by a special card action. For combo plays, only the lead (first) card must match this suit.
+  - **Description**: Stores the suit that subsequent players must follow, as requested by an Ace play. **Persists across multiple turns** until either (1) a player successfully plays a card matching this suit, or (2) a player plays an Ace and sets a new suit. Does NOT clear when players draw cards. For combo plays, only the lead (first) card must match this suit.
+  - **Lifecycle** (Updated 2025-11-13):
+    - Set to suit name when Ace played and suit selected
+    - Persists through draw actions
+    - Cleared to NULL when matching suit played or new Ace overrides
+  - **Valid Values**: `"hearts"`, `"diamonds"`, `"clubs"`, `"spades"`, or `NULL`
 
 ## 2. `Kadi.Games.GameSession` Ecto Schema
 
@@ -144,13 +150,50 @@ def select_suit(game_session, player_id, suit)
 - Validates the suit is one of: `"hearts"`, `"diamonds"`, `"clubs"`, `"spades"`
 
 **Effects**:
-- Sets `action_suit` to the selected suit
+- Sets `action_suit` to the selected suit (**PERSISTS until cleared by matching play or new Ace**)
 - Clears `action_type` (back to `nil`)
 - Advances the turn to the next player
 - Broadcasts game update via PubSub
 - Emits telemetry event `[:kadi, :game, :ace_suit_selected]`
 
-### 4.3 Validation Changes
+### 4.3 `draw_card_from_deck/2` - Modified Behavior (Updated 2025-11-13)
+
+**CRITICAL CHANGE**: The `draw_card_from_deck/2` function **does NOT clear** `action_suit`.
+
+**Previous Behavior** (Incorrect): Cleared `action_suit` to `nil` after draw  
+**Updated Behavior** (Correct): Leaves `action_suit` unchanged when player draws
+
+**Rationale**: Based on clarified requirement that "the requested suit persists after a player draws (their turn ends but the suit requirement remains active for the next player)."
+
+**Implementation**:
+```elixir
+def draw_card_from_deck(game_session, player_id) do
+  # ... draw logic ...
+  # Advance turn but DO NOT modify action_suit
+  # action_suit persists for next player
+end
+```
+
+### 4.4 `execute_play/3` - Clear Action Suit on Matching Play
+
+**Purpose**: Clears `action_suit` when a player successfully plays a card matching the required suit.
+
+**Logic**:
+```elixir
+def execute_play(game_session, cards_to_play, player_id) do
+  # ... play logic ...
+  
+  # If action_suit is set and cards_to_play is not an Ace:
+  #   - Check if lead card matches action_suit
+  #   - If match, clear action_suit to nil
+  
+  # If cards_to_play contains an Ace:
+  #   - Set action_type to "select_suit"
+  #   - Wait for select_suit/3 to set new action_suit
+end
+```
+
+### 4.5 Validation Changes
 
 The `play_cards/3` validation logic now passes `action_suit` to `PlayValidator.valid_play?/3`:
 
@@ -158,9 +201,55 @@ The `play_cards/3` validation logic now passes `action_suit` to `PlayValidator.v
 validate_can_play(cards_to_play, top_card, game_session.action_suit)
 ```
 
-## 5. Play Validation (Kadi.Games.PlayValidator)
+## 5. Action Suit State Transitions (Updated 2025-11-13)
 
-**IMPLEMENTED**: The `PlayValidator` module has been updated to support the Ace card's suit requirement.
+### State Diagram
+
+```
+┌─────────────────────────────────────────────┐
+│ action_suit = NULL                          │
+│ (No suit requirement)                       │
+└────────────┬────────────────────────────────┘
+             │
+             │ Ace played + suit selected
+             │ (select_suit/3)
+             ▼
+┌─────────────────────────────────────────────┐
+│ action_suit = "hearts"|"diamonds"|          │
+│               "clubs"|"spades"              │
+│ (Suit requirement ACTIVE)                   │
+└────┬────────────────────────────────────┬───┘
+     │                                    │
+     │ Player draws                       │ Matching card played OR
+     │ (draw_card_from_deck/2)           │ New Ace played
+     │ → NO CHANGE                        │ (execute_play/3 or select_suit/3)
+     │                                    │
+     └──────────────────┐                 │
+                        │                 │
+                        ▼                 ▼
+               ┌────────────────┐  ┌─────────────┐
+               │ PERSISTS       │  │ CLEARED     │
+               │ (stays same)   │  │ (set to NULL)│
+               └────────┬───────┘  └──────────────┘
+                        │
+                        │ Eventually:
+                        │ matching card or Ace
+                        │
+                        └─────────► Back to NULL
+```
+
+### Transition Rules
+
+| Event | Current action_suit | New action_suit | Notes |
+|-------|-------------------|----------------|-------|
+| Ace played | Any | `nil` | Temporarily cleared; waiting for suit selection |
+| Suit selected | `nil` | `"hearts"` etc | Player chooses suit via select_suit/3 |
+| Player draws | `"hearts"` | `"hearts"` | **NO CHANGE** - requirement persists |
+| Matching suit played | `"hearts"` | `nil` | Requirement fulfilled and cleared |
+| Non-matching suit attempted | `"hearts"` | `"hearts"` | Play rejected, requirement unchanged |
+| New Ace played | `"hearts"` | `nil` → new suit | Old requirement replaced by new selection |
+
+## 6. Play Validation (Kadi.Games.PlayValidator)
 
 ### 5.1 `valid_play?/3` - Modified Signature
 

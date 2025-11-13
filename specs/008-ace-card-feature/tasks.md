@@ -3,11 +3,14 @@
 **Input**: Design documents from `/specs/008-ace-card-feature/`  
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, quickstart.md, contracts/  
 **Branch**: `008-ace-card-feature`  
+**Updated**: 2025-11-13 (suit persistence requirements)  
 **Estimated Total Time**: 8-12 hours
 
 **Tests**: Tests are included as this is a core gameplay feature requiring comprehensive coverage.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
+
+**CRITICAL UPDATE (2025-11-13)**: Suit persistence behavior clarified - `action_suit` must persist across draws and multiple turns until matching suit played or new Ace overrides.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -160,44 +163,73 @@
 
 ## Phase 5: User Story 2 - Subsequent player must follow requested suit (Priority: P2) ✅
 
-**Goal**: Enforce that next player must play card matching requested suit or draw
+**Goal**: Enforce that next player must play card matching requested suit or draw. **CRITICAL (2025-11-13)**: Suit requirement persists across draws and multiple turns.
 
-**Independent Test**: Following US1 test, verify next player can only play matching suit or must draw
+**Independent Test**: Following US1 test, verify next player can only play matching suit or must draw. Verify suit requirement persists after draw.
 
 **Estimated Time**: 2-3 hours
 
 ### Enforcement Logic
 
-- [ ] T050 [US2] Update `validate_can_play/2` to check action_suit in lib/kadi/card_games.ex
-- [ ] T051 [US2] Ensure validation rejects non-matching suit when action_suit set in lib/kadi/card_games.ex
-- [ ] T052 [US2] Clear action_suit after successful matching play in lib/kadi/card_games.ex
-- [ ] T053 [US2] Ensure Ace bypasses action_suit validation in lib/kadi/card_games.ex
+- [X] T050 [US2] Update `validate_can_play/2` to check action_suit in lib/kadi/card_games.ex
+- [X] T051 [US2] Ensure validation rejects non-matching suit when action_suit set in lib/kadi/card_games.ex
+- [X] T052 [US2] Clear action_suit after successful matching play in lib/kadi/card_games.ex
+- [X] T053 [US2] Ensure Ace bypasses action_suit validation in lib/kadi/card_games.ex
 
-### Draw Card Logic
+### Draw Card Logic (UPDATED 2025-11-13)
 
-- [ ] T054 [US2] Update `draw_card_from_deck/2` to clear action_suit after draw in lib/kadi/card_games.ex
-- [ ] T055 [US2] Ensure drawn card cannot be played in same turn in lib/kadi/card_games.ex
+- [X] T054 [US2] **CRITICAL UPDATE**: Verify `draw_card_from_deck/2` does NOT clear action_suit (requirement persists) in lib/kadi/card_games.ex
+- [X] T055 [US2] Ensure drawn card cannot be played in same turn in lib/kadi/card_games.ex
 
-### Integration Tests
+### Integration Tests (UPDATED 2025-11-13)
 
-- [ ] T056 [P] [US2] Add test: Next player can play matching suit card in test/kadi/card_games_test.exs
-- [ ] T057 [P] [US2] Add test: Next player cannot play non-matching suit card in test/kadi/card_games_test.exs
-- [ ] T058 [P] [US2] Add test: Player with no matching suit can draw card in test/kadi/card_games_test.exs
-- [ ] T059 [P] [US2] Add test: action_suit cleared after successful play in test/kadi/card_games_test.exs
-- [ ] T060 [P] [US2] Add test: action_suit cleared after draw in test/kadi/card_games_test.exs
+- [X] T056 [P] [US2] Add test: Next player can play matching suit card in test/kadi/card_games/special_cards_ace_test.exs
+- [X] T057 [P] [US2] Add test: Next player cannot play non-matching suit card in test/kadi/card_games/special_cards_ace_test.exs
+- [X] T058 [P] [US2] **UPDATED**: Add test: After draw, action_suit persists for next player in test/kadi/card_games/special_cards_ace_test.exs
+- [X] T059 [P] [US2] Add test: action_suit cleared after successful matching play in test/kadi/card_games/special_cards_ace_test.exs
+- [X] T060 [P] [US2] **UPDATED**: Add test: Multiple players drawing in sequence, action_suit persists until matching card played in test/kadi/card_games/special_cards_ace_test.exs
 
 ### UI Enhancement
 
-- [ ] T061 [US2] Display active suit requirement in UI in lib/kadi_web/live/game_live.html.heex
-- [ ] T062 [US2] Highlight cards matching required suit in player hand in lib/kadi_web/live/game_live.html.heex
-- [ ] T063 [US2] Show error message when invalid card played in lib/kadi_web/live/game_live.ex
+- [X] T061 [US2] Display active suit requirement banner (purple) with suit symbol in lib/kadi_web/live/game_live.html.heex
+- [X] T062 [US2] Highlight cards matching required suit in green border (or Aces) in lib/kadi_web/live/game_live.html.heex
+- [X] T063 [US2] Show specific error message when invalid card played ("must play {suit} or Ace") in lib/kadi_web/live/game_live.ex
 
 ### Verification
 
-- [X] T064 [US2] Run enforcement tests: `mix test test/kadi/card_games_test.exs`
-- [ ] T065 [US2] Manual test: Play non-matching card after Ace, verify rejection
+- [X] T064 [US2] Run enforcement tests: `mix test test/kadi/card_games/special_cards_ace_test.exs`
+- [ ] T065 [US2] Manual test: Play non-matching card after Ace, verify rejection with specific error
 
-**Checkpoint**: User Story 2 complete - suit requirement enforced ✅
+**Checkpoint**: User Story 2 complete - suit requirement enforced with persistence across draws ✅
+
+---
+
+## Phase 6: User Story 3 - Ace Override (Priority: P3)
+
+**Goal**: Allow players to play an Ace to override the current suit requirement and set a new one
+
+**Independent Test**: Following US2 test, have next player play an Ace, verify they can set a new suit that replaces the old requirement
+
+**Estimated Time**: 1-1.5 hours
+
+### Override Logic
+
+- [ ] T066 [US3] Verify Ace validation already bypasses action_suit check (from T053) in lib/kadi/games/play_validator.ex
+- [ ] T067 [US3] Verify `execute_play/3` handles Ace when action_suit is set in lib/kadi/card_games.ex
+- [ ] T068 [US3] Ensure old action_suit is cleared when new Ace played in lib/kadi/card_games.ex
+- [ ] T069 [US3] Verify `select_suit/3` replaces previous action_suit with new selection in lib/kadi/card_games.ex
+
+### Integration Tests
+
+- [ ] T070 [P] [US3] Add test: Playing Ace when action_suit is set triggers suit selection in test/kadi/card_games/special_cards_ace_test.exs
+- [ ] T071 [P] [US3] Add test: New selected suit replaces old action_suit in test/kadi/card_games/special_cards_ace_test.exs
+- [ ] T072 [P] [US3] Add test: Next player must follow new suit, not old suit in test/kadi/card_games/special_cards_ace_test.exs
+
+### Verification
+
+- [ ] T073 [US3] Run override tests: `mix test test/kadi/card_games/special_cards_ace_test.exs`
+
+**Checkpoint**: User Story 3 complete - Ace can override existing suit requirements ✅
 
 ---
 
