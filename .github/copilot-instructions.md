@@ -8,14 +8,14 @@ This repository contains **Kadi**, a multiplayer online card game platform built
 - **Language**: Elixir (with embedded HTML via .heex templates)
 - **Framework**: Phoenix 1.7 with LiveView for real-time UI
 - **Database**: PostgreSQL via Ecto 3.x
-- **Runtime**: Elixir 1.14+ with OTP 25+
+- **Runtime**: Elixir 1.17+ with OTP 25+
 - **Build Tool**: Mix (Elixir's build tool)
 - **Key Dependencies**: Phoenix LiveView, Ecto, bcrypt_elixir, Tailwind CSS, esbuild
 
 ## Setup and Installation
 
 ### Prerequisites
-- **Elixir 1.14+** with **OTP 25+** installed
+- **Elixir 1.17+** with **OTP 25+** installed
 - **PostgreSQL** running locally (default: localhost:5432)
 - **Git** for version control
 - Hex package manager (install with `mix local.hex --force`)
@@ -381,6 +381,8 @@ For most development tasks, the commands and patterns documented here are suffic
 ## Active Technologies
 - Elixir 1.17+ with OTP 25+ + Phoenix 1.7, Phoenix LiveView, Ecto 3.x (007-jack-card)
 - PostgreSQL (via Ecto) - existing game_sessions, game_session_players, deck_cards tables (007-jack-card)
+- Elixir 1.17+ with OTP 25+ + Phoenix 1.7, Phoenix LiveView 1.7, Ecto 3.x (008-ace-card-feature)
+- PostgreSQL via Ecto (database-driven game state) (008-ace-card-feature)
 
 ## Recent Changes
 - 007-jack-card: Added Elixir 1.17+ with OTP 25+ + Phoenix 1.7, Phoenix LiveView, Ecto 3.x

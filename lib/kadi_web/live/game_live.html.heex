@@ -32,6 +32,57 @@
     </div>
   <% end %>
 
+  <%= if @game_session.action_type == "select_suit" and @current_turn_player.id == @current_player.id do %>
+    <div class="mt-4 p-4 bg-yellow-100 border border-yellow-300 rounded-lg text-center">
+      <p class="text-lg font-semibold text-yellow-800">Select a suit:</p>
+      <div class="mt-2 flex justify-center space-x-2">
+        <.button
+          phx-click="select_suit"
+          phx-value-suit="hearts"
+          class="bg-red-500 hover:bg-red-600"
+        >
+          ♥ Hearts
+        </.button>
+        <.button
+          phx-click="select_suit"
+          phx-value-suit="diamonds"
+          class="bg-red-500 hover:bg-red-600"
+        >
+          ♦ Diamonds
+        </.button>
+        <.button
+          phx-click="select_suit"
+          phx-value-suit="clubs"
+          class="bg-gray-800 hover:bg-gray-900"
+        >
+          ♣ Clubs
+        </.button>
+        <.button
+          phx-click="select_suit"
+          phx-value-suit="spades"
+          class="bg-gray-800 hover:bg-gray-900"
+        >
+          ♠ Spades
+        </.button>
+      </div>
+    </div>
+  <% end %>
+
+  <%!-- T061: Display active suit requirement --%>
+  <%= if @game_session.action_suit do %>
+    <div class="mt-4 p-4 bg-purple-100 border border-purple-300 rounded-lg text-center">
+      <p class="text-lg font-semibold text-purple-800">
+        Required Suit:
+        <span class="text-2xl">
+          {suit_symbol(@game_session.action_suit)} {String.capitalize(@game_session.action_suit)}
+        </span>
+      </p>
+      <p class="text-sm text-purple-600 mt-1">
+        You must play a card of this suit (or another Ace)
+      </p>
+    </div>
+  <% end %>
+
   <%!-- T038: Direction Indicator --%>
   <div
     class="mt-4 p-3 bg-gray-50 border border-gray-300 rounded-lg flex items-center justify-center gap-2"
@@ -120,8 +171,12 @@
     <div class="flex space-x-4 flex-wrap">
       <%= for dc <- @player_hand do %>
         <% is_selected = dc.card_id in @selected_cards %>
+        <%!-- T062: Highlight cards matching required suit --%>
+        <% matches_required_suit =
+          @game_session.action_suit &&
+            (dc.card.suit == @game_session.action_suit || dc.card.rank == "ace") %>
         <div
-          class={"p-4 border rounded-md shadow-sm cursor-pointer transition-all #{if is_selected, do: "bg-blue-100 border-blue-500 border-2 -translate-y-2", else: "bg-white hover:bg-gray-50"}"}
+          class={"p-4 border rounded-md shadow-sm cursor-pointer transition-all #{card_class(is_selected, matches_required_suit)}"}
           phx-click="toggle_card"
           phx-value-card_id={dc.card_id}
         >

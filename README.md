@@ -6,7 +6,7 @@ A multiplayer online card game platform built with Elixir and Phoenix LiveView, 
 
 ### Installation
 
-- [Install Elixir](https://elixir-lang.org/install.html) (version 1.14+)
+- [Install Elixir](https://elixir-lang.org/install.html) (version 1.17+)
 - Clone the repo: `git clone https://github.com/yourusername/kadi.git`
 - Run `mix setup` to install and setup dependencies
 - Run `.githooks/install.sh` to install git hooks (optional but recommended)
@@ -276,9 +276,11 @@ graph TD;
 - **Player Authentication**: Registration, login, session management
 - **King Card (Feature 006)**: Direction reversal, cardless state, auto-draw mechanics - [Full Documentation](docs/king-card-feature.md)
 - **Jack Card (Feature 007)**: Skip mechanics, combo support, King interaction, telemetry - [Full Documentation](docs/jack-card-feature.md)
+- **Ace Card (Feature 008)**: Suit selection mechanic, suit enforcement, Ace override - [Full Documentation](docs/ace-card-feature.md)
+- **Ace Card (Feature 008)**: Suit selection, suit enforcement with persistence, override mechanics - [Full Documentation](docs/ace-card-feature.md)
 
 ### Coming Soon
-- Additional special cards (2, 3, Queen, Ace)
+- Additional special cards (2, 3, Queen)
 - Game completion and winner detection
 - Player statistics and leaderboards
 

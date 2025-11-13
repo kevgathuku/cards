@@ -6,7 +6,7 @@
 
 ## Prerequisites
 
-- Elixir 1.14+ and OTP 25+ installed
+- Elixir 1.17+ and OTP 25+ installed
 - Phoenix 1.7 development environment set up
 - PostgreSQL running (database: `kadi_dev`)
 - All tests passing on main branch: `mix test`

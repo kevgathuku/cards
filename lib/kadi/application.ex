@@ -36,6 +36,27 @@ defmodule Kadi.Application do
       nil
     )
 
+    # Attach telemetry handlers for Jack feature
+    :telemetry.attach_many(
+      "jack-card-telemetry",
+      [
+        [:kadi, :jack, :skip_executed],
+        [:kadi, :jack, :cardless_entered]
+      ],
+      &handle_jack_telemetry/4,
+      nil
+    )
+
+    # Attach telemetry handlers for Ace feature
+    :telemetry.attach_many(
+      "ace-card-telemetry",
+      [
+        [:kadi, :ace, :suit_selected]
+      ],
+      &handle_ace_telemetry/4,
+      nil
+    )
+
     result
   end
 
@@ -52,6 +73,26 @@ defmodule Kadi.Application do
   # Logs all King-related events (direction_change, cardless_entered, anomaly_skip)
   # with their metadata for observability.
   defp handle_king_telemetry(event, _measurements, metadata, _config) do
+    require Logger
+    event_name = Enum.join(event, ".")
+    Logger.info("#{event_name}: #{inspect(metadata)}")
+  end
+
+  # Handles telemetry events for Jack card feature.
+  #
+  # Logs all Jack-related events (skip_executed, cardless_entered)
+  # with their metadata for observability.
+  defp handle_jack_telemetry(event, _measurements, metadata, _config) do
+    require Logger
+    event_name = Enum.join(event, ".")
+    Logger.info("#{event_name}: #{inspect(metadata)}")
+  end
+
+  # Handles telemetry events for Ace card feature.
+  #
+  # Logs all Ace-related events (suit_selected)
+  # with their metadata for observability.
+  defp handle_ace_telemetry(event, _measurements, metadata, _config) do
     require Logger
     event_name = Enum.join(event, ".")
     Logger.info("#{event_name}: #{inspect(metadata)}")
