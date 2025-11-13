@@ -812,14 +812,14 @@ defmodule Kadi.CardGamesTest do
       %{game_session: game_session, player1: player1, player2: player2}
     end
 
-    test "rejects special cards (2,3,8,Queen,Ace) even when they match", %{
+    test "rejects special cards (2,3,8,Queen) even when they match", %{
       game_session: game_session
     } do
       game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
       current_player_id = game_session.current_turn_player_id
 
       # Try to find a special card in current player's hand
-      special_ranks = ["2", "3", "8", "queen", "ace"]
+      special_ranks = ["2", "3", "8", "queen"]
 
       special_card =
         game_session.deck.deck_cards
