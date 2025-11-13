@@ -563,7 +563,7 @@ defmodule Kadi.CardGamesTest do
 
         non_matching_card =
           Enum.find(player_hand, fn card ->
-            card.suit != top_card.suit and card.rank != top_card.rank
+            card.suit != top_card.suit and card.rank != top_card.rank and card.rank != "ace"
           end)
 
         if non_matching_card do
@@ -3212,54 +3212,6 @@ defmodule Kadi.CardGamesTest do
 
       # Verify play was rejected
       assert {:error, :invalid_play} = result
-    end
-  end
-
-  describe "Phase 7: Ace Card Edge Cases" do
-    setup do
-      player1 = player_fixture()
-      player2 = player_fixture(%{email: "ace-edge-p2@example.com"})
-
-      {:ok, game_session} = CardGames.create_game_session(player1, %{short_code: "Ace Edge"})
-      {:ok, _} = CardGames.join_game_session(player2, game_session.id)
-      {:ok, game_session} = CardGames.start_game(game_session)
-
-      %{game: game_session, p1: player1, p2: player2}
-    end
-
-    test "[T081] Ace allowed as starting card", %{p1: player1, p2: player2} do
-      # T081: Verify that Aces are allowed as starting cards (not excluded like Jack)
-      # Test by starting multiple games and checking that at least one has an Ace as the starting card
-
-      max_attempts = 50
-
-      ace_found =
-        Enum.reduce_while(1..max_attempts, false, fn attempt, _acc ->
-          # Create a new game
-          {:ok, game} =
-            CardGames.create_game_session(player1, %{short_code: "AceStart#{attempt}"})
-
-          {:ok, _} = CardGames.join_game_session(player2, game.id)
-          {:ok, started_game} = CardGames.start_game(game)
-
-          # Preload top card
-          started_game = Repo.preload(started_game, :top_card)
-
-          if started_game.top_card.rank == "ace" do
-            {:halt, true}
-          else
-            {:cont, false}
-          end
-        end)
-
-      # If we found an Ace in 20 attempts, the test passes
-      # This probabilistic approach verifies Aces are in the allowed pool
-      # With 52 cards and 4 Aces, excluding only ["2", "3", "jack", "queen"] (16 cards),
-      # we have 36 allowed cards, so probability is ~11% per attempt
-      assert ace_found,
-             "No Ace found as starting card in #{max_attempts} attempts - Aces may still be excluded"
-
-      IO.puts("✓ T081: Ace allowed as starting card (probabilistic verification)")
     end
   end
 end

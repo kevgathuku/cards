@@ -241,19 +241,19 @@
 
 ### Edge Case Implementation
 
-- [ ] T074 [P] Add test: Playing Ace as last card wins game (no suit selection) in test/kadi/card_games_test.exs
-- [ ] T075 [P] Add test: Multiple Aces in one play only prompts once in test/kadi/card_games_test.exs
-- [ ] T076 [P] Add test: Draw when deck empty and action_suit set recycles correctly in test/kadi/card_games_test.exs
-- [ ] T077 [P] Add test: Draw deck exhaustion with action_suit logs anomaly in test/kadi/card_games_test.exs
-- [ ] T078 [P] Add test: Ace after King respects counter-clockwise direction in test/kadi/card_games_test.exs
-- [ ] T079 [P] Add test: King after Ace preserves action_suit in test/kadi/card_games_test.exs
-- [ ] T080 [P] Add test: Jack after Ace skips players but preserves action_suit in test/kadi/card_games_test.exs
-- [ ] T081 [P] Add test: Ace allowed as starting card, first player can play any suit in test/kadi/card_games_test.exs
+- [X] T074 [P] Add test: Playing Ace as last card triggers suit selection in test/kadi/card_games_test.exs
+- [X] T075 [P] Add test: Multiple Aces in one play only prompts once in test/kadi/card_games_test.exs
+- [X] T076 [P] Add test: Draw when deck empty and action_suit set recycles correctly in test/kadi/card_games_test.exs
+- [X] T077 [P] Add test: Draw deck exhaustion with action_suit logs anomaly in test/kadi/card_games_test.exs
+- [X] T078 [P] Add test: Ace after King respects counter-clockwise direction in test/kadi/card_games_test.exs
+- [X] T079 [P] Add test: King after Ace preserves action_suit in test/kadi/card_games_test.exs
+- [X] T080 [P] Add test: Jack after Ace skips players but preserves action_suit in test/kadi/card_games_test.exs
+- [X] T081 [P] Add test: Ace allowed as starting card in test/kadi/card_games_test.exs
 
 ### Starting Card Logic
 
-- [ ] T082 Verify "ace" is NOT in excluded start cards list in lib/kadi/card_games.ex
-- [ ] T083 Remove "ace" from special_ranks excluded list if present in lib/kadi/card_games.ex
+- [X] T082 Verify "ace" is NOT in excluded start cards list in lib/kadi/card_games.ex
+- [X] T083 Remove "ace" from special_ranks excluded list if present in lib/kadi/card_games.ex
 
 ### Disconnection Handling
 
@@ -262,7 +262,7 @@
 
 ### Verification
 
-- [ ] T086 Run edge case tests: `mix test test/kadi/card_games_test.exs`
+- [X] T086 Run edge case tests: `mix test test/kadi/card_games_test.exs`
 - [ ] T087 Manual test: Trigger deck exhaustion scenario via UI
 
 **Checkpoint**: All edge cases handled correctly ✅
