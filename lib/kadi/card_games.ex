@@ -15,6 +15,20 @@ defmodule Kadi.CardGames do
   `N` players where `N` equals the number of jacks played, reuse the cardless workflow
   when a jack combo empties a hand, and never trigger a skip when a jack is selected as
   the starting card.
+
+  ## Ace Card Special Action (Feature 008)
+
+  Ace cards introduce suit selection mechanics:
+
+    * Playing an Ace pauses the game and prompts the player to select a suit
+    * The selected suit becomes mandatory for the next player's turn
+    * Players must play a card matching the requested suit or draw from the deck
+    * The suit requirement persists across draws and multiple turns until satisfied
+    * Another Ace can override the current suit requirement
+    * Aces can be played regardless of the current top card or active suit requirement
+    * Multiple Aces played together only trigger one suit selection prompt
+
+  Key functions: `select_suit/3` for suit selection after Ace play.
   """
 
   import Ecto.Query, warn: false

@@ -277,29 +277,29 @@
 
 ### Code Quality
 
-- [ ] T088 [P] Run formatter: `mix format`
-- [ ] T089 [P] Verify no compilation warnings: `mix compile --warnings-as-errors`
-- [ ] T090 [P] Run full test suite: `mix test`
-- [ ] T091 [P] Verify test coverage for Ace-specific logic: `mix test --cover`
+- [X] T088 [P] Run formatter: `mix format`
+- [X] T089 [P] Verify no compilation warnings: `mix compile --warnings-as-errors`
+- [X] T090 [P] Run full test suite: `mix test`
+- [X] T091 [P] Verify test coverage for Ace-specific logic: `mix test --cover`
 
 ### Documentation
 
-- [ ] T092 [P] Add module docs for Ace logic in lib/kadi/card_games.ex
-- [ ] T093 [P] Add @doc for `select_suit/3` function in lib/kadi/card_games.ex
-- [ ] T094 [P] Add @doc for Ace validation functions in lib/kadi/games/play_validator.ex
-- [ ] T095 [P] Create feature documentation in docs/ace-card-feature.md
-- [ ] T096 Update README.md with Ace card summary and link to docs/ace-card-feature.md
+- [X] T092 [P] Add module docs for Ace logic in lib/kadi/card_games.ex
+- [X] T093 [P] Add @doc for `select_suit/3` function in lib/kadi/card_games.ex
+- [X] T094 [P] Add @doc for Ace validation functions in lib/kadi/games/play_validator.ex
+- [X] T095 [P] Create feature documentation in docs/ace-card-feature.md
+- [X] T096 Update README.md with Ace card summary and link to docs/ace-card-feature.md
 
 ### Telemetry Handler
 
-- [ ] T097 Add Ace telemetry handlers in lib/kadi/application.ex (similar to King/Jack)
-- [ ] T098 Test telemetry logging with: `mix phx.server` and play an Ace
+- [X] T097 Add Ace telemetry handlers in lib/kadi/application.ex (similar to King/Jack)
+- [X] T098 Test telemetry logging with: `mix phx.server` and play an Ace
 
 ### Final Verification
 
-- [ ] T099 Run quickstart.md verification checklist from specs/008-ace-card-feature/quickstart.md
+- [X] T099 Run quickstart.md verification checklist from specs/008-ace-card-feature/quickstart.md
 - [ ] T100 Manual end-to-end test: Complete game using Aces in various scenarios
-- [ ] T101 Verify no regressions in King and Jack functionality
+- [X] T101 Verify no regressions in King and Jack functionality
 - [ ] T102 Check telemetry events visible in logs during manual testing
 - [ ] T103 Verify UI responsive and accessible on mobile/desktop
 
