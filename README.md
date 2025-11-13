@@ -276,6 +276,7 @@ graph TD;
 - **Player Authentication**: Registration, login, session management
 - **King Card (Feature 006)**: Direction reversal, cardless state, auto-draw mechanics - [Full Documentation](docs/king-card-feature.md)
 - **Jack Card (Feature 007)**: Skip mechanics, combo support, King interaction, telemetry - [Full Documentation](docs/jack-card-feature.md)
+- **Ace Card (Feature 008)**: Suit selection mechanic, suit enforcement, Ace override - [Full Documentation](docs/ace-card-feature.md)
 - **Ace Card (Feature 008)**: Suit selection, suit enforcement with persistence, override mechanics - [Full Documentation](docs/ace-card-feature.md)
 
 ### Coming Soon

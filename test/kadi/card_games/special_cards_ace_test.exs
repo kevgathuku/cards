@@ -809,6 +809,86 @@ defmodule Kadi.CardGames.SpecialCardsAceTest do
       IO.puts("✓ T081: Ace allowed as starting card (probabilistic verification)")
     end
 
+    test "[T081b] Ace as starting card has no suit restriction", %{p1: player1, p2: player2} do
+      # When Ace is the starting card, the first player should be able to play
+      # ANY valid card (not forced to select a suit first)
+      # The Ace starting card does NOT set action_type or action_suit
+
+      max_attempts = 50
+
+      ace_game_found =
+        Enum.reduce_while(1..max_attempts, nil, fn attempt, _acc ->
+          # Create a new game
+          {:ok, game} =
+            CardGames.create_game_session(player1, %{short_code: "AceStartNoRestrict#{attempt}"})
+
+          {:ok, _} = CardGames.join_game_session(player2, game.id)
+          {:ok, started_game} = CardGames.start_game(game)
+
+          # Preload top card
+          started_game = Repo.preload(started_game, :top_card)
+
+          if started_game.top_card.rank == "ace" do
+            {:halt, started_game}
+          else
+            {:cont, nil}
+          end
+        end)
+
+      if ace_game_found do
+        # Verify that action_type and action_suit are NOT set
+        assert ace_game_found.action_type == nil,
+               "Ace starting card should not set action_type"
+
+        assert ace_game_found.action_suit == nil,
+               "Ace starting card should not set action_suit"
+
+        # Verify that the current turn player can play any regular card that matches
+        # the Ace's suit (normal suit matching applies, but NO suit selection is triggered)
+        ace_game_found =
+          Repo.preload(
+            ace_game_found,
+            [:current_turn_player, :top_card, deck: [deck_cards: :card]],
+            force: true
+          )
+
+        current_player = ace_game_found.current_turn_player
+        ace_top_card = ace_game_found.top_card
+
+        # Get any regular card from the player's hand that matches the Ace's suit
+        # (or an Ace, to test normal play)
+        matching_card =
+          ace_game_found.deck.deck_cards
+          |> Enum.find(fn dc ->
+            dc.location_type == "player_hand" and dc.player_id == current_player.id and
+              (dc.card.suit == ace_top_card.suit or dc.card.rank == "ace") and
+              dc.card.rank in ["4", "5", "6", "7", "9", "10", "king", "ace"]
+          end)
+
+        if matching_card do
+          # Try to play this card - should be accepted (normal matching rules apply)
+          {:ok, after_play} =
+            CardGames.play_cards(ace_game_found, current_player.id, [matching_card.card.id])
+
+          # Verify the play was accepted (turn advanced)
+          assert after_play.current_turn_player_id != current_player.id,
+                 "Matching card should be playable when Ace is starting card"
+
+          # Critical assertion: action_suit should still be nil (no suit selection triggered)
+          assert after_play.action_suit == nil,
+                 "Playing on Ace starting card should not trigger suit selection"
+
+          IO.puts(
+            "✓ T081b: Ace as starting card has no suit restriction - normal matching rules apply, no suit selection"
+          )
+        else
+          IO.puts("⏭️  T081b: Skipping verification - no regular card in current player's hand")
+        end
+      else
+        IO.puts("⏭️  T081b: Skipping - No Ace found as starting card in #{max_attempts} attempts")
+      end
+    end
+
     test "[T074] Playing Ace as last card triggers suit selection (edge case)", %{
       p1: player1,
       p2: player2

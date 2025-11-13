@@ -249,6 +249,7 @@
 - [X] T079 [P] Add test: King after Ace preserves action_suit in test/kadi/card_games_test.exs
 - [X] T080 [P] Add test: Jack after Ace skips players but preserves action_suit in test/kadi/card_games_test.exs
 - [X] T081 [P] Add test: Ace allowed as starting card in test/kadi/card_games_test.exs
+- [X] T081b [P] Add test: Ace as starting card has no suit restriction in test/kadi/card_games/special_cards_ace_test.exs
 
 ### Starting Card Logic
 

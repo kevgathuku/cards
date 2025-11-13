@@ -53,6 +53,7 @@ The Ace card introduces a suit selection mechanic to the game. When a player pla
 3. **Multiple Aces**: Playing multiple Aces together only prompts for suit selection once
 4. **Turn Pause**: Turn does NOT advance when Ace is played (waits for suit selection)
 5. **Starting Card**: Aces can be selected as the starting card for a new game
+6. **Starting Card Exception**: When an Ace IS the starting card, no suit selection is triggered - players simply match the Ace's suit using normal matching rules
 
 ### Suit Selection Rules
 
@@ -80,6 +81,7 @@ The Ace card introduces a suit selection mechanic to the game. When a player pla
 2. **Deck Exhaustion**: If deck runs out while `action_suit` is set, played stack is recycled
 3. **Integration with King**: Ace after King respects counter-clockwise direction
 4. **Integration with Jack**: Jack after Ace preserves `action_suit` but skips players
+5. **Ace Starting Card**: When an Ace is the starting card, `action_type` and `action_suit` remain nil - no suit selection is triggered, players simply play matching cards using normal suit-matching rules
 
 ## Database Schema
 
@@ -190,11 +192,12 @@ When `action_suit` is set:
 6. ✅ Multiple players drawing in sequence
 7. ✅ Ace overrides existing `action_suit`
 8. ✅ Ace as starting card allowed
-9. ✅ Ace as last card triggers selection
-10. ✅ Multiple Aces only prompt once
-11. ✅ Deck exhaustion with `action_suit` recycles correctly
-12. ✅ Integration with King (direction)
-13. ✅ Integration with Jack (skip)
+9. ✅ **Ace as starting card has no suit restriction** - no `action_type` or `action_suit` set, normal matching rules apply
+10. ✅ Ace as last card triggers selection
+11. ✅ Multiple Aces only prompt once
+12. ✅ Deck exhaustion with `action_suit` recycles correctly
+13. ✅ Integration with King (direction)
+14. ✅ Integration with Jack (skip)
 
 ## Manual Testing
 
