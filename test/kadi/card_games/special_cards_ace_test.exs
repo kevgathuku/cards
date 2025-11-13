@@ -14,7 +14,8 @@ defmodule Kadi.CardGames.SpecialCardsAceTest do
 
       {:ok, game_session} = CardGames.create_game_session(player1, %{short_code: "Ace Test"})
       {:ok, _} = CardGames.join_game_session(player2, game_session.id)
-      {:ok, game_session} = CardGames.start_game(game_session)
+      # Exclude Aces from initial deal to ensure all 4 Aces remain in deck for test manipulation
+      {:ok, game_session} = CardGames.start_game(game_session, exclude_ranks: ["ace"])
 
       %{game: game_session, p1: player1, p2: player2}
     end
@@ -769,7 +770,8 @@ defmodule Kadi.CardGames.SpecialCardsAceTest do
 
       {:ok, game_session} = CardGames.create_game_session(player1, %{short_code: "Ace Edge"})
       {:ok, _} = CardGames.join_game_session(player2, game_session.id)
-      {:ok, game_session} = CardGames.start_game(game_session)
+      # Exclude Aces from initial deal to ensure all 4 Aces remain in deck for test manipulation
+      {:ok, game_session} = CardGames.start_game(game_session, exclude_ranks: ["ace"])
 
       %{game: game_session, p1: player1, p2: player2}
     end
@@ -811,10 +813,10 @@ defmodule Kadi.CardGames.SpecialCardsAceTest do
 
     test "[T081b] Ace as starting card has no suit restriction", %{p1: player1, p2: player2} do
       # When Ace is the starting card, the first player should be able to play
-      # ANY valid card (not forced to select a suit first)
+      # ANY valid card matching the Ace suit (not forced to select a suit first)
       # The Ace starting card does NOT set action_type or action_suit
 
-      max_attempts = 50
+      max_attempts = 20
 
       ace_game_found =
         Enum.reduce_while(1..max_attempts, nil, fn attempt, _acc ->
@@ -823,7 +825,7 @@ defmodule Kadi.CardGames.SpecialCardsAceTest do
             CardGames.create_game_session(player1, %{short_code: "AceStartNoRestrict#{attempt}"})
 
           {:ok, _} = CardGames.join_game_session(player2, game.id)
-          {:ok, started_game} = CardGames.start_game(game)
+          {:ok, started_game} = CardGames.start_game(game, exclude_ranks: ["jack", "ace", "king"])
 
           # Preload top card
           started_game = Repo.preload(started_game, :top_card)
@@ -855,14 +857,14 @@ defmodule Kadi.CardGames.SpecialCardsAceTest do
         current_player = ace_game_found.current_turn_player
         ace_top_card = ace_game_found.top_card
 
-        # Get any regular card from the player's hand that matches the Ace's suit
-        # (or an Ace, to test normal play)
+        # Get any regular NON-ACE card from the player's hand that matches the Ace's suit
+        # (We exclude Ace/King/Jack because they have special behavior)
         matching_card =
           ace_game_found.deck.deck_cards
           |> Enum.find(fn dc ->
             dc.location_type == "player_hand" and dc.player_id == current_player.id and
-              (dc.card.suit == ace_top_card.suit or dc.card.rank == "ace") and
-              dc.card.rank in ["4", "5", "6", "7", "9", "10", "king", "ace"]
+              dc.card.suit == ace_top_card.suit and
+              dc.card.rank not in ["ace", "king", "jack"]
           end)
 
         if matching_card do
