@@ -129,6 +129,9 @@ test/kadi/card_games/special_cards_two_test.exs  # New/updated tests for '2' car
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
+**Gates:**
+- All critical game and player state is database-backed for continuity and resilience: [PASSED/FAILED]
+
 [Gates determined based on constitution file]
 
 ## Project Structure

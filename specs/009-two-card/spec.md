@@ -139,6 +139,12 @@ As a player facing a '2' card penalty, if I have no Ace or '2' card to block it,
 - **Card**: Represents a playing card, with a suit and a rank (e.g., 2 of Hearts).
 - **DrawPenalty**: Represents the active state where the next player must draw a specific number of cards (in this case, 2).
 
+### State Persistence Requirements *(mandatory if feature involves state)*
+
+- **SPR-001**: All game state critical for continuity (e.g., player hands, turn, scores, active penalties) MUST be persisted in the database.
+- **SPR-002**: Player progress MUST be recoverable after unexpected disconnections or client changes.
+
+
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes

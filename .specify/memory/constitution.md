@@ -1,3 +1,13 @@
+<!--
+Sync Impact Report:
+Version change: 1.3.0 -> 1.4.0
+Added sections:
+- 2. Architectural Principles
+- 2.1 Database-Backed State
+Templates requiring updates:
+- .specify/templates/plan-template.md: ✅ updated
+- .specify/templates/spec-template.md: ✅ updated
+-->
 # Speckit Constitution
 
 This document establishes the core principles and standards for the Kadi card game platform. All features, changes, and implementations must adhere to these guidelines.

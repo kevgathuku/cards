@@ -10,6 +10,9 @@
 **Purpose**: Core data model changes that must be complete before other tasks.
 
 - [ ] T001 Update GameSession schema to include `draw_penalty` map in `lib/kadi/games/game_session.ex`
+- [ ] T001.1 Generate Ecto migration to add 'draw_penalty' column to 'game_sessions' table
+- [ ] T001.2 Implement migration to add 'draw_penalty' column as :map with default in `priv/repo/migrations/<timestamp>_add_draw_penalty_to_game_sessions.exs`
+- [ ] T001.3 Run `mix ecto.migrate` to apply database changes
 
 ---
 
