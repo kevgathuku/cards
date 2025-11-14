@@ -1,105 +1,74 @@
 # Tasks: Two Card Draw Penalty (Feature 009)
 
-Checklist of implementation tasks, mapped to user stories, requirements, and contracts. Each task is independently testable and references exact file locations.
+**Input**: Design documents from `/specs/009-two-card/`
+**Prerequisites**: plan.md, spec.md
 
 ---
 
-## User Story 1: Player plays a '2' card to force next player to draw (P1)
-- [ ] Update data model: Add `draw_penalty` field to `GameSession` schema and struct (`lib/kadi/games/game_session.ex`)
-	- Est: 1h; Purpose: persist penalty state per `data-model.md` so game logic can read/write penalty details atomically.
-- [ ] Implement penalty activation logic in `play_card/3` (`lib/kadi/card_games.ex`)
-	- Est: 6h; Purpose: core behavior to set `draw_penalty` when a valid '2' is played, per the `Penalty Activation` section of `contracts/game_state_transitions.md`.
-- [ ] Enforce validation: '2' must match suit/rank, cannot be starting/finishing card (`lib/kadi/games/play_validator.ex`)
-	- Est: 2h; Purpose: prevent invalid plays per the `play_card` action in `contracts/player_actions.md`.
-- [ ] Update penalty state transitions per `contracts/game_state_transitions.md` (`lib/kadi/card_games.ex`)
-	- Est: 2h; Purpose: ensure state changes (activate/clear/transfer) follow contracts and are safe for concurrent players.
-- [ ] Add/extend tests for penalty activation (`test/kadi/card_games/special_cards_two_test.exs`)
-	- Est: 3h; Purpose: unit tests to assert correct `draw_penalty` behavior and basic activation scenarios.
- - [ ] Ensure starting-card selection excludes rank '2' during game initialization (`lib/kadi/card_games.ex` or `lib/kadi/games/deck.ex`)
-	- Est: 1h; Purpose: enforce spec that '2' cannot be a starting card at game setup.
- - [ ] Use `Ecto.Multi` to perform penalty activation and related updates atomically (`lib/kadi/card_games.ex`)
-	- Est: 2h; Purpose: prevent partial updates and race conditions when updating multiple DB rows (deck, hands, session state).
- - [ ] Broadcast penalty activation events via PubSub so LiveView updates reliably (`lib/kadi/card_games.ex`, `lib/kadi_web/live/game_live.ex`)
-	- Est: 2h; Purpose: notify connected clients of state changes reliably; enables UI synchronization across players.
+## Phase 1: Foundational (Blocking Prerequisites)
 
-## User Story 2: Next player blocks '2' penalty with an Ace (P2)
-- Purpose: Allow players to block a '2' penalty with an Ace, clearing the penalty and setting the requested suit. Ensures UI and state transitions match the contract, and edge cases are covered.
-- Est: ~13h (T009-009 to T009-013)
-- [ ] Implement block logic for Ace per `contracts/game_state_transitions.md` (`lib/kadi/card_games.ex`)
-	- Est: 4h; Purpose: implement the `Penalty Blocked` transition for an Ace, clearing the penalty and setting `requested_suit`.
-- [ ] Prevent suit selection when blocking with Ace (`lib/kadi_web/live/game_live.ex`)
-	- Est: 2h; Purpose: UI change to stop suit-prompt flow when Ace used as a block.
-- [ ] Update state transitions for Ace block (`lib/kadi/card_games.ex`)
-	- Est: 1h; Purpose: reflect the contract that Ace clears penalty and sets `requested_suit` to the '2' suit.
-- [ ] Add/extend tests for Ace block (`test/kadi/card_games/special_cards_two_test.exs`)
-	- Est: 2h; Purpose: ensure Ace blocking behavior works and `requested_suit` semantics are correct.
- - [ ] Add tests that verify `requested_suit` is set to the '2' suit and persists/clears according to rules (`test/kadi/card_games/special_cards_two_test.exs`)
-	- Est: 2h; Purpose: capture edge cases where requested suit persists or is cleared by subsequent plays.
+**Purpose**: Core data model changes that must be complete before other tasks.
 
-## User Story 3: Next player blocks '2' penalty with another '2' (P2)
-- Purpose: Enable penalty transfer by playing another '2', supporting chain reactions and tactical counterplay. Includes contract-aligned transitions and multi-player test coverage.
-- Est: ~10h (T009-014 to T009-017)
-- [ ] Implement block logic for '2' per `contracts/game_state_transitions.md` (`lib/kadi/card_games.ex`)
-	- Est: 3h; Purpose: implement the `Penalty Blocked` transition for a '2', transferring the penalty to the next player.
-- [ ] Update state transitions for '2' block (`lib/kadi/card_games.ex`)
-	- Est: 1h; Purpose: keep contract-aligned transitions (target_player_id moves forward, `count` remains 2).
-- [ ] Add/extend tests for '2' block/transfer (`test/kadi/card_games/special_cards_two_test.exs`)
-	- Est: 3h; Purpose: verify simple transfer scenarios and edge cases where rank/suit matching matters.
- - [ ] Add tests for chain scenarios (A plays '2', B plays '2', C has no blocker) and ensure penalty transfers correctly (`test/kadi/card_games/special_cards_two_test.exs`)
-	- Est: 3h; Purpose: ensure multi-player chain transfers produce correct target and final draw.
+- [ ] T001 Update GameSession schema to include `draw_penalty` map in `lib/kadi/games/game_session.ex`
 
-## User Story 4: Multiple '2' cards in one play have the same effect (P3)
-- Purpose: Enforce non-additive penalty for combo plays, ensuring fairness and preventing overpowered moves. Includes explicit tests for guardrails and edge cases.
-- Est: ~5h (T009-018 to T009-020)
-- [ ] Enforce non-additive penalty: multiple '2's = draw 2, not cumulative (`lib/kadi/card_games.ex`, `lib/kadi/games/play_validator.ex`)
-	- Est: 2h; Purpose: ensure combo plays do not multiply penalty count, as specified in `data-model.md` validation rules.
-- [ ] Add/extend tests for combo play (`test/kadi/card_games/special_cards_two_test.exs`)
-	- Est: 2h; Purpose: unit tests for several combo permutations (2x '2', 3x '2', mixed suits).
- - [ ] Add explicit unit test that playing multiple '2's from the same turn does not increase `draw_penalty.count` beyond 2 (`test/kadi/card_games/special_cards_two_test.exs`)
-	- Est: 1h; Purpose: explicit guardrail test to prevent regressions for non-additive rule.
+---
 
-## User Story 5: Player has no blocking cards and must draw 2 cards (P2)
-- Purpose: Implement auto-draw and deck recycling logic for penalty resolution, enforcing turn-ending and non-playable drawn cards. Robustly handles edge cases and ensures deterministic behavior.
-- Est: ~12h (T009-021 to T009-024)
-- [ ] Implement auto-draw logic for penalty (`lib/kadi/card_games.ex`)
-	- Est: 4h; Purpose: core logic to force drawing 2 cards at turn start, per the `Penalty Draw` transition in `contracts/game_state_transitions.md`.
-- [ ] Handle deck recycling if <2 cards (`lib/kadi/card_games.ex`)
-	- Est: 3h; Purpose: robust handling of small-deck edge cases per spec (recycle play pile, preserve top card).
-- [ ] Add/extend tests for auto-draw, deck recycling, edge cases (`test/kadi/card_games/special_cards_two_test.exs`)
-	- Est: 3h; Purpose: ensure drawing behavior is deterministic and handles recycling correctly.
- - [ ] Add test to ensure players who draw due to penalty cannot play any drawn cards in the same turn (`test/kadi/card_games/special_cards_two_test.exs`)
-	- Est: 2h; Purpose: enforce rule that drawn cards are not playable until next turn.
+## Phase 2: User Story 1 - Player plays a '2' to create a penalty (P1) 🎯 MVP
 
-## UI Feedback & Edge Cases
-- Purpose: Provide clear UI feedback and persistent indicators for penalty state, enforce exclusion rules, and ensure robust event handling and integration test coverage for all connected players.
-- Est: ~15h (T009-025 to T009-031)
-- [ ] Show penalty notification in LiveView UI (`lib/kadi_web/live/game_live.ex`)
-	- Est: 3h; Purpose: notify the affected player(s) with a clear message explaining why cards were drawn.
-- [ ] Add persistent visual indicator for penalty (`lib/kadi_web/live/game_live.ex`, `assets/css/app.css`)
-	- Est: 2h; Purpose: keep a visible badge/icon showing "Draw 2 penalty active" for all players.
-- [ ] Add/extend UI tests for notification/indicator (`test/kadi/card_games/special_cards_two_test.exs`)
-	- Est: 3h; Purpose: verify UI elements appear for all connected players after penalty events.
-- [ ] Enforce exclusion of '2' as starting/finishing card (`lib/kadi/games/play_validator.ex`)
-	- Est: 1h; Purpose: ensure finishing/starting rules are consistently enforced by validation, per `contracts/player_actions.md`.
-- [ ] Log anomaly if draw deck is empty and cannot recycle (`lib/kadi/card_games.ex`)
-	- Est: 1h; Purpose: surface runtime anomalies for debugging/observability (non-blocking behavior).
- - [ ] Ensure LiveView event handlers wait for PubSub broadcast (no optimistic local-only updates) to avoid state races (`lib/kadi_web/live/game_live.ex`)
-	- Est: 1h; Purpose: prevent UI inconsistencies by relying on a canonical broadcasted state.
- - [ ] Add integration test that verifies the notification + visual indicator appear for all connected players after penalty activation (`test/kadi/card_games/special_cards_two_test.exs`)
-	- Est: 4h; Purpose: end-to-end verification across pubsub + LiveView flows.
+**Goal**: A player can play a '2' card, forcing the next player to draw two cards.
+**Independent Test**: Start a game, play a valid '2', and verify the next player is penalized.
 
-## Validation & Best Practices
-- Purpose: Validate feature correctness, code style, documentation, and contract updates. Ensure backward compatibility and maintainability for future contributors.
-- Est: ~6h (T009-032 to T009-037)
-- [ ] Run `mix test` and ensure all tests pass
-	- Est: 1h; Purpose: verify behavior and guard regressions locally.
-- [ ] Run `mix format` for code style
-	- Est: 0.5h; Purpose: maintain code style and satisfy pre-commit checks.
-- [ ] Validate backward compatibility and DRY principle
-	- Est: 2h; Purpose: ensure changes do not break existing game flows or duplicate logic.
-- [ ] Update documentation as needed (`specs/009-two-card/quickstart.md`, `README.md`)
-	- Est: 1h; Purpose: keep spec and quickstart up to date for reviewers and future contributors.
- - [ ] Review and update `contracts/*` docs if behaviour/signatures changed (`specs/009-two-card/contracts/*.md`)
-	- Est: 1h; Purpose: reflect any API/contract changes so integration points remain documented.
- - [ ] Add a short code comment where `Ecto.Multi` is used to explain atomicity reasoning
-	- Est: 0.5h; Purpose: help future maintainers understand transactional choices.
+- [ ] T002 [P] [US1] Create new test file for 'Two' card feature in `test/kadi/card_games/special_cards_two_test.exs`
+- [ ] T003 [US1] Add test for penalty activation when a '2' is played in `test/kadi/card_games/special_cards_two_test.exs`
+- [ ] T004 [US1] Implement penalty activation logic within `play_card/3` in `lib/kadi/card_games.ex`
+- [ ] T005 [US1] Refactor penalty activation to use `Ecto.Multi` for atomic state updates in `lib/kadi/card_games.ex`
+- [ ] T006 [US1] Update `play_validator.ex` to enforce that a '2' cannot be a starting or finishing card in `lib/kadi/games/play_validator.ex`
+- [ ] T007 [US1] Add validation to ensure a played '2' matches the active `requested_suit` (FR-006) in `lib/kadi/games/play_validator.ex`
+- [ ] T008 [US1] Ensure starting-card selection logic excludes rank '2' in `lib/kadi/card_games.ex`
+- [ ] T009 [US1] Broadcast penalty activation events via PubSub from `lib/kadi/card_games.ex`
+
+---
+
+## Phase 3: User Story 2 & 3 - Player blocks a penalty (P2)
+
+**Goal**: A player facing a penalty can block it with an Ace or another '2'.
+**Independent Test**: Start a game, create a penalty, and verify the next player can successfully play a blocking card.
+
+- [ ] T010 [P] [US2] Add test for blocking a penalty with an Ace in `test/kadi/card_games/special_cards_two_test.exs`
+- [ ] T011 [P] [US3] Add test for blocking and transferring a penalty with another '2' in `test/kadi/card_games/special_cards_two_test.exs`
+- [ ] T012 [P] [US3] Add test for multi-player penalty chain reactions (A->B->C) in `test/kadi/card_games/special_cards_two_test.exs`
+- [ ] T013 [US2] Implement logic to block a penalty with an Ace in `lib/kadi/card_games.ex`
+- [ ] T014 [US3] Implement logic to block and transfer a penalty with another '2' in `lib/kadi/card_games.ex`
+- [ ] T015 [US2] Add validation to ensure a blocking card matches the active `requested_suit` (FR-007) in `lib/kadi/games/play_validator.ex`
+- [ ] T016 [US2] Prevent suit selection prompt in UI when an Ace is used for blocking in `lib/kadi_web/live/game_live.ex`
+
+---
+
+## Phase 4: User Story 4 & 5 - Penalty Resolution (P2/P3)
+
+**Goal**: A player who cannot block must draw, and combo plays are not additive.
+**Independent Test**: Create a penalty and verify a player with no blockers auto-draws. Play multiple '2's and verify penalty is not stacked.
+
+- [ ] T017 [P] [US4] Add test to ensure playing multiple '2's does not stack the penalty count in `test/kadi/card_games/special_cards_two_test.exs`
+- [ ] T018 [P] [US5] Add test for auto-draw when a player has no blocking cards in `test/kadi/card_games/special_cards_two_test.exs`
+- [ ] T019 [P] [US5] Add test for deck recycling when player must draw more cards than are in the deck in `test/kadi/card_games/special_cards_two_test.exs`
+- [ ] T020 [P] [US5] Add test to ensure a player's turn ends after drawing and they cannot play the drawn cards in `test/kadi/card_games/special_cards_two_test.exs`
+- [ ] T021 [US4] Implement validation to ensure combo '2' plays are not additive in `lib/kadi/games/play_validator.ex`
+- [ ] T022 [US5] Implement auto-draw logic for penalized players at turn start in `lib/kadi/card_games.ex`
+- [ ] T023 [US5] Implement deck recycling logic for when the deck is empty during a draw in `lib/kadi/card_games.ex`
+- [ ] T024 [US5] Log an anomaly if the draw deck is empty and cannot be recycled in `lib/kadi/card_games.ex`
+
+---
+
+## Phase 5: UI Feedback & Polish
+
+**Purpose**: Implement UI indicators and perform final validation.
+
+- [ ] T025 [P] Add integration test to verify penalty notifications appear for all players in `test/kadi/card_games/special_cards_two_test.exs`
+- [ ] T026 [P] Implement a flash notification for the penalized player in `lib/kadi_web/live/game_live.ex`
+- [ ] T027 [P] Implement a persistent visual indicator on the game board while a penalty is active in `lib/kadi_web/live/game_live.ex`
+- [ ] T028 [P] Style the persistent visual indicator using Tailwind CSS in `assets/css/app.css`
+- [ ] T029 Run `mix test` and ensure all tests pass
+- [ ] T030 Run `mix format` to ensure code style consistency
+- [ ] T031 [P] Review feature for backward compatibility and adherence to DRY principle
+- [ ] T032 [P] Update `quickstart.md` and `contracts/` with any final implementation details
