@@ -30,7 +30,7 @@
 - [x] T006.1 [US1] Allow '2' to be played as finishing card (player enters "cardless" status, penalty applies to next player, but player doesn't win) in `lib/kadi/card_games.ex`
 - [x] T007 [US1] Add validation to ensure a played '2' matches the active `requested_suit` (FR-006) in `lib/kadi/games/play_validator.ex`
 - [x] T008 [US1] Ensure starting-card selection logic excludes rank '2' in `lib/kadi/card_games.ex`
-- [x] T009 [US1] Broadcast penalty activation events via PubSub from `lib/kadi/card_games.ex`
+- [x] T009 [US1] Broadcast penalty activation events via PubSub from `lib/kadi/card_games.ex` (Note: PubSub for real-time UI notifications only, not state sync - database is source of truth per Section 2.1)
 
 ---
 
@@ -70,10 +70,12 @@
 **Purpose**: Implement UI indicators and perform final validation.
 
 - [ ] T025 [P] Add integration test to verify penalty notifications appear for all players in `test/kadi/card_games/special_cards_two_test.exs`
-- [ ] T026 [P] Implement a flash notification for the penalized player in `lib/kadi_web/live/game_live.ex`
-- [ ] T027 [P] Implement a persistent visual indicator on the game board while a penalty is active in `lib/kadi_web/live/game_live.ex`
-- [ ] T028 [P] Style the persistent visual indicator using Tailwind CSS in `assets/css/app.css`
+- [ ] T026 [P] Implement a flash notification for the penalized player in `lib/kadi_web/live/game_live.ex` (implements FR-011)
+- [ ] T027 [P] Implement a persistent visual indicator on the game board while a penalty is active in `lib/kadi_web/live/game_live.ex` (implements FR-012)
+- [ ] T028 [P] Style the persistent visual indicator using Tailwind CSS in `assets/css/app.css` (implements FR-012)
 - [ ] T029 Run `mix test` and ensure all tests pass
 - [ ] T030 Run `mix format` to ensure code style consistency
 - [ ] T031 [P] Review feature for backward compatibility and adherence to DRY principle
 - [ ] T032 [P] Update `quickstart.md` and `contracts/` with any final implementation details
+- [ ] T033 [P] Test penalty state persists after LiveView disconnect/reconnect (SPR-002 continuity verification)
+- [ ] T034 [P] Test penalty state visible when resuming game in new browser/device (SPR-002 multi-device verification)

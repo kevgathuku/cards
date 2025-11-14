@@ -39,3 +39,25 @@
 - On blocking with Ace: draw_penalty.active = false, requested_suit = suit of '2'
 - On blocking with '2': draw_penalty.target_player_id = next player
 - On drawing: draw_penalty.active = false
+
+## Continuity & Multi-Device Support (Constitution Section 2.1)
+
+### Database-Backed State
+- **draw_penalty** field in GameSession table enables full state recovery
+- All penalty state (active, count, target_player_id) persisted to PostgreSQL
+- No volatile in-memory state - database is single source of truth
+
+### Disconnect/Reconnect Scenarios
+- Player disconnects with active penalty → penalty state preserved in database
+- Player reconnects → LiveView reloads GameSession from database with penalty intact
+- Other players continue to see penalty indicator via PubSub broadcasts
+
+### Multi-Device Support
+- Player can close browser/switch devices while penalty is active
+- Resume game from any device → penalty state loaded from database
+- GameSession.draw_penalty field ensures consistent state across all sessions
+
+### Recovery Mechanisms
+- LiveView crashes → game reconstructed from database on reconnect
+- Server restart → games resume with penalty state intact (database-persisted)
+- Network interruption → penalty state maintained, UI resynchronizes on reconnect

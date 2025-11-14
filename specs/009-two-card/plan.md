@@ -27,12 +27,36 @@ Implements special rules for the '2' card:
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-**Gates:**
-- Elixir idioms, context boundaries, error handling, code organization: PASSED
-- Feature reuse/integration: PASSED (references prior Ace/Jack/King features)
-- Schema verification: PASSED (no new tables, uses existing struct fields)
-- DRY principle: PASSED (no duplicate logic/tests)
-- All planning artifacts reviewed for compliance
+### Section 1: Code Quality Principles
+- [x] **1.5 Feature Reuse**: Reviewed `specs/` directory for existing features that can be reused/extended (references Ace/Jack/King features)
+- [x] **1.6 Schema Verification**: Read actual schema files in `lib/*/` and migrations in `priv/repo/migrations/` (verified GameSession schema)
+- [x] **1.7 DRY Principle**: Searched for existing functions and tests before creating new ones
+
+### Section 2: Architectural Principles
+- [x] **2.1 Database-Backed State**: All new game state (draw_penalty) is persisted in PostgreSQL (not in-memory)
+- [x] **2.1 Continuity**: Players can disconnect/reconnect without data loss (draw_penalty field persisted in database)
+- [x] **2.1 Multi-Device**: Players can resume games on different devices (database-backed state enables this)
+- [x] **2.1 Schema Updates**: Database schema changes documented (T001.1-T001.3: add draw_penalty :map field to game_sessions)
+- [x] **2.1 Atomicity**: Compound state changes use `Ecto.Multi` for atomic transactions (T005: refactor penalty activation)
+- [x] **2.1 PubSub Role**: PubSub used only for notifications, not state synchronization (T009: broadcast penalty events for UI updates)
+
+### Section 3: Testing Standards
+- [x] **3.1 Coverage**: All context functions have tests (T002-T032 provide comprehensive coverage, 90%+ target)
+- [x] **3.2 Quality**: Tests follow AAA pattern, are isolated, and descriptive (special_cards_two_test.exs follows patterns)
+- [x] **3.4 Test Data**: Using factory functions for consistent test data creation (player_fixture, existing patterns)
+
+### Section 4: User Experience Consistency
+- [x] **4.1 LiveView Patterns**: Immediate feedback, optimistic updates, error visibility (T026-T028: notifications + visual indicators)
+- [x] **4.3 Player Experience**: Real-time updates via PubSub (T009), graceful disconnection handling (database-backed state)
+
+### Section 6: Security Standards
+- [x] **6.1 Authorization**: Player authorization checks before allowing game actions (existing CardGames context patterns)
+- [x] **6.2 Input Validation**: Server-side validation of all LiveView events (PlayValidator.ex for '2' card validation)
+
+### Section 7: Git and Development Workflow
+- [x] **7.4 Database Safety**: Not running destructive database commands during development (using migrations T001.2-T001.3)
+
+*Note: All gates passed. Feature aligns with Constitution v1.4.0 requirements.*
 ## Project Structure
 
 ### Documentation (this feature)
