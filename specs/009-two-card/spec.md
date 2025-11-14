@@ -9,7 +9,7 @@
 
 ### Session 2025-11-14
 
-- Q: When a player plays the '2' as their last card, what status should they enter? → A: The player should enter "cardless" status (hand empty), not just remain in "normal" status. This clarifies that playing '2' as the last card triggers cardless status entry, similar to King/Jack. However, unlike King/Jack which trigger winning cardless status, playing '2' as the last card creates non-winning cardless status - the penalty still applies to the next player and the game continues.
+- Q: When a player plays the '2' as their last card, what status should they enter? → A: The player should enter "cardless" status (hand empty), not just remain in "normal" status. This clarifies that playing '2' as the last card triggers cardless status entry, similar to King/Jack. Being cardless does NOT mean the player has won - the penalty still applies to the next player and the game continues. (Note: A winning cardless state exists conceptually but has not been implemented yet.)
 
 ### Session 2025-11-13
 
@@ -24,7 +24,7 @@
 - Q: When an Ace blocks a '2' penalty, does the player get to continue their turn after blocking, or does their turn end immediately? → A: The player's turn ends immediately after blocking with the Ace. They do NOT get to select a suit or play additional cards.
 - Q: When a player blocks a '2' penalty with an Ace (and the '2's suit becomes active), and the next player successfully plays a card matching that suit, should the suit requirement be cleared? → A: Yes, clear the suit requirement immediately (consistent with normal Ace suit requirement behavior).
 - Q: Is the '2' card allowed as a valid finishing card (last card played to win)? → A: No, the '2' card is not allowed as a valid finishing card. When a player plays the '2' as their last card, they become cardless but do not win; additional game logic must handle this scenario.
-- Q: What happens when a player plays the '2' as their last card and becomes cardless? → A: The player enters "cardless" status (hand empty) and the penalty still applies to the next player. The player who played the last '2' becomes cardless, but the next player must draw 2 cards (or block) as normal. The player in "cardless" status has not won since only King/Jack trigger the winning cardless state.
+- Q: What happens when a player plays the '2' as their last card and becomes cardless? → A: The player enters "cardless" status (hand empty) and the penalty still applies to the next player. The player who played the last '2' becomes cardless, but the next player must draw 2 cards (or block) as normal. Being cardless does NOT mean the player has won the game - the game continues.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -110,7 +110,7 @@ As a player facing a '2' card penalty, if I have no Ace or '2' card to block it,
 
 ### Edge Cases
 
-- What happens if a '2' is played as the very last card? The '2' card is NOT allowed as a valid finishing card. When a player plays the '2' as their last card, they enter "cardless" status (hand empty), but the penalty still applies to the next player, who must draw 2 cards (or block) as normal. The player with cardless status has not won the game since only King or Jack trigger the winning cardless state.
+- What happens if a '2' is played as the very last card? The '2' card is NOT allowed as a valid finishing card. When a player plays the '2' as their last card, they enter "cardless" status (hand empty), but the penalty still applies to the next player, who must draw 2 cards (or block) as normal. Being cardless does NOT mean the player has won the game - the game continues.
 - What happens if a '2' is selected as the starting card? '2' cards are NOT allowed as starting cards. The system must exclude rank '2' when selecting the starting card during game initialization.
 - What happens if the draw deck is empty and a player needs to draw 2 cards? The played cards are recycled to form a new draw deck (keeping the top card on the play pile), and the player draws from the new deck.
 - What happens if the draw deck has only 1 card and a player must draw 2? The player draws the 1 available card, the played cards are recycled, and they draw the second card from the new deck.

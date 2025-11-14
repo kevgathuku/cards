@@ -901,7 +901,8 @@ defmodule Kadi.CardGames do
     will_be_cardless = player_hand == cards_played_count
 
     # Only Kings, Jacks, and '2' cards trigger cardless state
-    # (Kings/Jacks = winning cardless, '2' = non-winning cardless with penalty)
+    # Note: Being cardless does NOT mean winning - the game continues
+    # (Playing '2' as last card still applies penalty to next player)
     two_played? = Enum.any?(cards_to_play, fn card -> card.rank == "2" end)
     will_enter_cardless = will_be_cardless and (king_played? or jack_played? or two_played?)
 
