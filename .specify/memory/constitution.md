@@ -8,7 +8,7 @@ Added sections:
 - 2.1 Database-Backed State
 Templates requiring updates:
 - .specify/templates/spec-template.md: ✅ already includes State Persistence Requirements (SPR-001, SPR-002)
-- .specify/templates/plan-template.md: ⚠ review recommended for constitution compliance checks
+- .specify/templates/plan-template.md: ✅ updated with Section 2.1 validation gates (database-backed state, continuity, multi-device, atomicity, PubSub role)
 - .specify/templates/tasks-template.md: ✅ no changes needed (tasks inherit from spec requirements)
 Follow-up TODOs:
 - None
