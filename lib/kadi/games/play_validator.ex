@@ -59,6 +59,11 @@ defmodule Kadi.Games.PlayValidator do
         single_card.rank == "jack" ->
           {valid_jack_play?([single_card], top_card, action_suit), :jack}
 
+        # NEW: Handle '2' card specifically
+        single_card.rank == "2" ->
+          # Reuse validate_single_card
+          {validate_single_card(single_card, top_card, action_suit), :two}
+
         valid_regular_card?(single_card) ->
           {validate_single_card(single_card, top_card, action_suit), :regular}
 
@@ -82,6 +87,11 @@ defmodule Kadi.Games.PlayValidator do
 
         Enum.any?(cards, &(&1.rank == "jack")) ->
           {valid_jack_play?(cards, top_card, action_suit), :jack}
+
+        # NEW: Handle combo '2's specifically
+        all_twos?(cards) ->
+          # Reuse validate_combo
+          {validate_combo(cards, top_card, action_suit), :two}
 
         all_regular_cards?(cards) ->
           {validate_combo(cards, top_card, action_suit), :regular}
@@ -222,6 +232,10 @@ defmodule Kadi.Games.PlayValidator do
 
   defp all_aces?(cards) do
     Enum.all?(cards, &(&1.rank == "ace"))
+  end
+
+  defp all_twos?(cards) do
+    Enum.all?(cards, &(&1.rank == "2"))
   end
 
   defp valid_regular_card?(%{rank: rank}) do

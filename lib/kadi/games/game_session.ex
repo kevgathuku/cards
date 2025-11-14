@@ -35,7 +35,8 @@ defmodule Kadi.Games.GameSession do
       :current_turn_player_id,
       :top_card_id,
       :action_type,
-      :action_suit
+      :action_suit,
+      :draw_penalty
     ])
     |> validate_required([:short_code, :created_by_id, :status, :direction])
     |> validate_inclusion(:status, @statuses)

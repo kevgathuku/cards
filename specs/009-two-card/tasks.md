@@ -21,14 +21,16 @@
 **Goal**: A player can play a '2' card, forcing the next player to draw two cards.
 **Independent Test**: Start a game, play a valid '2', and verify the next player is penalized.
 
-- [ ] T002 [P] [US1] Create new test file for 'Two' card feature in `test/kadi/card_games/special_cards_two_test.exs`
-- [ ] T003 [US1] Add test for penalty activation when a '2' is played in `test/kadi/card_games/special_cards_two_test.exs`
-- [ ] T004 [US1] Implement penalty activation logic within `play_card/3` in `lib/kadi/card_games.ex`
-- [ ] T005 [US1] Refactor penalty activation to use `Ecto.Multi` for atomic state updates in `lib/kadi/card_games.ex`
-- [ ] T006 [US1] Update `play_validator.ex` to enforce that a '2' cannot be a starting or finishing card in `lib/kadi/games/play_validator.ex`
-- [ ] T007 [US1] Add validation to ensure a played '2' matches the active `requested_suit` (FR-006) in `lib/kadi/games/play_validator.ex`
-- [ ] T008 [US1] Ensure starting-card selection logic excludes rank '2' in `lib/kadi/card_games.ex`
-- [ ] T009 [US1] Broadcast penalty activation events via PubSub from `lib/kadi/card_games.ex`
+- [x] T002 [P] [US1] Create new test file for 'Two' card feature in `test/kadi/card_games/special_cards_two_test.exs`
+- [x] T003 [US1] Add test for penalty activation when a '2' is played in `test/kadi/card_games/special_cards_two_test.exs`
+- [x] T003.1 [US1] Add test for playing '2' as last card (player enters "cardless" status, penalty applies, game continues) in `test/kadi/card_games/special_cards_two_test.exs`
+- [x] T004 [US1] Implement penalty activation logic within `play_card/3` in `lib/kadi/card_games.ex`
+- [x] T005 [US1] Refactor penalty activation to use `Ecto.Multi` for atomic state updates in `lib/kadi/card_games.ex`
+- [x] T006 [US1] Update `play_validator.ex` to enforce that a '2' cannot be a starting card in `lib/kadi/games/play_validator.ex`
+- [x] T006.1 [US1] Allow '2' to be played as finishing card (player enters "cardless" status, penalty applies to next player, but player doesn't win) in `lib/kadi/card_games.ex`
+- [x] T007 [US1] Add validation to ensure a played '2' matches the active `requested_suit` (FR-006) in `lib/kadi/games/play_validator.ex`
+- [x] T008 [US1] Ensure starting-card selection logic excludes rank '2' in `lib/kadi/card_games.ex`
+- [x] T009 [US1] Broadcast penalty activation events via PubSub from `lib/kadi/card_games.ex`
 
 ---
 

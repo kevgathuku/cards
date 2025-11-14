@@ -854,6 +854,8 @@ defmodule Kadi.CardGames do
     ace_played? = Enum.any?(cards_to_play, &(&1.rank == "ace"))
     king_played? = Enum.any?(cards_to_play, &(&1.rank == "king"))
     jack_played? = Enum.any?(cards_to_play, &(&1.rank == "jack"))
+    # Added for T004
+    two_played? = Enum.any?(cards_to_play, &(&1.rank == "2"))
     jack_count = if jack_played?, do: length(cards_to_play), else: 0
 
     # Calculate new direction (FR-002)
@@ -884,10 +886,24 @@ defmodule Kadi.CardGames do
         {next_player, nil}
       end
 
+    # Determine draw penalty for the next player if a '2' is played (T004)
+    draw_penalty_update =
+      if two_played? do
+        %{active: true, count: 2, target_player_id: next_player.id}
+      else
+        # Keep existing penalty or clear if it was blocked by Ace (handled in later tasks)
+        game_session.draw_penalty
+      end
+
     # Check if player will be cardless after this play (FR-011, FR-012)
     player_hand = get_player_hand_count(game_session, player.id)
     cards_played_count = length(cards_to_play)
-    will_be_cardless = player_hand == cards_played_count and (king_played? or jack_played?)
+    will_be_cardless = player_hand == cards_played_count
+
+    # Only Kings, Jacks, and '2' cards trigger cardless state
+    # (Kings/Jacks = winning cardless, '2' = non-winning cardless with penalty)
+    two_played? = Enum.any?(cards_to_play, fn card -> card.rank == "2" end)
+    will_enter_cardless = will_be_cardless and (king_played? or jack_played? or two_played?)
 
     # Build transaction
     multi = Ecto.Multi.new()
@@ -922,13 +938,15 @@ defmodule Kadi.CardGames do
           current_turn_player_id: next_player.id,
           direction: new_direction,
           action_type: action_type,
-          action_suit: nil
+          action_suit: nil,
+          # Added for T004
+          draw_penalty: draw_penalty_update
         })
       )
 
     # Update player status if cardless (FR-011, FR-026)
     multi_with_status =
-      if will_be_cardless do
+      if will_enter_cardless do
         player_session =
           Repo.get_by!(GameSessionPlayer,
             game_session_id: game_session.id,
@@ -972,7 +990,7 @@ defmodule Kadi.CardGames do
           )
         end
 
-        if will_be_cardless do
+        if will_enter_cardless do
           if jack_played? do
             emit_jack_cardless_event(game_session.id, player.id, last_card.id)
           else
@@ -985,6 +1003,15 @@ defmodule Kadi.CardGames do
           GameSession
           |> Repo.get!(updated_game.id)
           |> Repo.preload(:created_by)
+
+        # Broadcast penalty activation if a '2' was played (T009)
+        if two_played? do
+          Phoenix.PubSub.broadcast(
+            Kadi.PubSub,
+            "game_session:#{reloaded.id}",
+            {:draw_penalty_activated, %{game_session: reloaded}}
+          )
+        end
 
         {:ok, reloaded}
 
