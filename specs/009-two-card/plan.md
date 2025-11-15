@@ -23,6 +23,7 @@ Implements special rules for the '2' card:
 **Performance Goals**: Real-time UI, <200ms event latency, scalable to 100+ concurrent games
 **Constraints**: No destructive DB ops in dev, backward compatibility, DRY, schema-verified
 **Scale/Scope**: 2K LOC feature, 50+ tests, 4+ special card features integrated
+**Ace Blocking Behavior** (Session 2025-11-15): When an Ace blocks a '2' penalty, the next player must play a card matching either the suit OR rank of the blocked '2' (standard matching rules apply with the '2' as reference card)
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*

@@ -261,7 +261,11 @@ defmodule Kadi.Games.PlayValidator do
 
   defp validate_single_card(card, top_card, action_suit) do
     if action_suit do
-      card.suit == action_suit
+      # When action_suit is set (from Ace blocking '2'), allow either:
+      # 1. Matching the action_suit, OR
+      # 2. Playing another '2' (matching rank of the blocked card)
+      # (Session 2025-11-15 clarification)
+      card.suit == action_suit or card.rank == "2"
     else
       matches_suit_or_rank?(card, top_card)
     end
@@ -284,7 +288,11 @@ defmodule Kadi.Games.PlayValidator do
 
   defp first_card_matches?([first_card | _rest], top_card, action_suit) do
     if action_suit do
-      first_card.suit == action_suit
+      # When action_suit is set (from Ace blocking '2'), allow either:
+      # 1. Matching the action_suit, OR
+      # 2. Playing another '2' (matching rank of the blocked card)
+      # (Session 2025-11-15 clarification)
+      first_card.suit == action_suit or first_card.rank == "2"
     else
       matches_suit_or_rank?(first_card, top_card)
     end

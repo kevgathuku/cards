@@ -302,6 +302,153 @@ defmodule Kadi.CardGames.SpecialCardsTwoTest do
       # Assert: Turn advanced to next player (which is P1)
       assert updated_game.current_turn_player_id == p1.id
     end
+
+    test "when Ace blocks '2', next player can play another '2' (rank match) (T063)",
+         %{
+           started_game: game,
+           player: p1,
+           player2: p2
+         } do
+      # P1 plays '2', penalizing P2 (use existing helper)
+      {game_with_penalty, two_card} = setup_penalty(game, p1.id, p2.id)
+
+      # Store the suit of the '2' for later verification
+      two_suit = two_card.suit
+
+      # Reload to ensure deck associations are fresh
+      {:ok, game_with_penalty} = CardGames.get_game_session_preloaded(game_with_penalty.id)
+
+      # Give P2 an Ace to block
+      deck_card_ace =
+        game_with_penalty.deck.deck_cards
+        |> Enum.find(&(&1.card.rank == "ace" and &1.location_type == "deck"))
+
+      {:ok, _} =
+        DeckCard.changeset(deck_card_ace, %{
+          location_type: "player_hand",
+          player_id: p2.id,
+          order_index: nil
+        })
+        |> Repo.update()
+
+      # P2 plays the Ace to block
+      {:ok, game_after_ace} = CardGames.get_game_session_preloaded(game_with_penalty.id)
+
+      {:ok, game_after_block} =
+        CardGames.play_cards(game_after_ace, p2.id, [deck_card_ace.card.id])
+
+      # Verify action_suit is set to the suit of the blocked '2'
+      assert game_after_block.action_suit == two_suit
+      assert game_after_block.draw_penalty["active"] == false
+
+      # Reload and give P1 a '2' with DIFFERENT suit (rank match, not suit match)
+      {:ok, game_after_block} = CardGames.get_game_session_preloaded(game_after_block.id)
+
+      # Find a '2' that has a DIFFERENT suit than the blocked '2'
+      deck_card_two_different_suit =
+        game_after_block.deck.deck_cards
+        |> Enum.find(
+          &(&1.card.rank == "2" and &1.card.suit != two_suit and &1.location_type == "deck")
+        )
+
+      assert deck_card_two_different_suit,
+             "Expected to find a '2' with a different suit than #{two_suit} still in the deck"
+
+      {:ok, _} =
+        DeckCard.changeset(deck_card_two_different_suit, %{
+          location_type: "player_hand",
+          player_id: p1.id,
+          order_index: nil
+        })
+        |> Repo.update()
+
+      # Action: P1 plays '2' with different suit (rank match with blocked '2')
+      {:ok, game_ready} = CardGames.get_game_session_preloaded(game_after_block.id)
+
+      {:ok, updated_game} =
+        CardGames.play_cards(game_ready, p1.id, [deck_card_two_different_suit.card.id])
+
+      # Assert: Play is valid (rank matching works - can play '2' even with different suit)
+      assert updated_game.top_card.rank == "2"
+      assert updated_game.top_card.suit != two_suit
+
+      # Assert: Turn advances to next player
+      assert updated_game.current_turn_player_id == p2.id
+    end
+
+    test "when Ace blocks '2', next player can play '5 of same suit' (suit match) (T064)",
+         %{
+           started_game: game,
+           player: p1,
+           player2: p2
+         } do
+      # P1 plays '2', penalizing P2 (use existing helper)
+      {game_with_penalty, two_card} = setup_penalty(game, p1.id, p2.id)
+
+      # Store the suit of the '2' for later verification
+      two_suit = two_card.suit
+
+      # Reload to ensure deck associations are fresh
+      {:ok, game_with_penalty} = CardGames.get_game_session_preloaded(game_with_penalty.id)
+
+      # Give P2 an Ace to block
+      deck_card_ace =
+        game_with_penalty.deck.deck_cards
+        |> Enum.find(&(&1.card.rank == "ace" and &1.location_type == "deck"))
+
+      {:ok, _} =
+        DeckCard.changeset(deck_card_ace, %{
+          location_type: "player_hand",
+          player_id: p2.id,
+          order_index: nil
+        })
+        |> Repo.update()
+
+      # P2 plays the Ace to block
+      {:ok, game_after_ace} = CardGames.get_game_session_preloaded(game_with_penalty.id)
+
+      {:ok, game_after_block} =
+        CardGames.play_cards(game_after_ace, p2.id, [deck_card_ace.card.id])
+
+      # Verify action_suit is set to the suit of the blocked '2'
+      assert game_after_block.action_suit == two_suit
+      assert game_after_block.draw_penalty["active"] == false
+
+      # Reload and give P1 a card matching the suit of the blocked '2'
+      {:ok, game_after_block} = CardGames.get_game_session_preloaded(game_after_block.id)
+
+      # Find a non-special card matching the suit that's still in the deck
+      deck_card_suit_match =
+        game_after_block.deck.deck_cards
+        |> Enum.find(
+          &(&1.card.suit == two_suit and
+              &1.card.rank not in ["ace", "king", "jack", "2", "3", "8", "queen"] and
+              &1.location_type == "deck")
+        )
+
+      assert deck_card_suit_match,
+             "Expected to find a non-special card matching suit #{two_suit} still in the deck"
+
+      {:ok, _} =
+        DeckCard.changeset(deck_card_suit_match, %{
+          location_type: "player_hand",
+          player_id: p1.id,
+          order_index: nil
+        })
+        |> Repo.update()
+
+      # Action: P1 plays card with matching suit
+      {:ok, game_ready} = CardGames.get_game_session_preloaded(game_after_block.id)
+
+      {:ok, updated_game} =
+        CardGames.play_cards(game_ready, p1.id, [deck_card_suit_match.card.id])
+
+      # Assert: Play is valid (suit matching works with action_suit set)
+      assert updated_game.top_card.suit == two_suit
+
+      # Assert: Turn advances to next player
+      assert updated_game.current_turn_player_id == p2.id
+    end
   end
 
   describe "blocking a '2' penalty with three players (T012)" do

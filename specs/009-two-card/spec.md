@@ -17,6 +17,7 @@
 - Q: After clicking "Draw 2 Cards" and drawing, should the game automatically advance to the next player? → A: Automatically advance to next player after animation completes.
 - Q: Should the visual indicator showing "Draw 2 penalty active" remain visible during the draw animation? → A: Disappear when button is clicked (before drawing animation starts).
 - Q: What should the error message say when trying to play a non-blocking card while penalty is active? → A: "Penalty Active. You must play blocking card or draw penalty cards".
+- Q: When a 2 is blocked by an Ace, what card requirements apply to the subsequent play? → A: The subsequent play should match the suit or rank of the last 2 played before the Ace (the Ace sets this as the active requirement).
 
 ### Session 2025-11-14
 
@@ -25,9 +26,9 @@
 ### Session 2025-11-13
 
 - Q: When a '2' is the starting card and the first player blocks with another '2', what happens? → A: '2' cards are not allowed as starting cards. The system must exclude rank '2' when selecting the starting card.
-- Q: When a player facing a '2' penalty plays an Ace to block it, does the Ace need to match the suit/rank of the top card (the '2'), or can any Ace be played regardless? → A: Any Ace can be played regardless of suit (Ace ignores matching rules). However, when blocking a '2' penalty with an Ace, the player cannot request a suit. Instead, the suit of the most recent '2' card applies as the active suit.
+- Q: When a player facing a '2' penalty plays an Ace to block it, does the Ace need to match the suit/rank of the top card (the '2'), or can any Ace be played regardless? → A: Any Ace can be played regardless of suit (Ace ignores matching rules). When blocking a '2' penalty with an Ace, the player cannot request a suit. Instead, the suit or rank of the most recent '2' card becomes the active matching requirement for subsequent plays (next player must match either suit or rank of that '2').
 - Q: When blocking a '2' penalty with another '2', does the blocking '2' card need to match the suit/rank of the top card (the original '2'), or can any '2' be played? → A: Any '2' can be played to block because the top card is always a '2' when facing a penalty, so any '2' matches by rank (standard matching rules apply).
-- Q: When a player blocks a '2' penalty with an Ace, and the suit of the '2' becomes active, can the next player play any card matching that suit, or are there additional restrictions? → A: Any card matching the active suit can be played (normal Ace suit requirement behavior applies).
+- Q: When a player blocks a '2' penalty with an Ace, and the suit of the '2' becomes active, can the next player play any card matching that suit, or are there additional restrictions? → A: Any card matching the suit or rank of the blocked '2' can be played (normal matching rules apply based on the '2' as the reference card).
 - Q: When a requested suit is already active (from a previous Ace play) and a player wants to play a '2' to create a penalty, must the '2' match the requested suit? → A: Yes, the '2' must match the requested suit (requested suit takes precedence over normal matching rules).
 - Q: When both a '2' penalty AND a requested suit are active simultaneously, and a player blocks with another '2', what happens to the requested suit? → A: The requested suit is cleared when any valid card matching it is played (including when creating the initial '2' penalty). When blocking by playing another '2', the requested suit has already been cleared, so only the penalty transfers.
 - Q: When a player is forced to draw 2 cards due to the penalty, should there be any UI indication (notification/message) to inform them why they're drawing, or does it happen silently? → A: Show a notification/message explaining the '2' penalty (e.g., "You must draw 2 cards due to [Player]'s '2' card").
@@ -66,9 +67,9 @@ As the next player who is facing a '2' card penalty, I want to play an Ace to bl
 
 **Acceptance Scenarios**:
 
-1. **Given** the previous player played a '2 of Hearts' and the current player must draw 2 cards, **When** the current player plays an Ace, **Then** the draw penalty is cleared, the player does not draw cards, and 'Hearts' (the suit of the '2') becomes the active required suit for the next turn.
-2. **Given** a '2' penalty is active, **When** the current player plays an Ace, **Then** the system does NOT prompt them to select a suit; instead, the suit of the blocking '2' becomes the active suit.
-3. **Given** the previous player played a '2 of Clubs', the current player blocks with an Ace, **When** it becomes the next player's turn, **Then** they must play a Club or draw a card (the Ace did not trigger suit selection).
+1. **Given** the previous player played a '2 of Hearts' and the current player must draw 2 cards, **When** the current player plays an Ace, **Then** the draw penalty is cleared, the player does not draw cards, and the next player must play a card matching the suit (Hearts) or rank (2) of the blocked '2'.
+2. **Given** a '2' penalty is active, **When** the current player plays an Ace, **Then** the system does NOT prompt them to select a suit; instead, the suit or rank of the blocking '2' becomes the active matching requirement for subsequent plays.
+3. **Given** the previous player played a '2 of Clubs', the current player blocks with an Ace, **When** it becomes the next player's turn, **Then** they must play a Club (matching suit) or any '2' (matching rank), or draw a card.
 
 ---
 
@@ -154,7 +155,7 @@ As a player facing a '2' card penalty who has blocking cards (Ace or '2'), I wan
 
 - **FR-001**: The system MUST allow a player to play a '2' card during their turn only if it matches the suit or rank of the top card on the play pile.
 - **FR-002**: Upon playing a '2', the system MUST update the game state to indicate the next player must draw 2 cards from the deck.
-- **FR-003**: The system MUST allow the next player to block the '2' penalty by playing an Ace card (which clears the penalty and sets the suit of the most recent '2' as the active required suit, WITHOUT prompting for suit selection) or by playing another '2' card (which transfers the penalty to the next player).
+- **FR-003**: The system MUST allow the next player to block the '2' penalty by playing an Ace card (which clears the penalty and sets the suit or rank of the last '2' played as the active matching requirement for subsequent plays, WITHOUT prompting for suit selection) or by playing another '2' card (which transfers the penalty to the next player).
 - **FR-004**: When a '2' penalty is active and it is a player's turn, the system MUST replace the normal "Draw" button with a "Draw 2 Cards" button that allows the player to explicitly accept the penalty.
 - **FR-005**: When a player facing a '2' penalty clicks the "Draw 2 Cards" button, the system MUST: (a) make them draw 2 cards from the deck, (b) show animation/transition as cards move from deck to hand, (c) end their turn automatically after animation completes, (d) clear the draw penalty, and (e) advance to the next player.
 - **FR-006**: When a '2' penalty is active, the system MUST keep cards in the player's hand clickable but MUST show the error message "Penalty Active. You must play blocking card or draw penalty cards" if the player attempts to play a non-blocking card (any card other than Ace or '2').
@@ -198,7 +199,7 @@ As a player facing a '2' card penalty who has blocking cards (Ace or '2'), I wan
 ## Assumptions
 
 - The '2' card must match the suit or rank of the top card to be played (standard matching rules apply).
-- An Ace card can block a '2' penalty at any time, regardless of the Ace's suit. When an Ace blocks a '2' penalty, it does NOT trigger suit selection; instead, the suit of the most recent '2' card becomes the active required suit for subsequent plays.
+- An Ace card can block a '2' penalty at any time, regardless of the Ace's suit. When an Ace blocks a '2' penalty, it does NOT trigger suit selection; instead, the suit or rank of the most recent '2' card becomes the active matching requirement for subsequent plays (next player must match either suit or rank of that '2').
 - Another '2' card can block a '2' penalty by transferring it to the next player (the penalty remains 2 cards, not cumulative).
 - When a player successfully blocks a '2' penalty with another '2', the blocking '2' becomes the new top card and the penalty is transferred (not cleared).
 - When a player blocks a '2' penalty with an Ace, the penalty is cleared entirely (not transferred).
