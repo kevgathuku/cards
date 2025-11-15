@@ -1548,7 +1548,10 @@ defmodule Kadi.CardGamesTest do
           })
         )
 
-        {:ok, updated} = CardGames.play_cards(game, player_id, [king_card.id])
+        # Reload game to get fresh state with card in hand
+        {:ok, game_reloaded} = CardGames.get_game_session_preloaded(game.id)
+
+        {:ok, updated} = CardGames.play_cards(game_reloaded, player_id, [king_card.id])
         updated
       end
 

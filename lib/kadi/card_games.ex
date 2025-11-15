@@ -765,7 +765,7 @@ defmodule Kadi.CardGames do
   # Helper functions for play_cards/3
   # ============================================================================
 
-  defp get_game_session_preloaded(%GameSession{} = game_session) do
+  def get_game_session_preloaded(%GameSession{} = game_session) do
     preloaded =
       game_session
       |> Repo.preload([
@@ -779,7 +779,7 @@ defmodule Kadi.CardGames do
     {:ok, preloaded}
   end
 
-  defp get_game_session_preloaded(game_session_id) when is_integer(game_session_id) do
+  def get_game_session_preloaded(game_session_id) when is_integer(game_session_id) do
     case Repo.get(GameSession, game_session_id) do
       nil -> {:error, :game_not_found}
       game_session -> get_game_session_preloaded(game_session)
