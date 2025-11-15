@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Auto Feature Branch",
+  "description": "When a new requirements file is created (starting a new feature) and the current branch is main, create a new branch for the new feature and switch to it",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "specs/**/checklists/requirements.md"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A new requirements file has been created at {file_path}. Check if the current git branch is 'main'. If it is, extract the feature number from the path (e.g., '009' from 'specs/009-two-card/checklists/requirements.md'), create a new git branch named 'feature/{feature_number}' (e.g., 'feature/009'), and switch to it. If not on main, acknowledge the new requirements file but take no action."
+  }
+}
