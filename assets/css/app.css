@@ -3,3 +3,19 @@
 @import "tailwindcss/utilities";
 
 /* This file is for your main application CSS */
+
+/* T028: Penalty indicator pulse animation (FR-012) */
+@keyframes penalty-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.02);
+  }
+}
+
+.penalty-indicator {
+  animation: penalty-pulse 2s ease-in-out infinite;
+}

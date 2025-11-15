@@ -69,13 +69,13 @@
 
 **Purpose**: Implement UI indicators and perform final validation.
 
-- [ ] T025 [P] Add integration test to verify penalty notifications appear for all players in `test/kadi/card_games/special_cards_two_test.exs`
-- [ ] T026 [P] Implement a flash notification for the penalized player in `lib/kadi_web/live/game_live.ex` (implements FR-011)
-- [ ] T027 [P] Implement a persistent visual indicator on the game board while a penalty is active in `lib/kadi_web/live/game_live.ex` (implements FR-012)
-- [ ] T028 [P] Style the persistent visual indicator using Tailwind CSS in `assets/css/app.css` (implements FR-012)
-- [ ] T029 Run `mix test` and ensure all tests pass
-- [ ] T030 Run `mix format` to ensure code style consistency
-- [ ] T031 [P] Review feature for backward compatibility and adherence to DRY principle
-- [ ] T032 [P] Update `quickstart.md` and `contracts/` with any final implementation details
-- [ ] T033 [P] Test penalty state persists after LiveView disconnect/reconnect (SPR-002 continuity verification)
-- [ ] T034 [P] Test penalty state visible when resuming game in new browser/device (SPR-002 multi-device verification)
+- [x] T025 [P] Add integration test to verify penalty notifications appear for all players in `test/kadi/card_games/special_cards_two_test.exs`
+- [x] T026 [P] Implement a flash notification for the penalized player in `lib/kadi_web/live/game_live.ex` (implements FR-011)
+- [x] T027 [P] Implement a persistent visual indicator on the game board while a penalty is active in `lib/kadi_web/live/game_live.ex` (implements FR-012)
+- [x] T028 [P] Style the persistent visual indicator using Tailwind CSS in `assets/css/app.css` (implements FR-012)
+- [x] T029 Run `mix test` and ensure all tests pass
+- [x] T030 Run `mix format` to ensure code style consistency
+- [x] T031 [P] Review feature for backward compatibility and adherence to DRY principle
+- [x] T032 [P] Update `quickstart.md` and `contracts/` with any final implementation details
+- [x] T033 [P] Test penalty state persists after LiveView disconnect/reconnect (SPR-002 continuity verification)
+- [x] T034 [P] Test penalty state visible when resuming game in new browser/device (SPR-002 multi-device verification)

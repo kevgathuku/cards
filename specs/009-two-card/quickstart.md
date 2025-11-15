@@ -36,11 +36,17 @@ Implements special rules for the '2' card:
        - UI feedback for penalty
        - Edge cases (blocked, transferred, etc)
 
-5. **UI Feedback**
+5. **UI Feedback** ✅ COMPLETED
    - Edit: `lib/kadi_web/live/game_live.ex` and `assets/css/app.css`
-     - Show penalty notification and visual indicator in LiveView UI
-     - Use Tailwind CSS for styling penalty indicator
-     - Reference: See UI section in `quickstart.md` and LiveView event handlers
+     - ✅ Penalty notification toast shows when player is targeted (FR-011)
+     - ✅ Persistent visual indicator on game board when penalty active (FR-012)
+     - ✅ Styled with Tailwind CSS and custom pulse animation
+     - Implementation:
+       - Added `check_and_show_penalty_notification/3` helper function
+       - Added `find_penalty_creator/1` to identify who played the '2'
+       - Toast notification with red styling for penalty type
+       - Persistent banner with exclamation icons and penalty details
+       - Custom CSS animation for subtle pulse effect
 
 ## Commands
 - Run tests: `mix test`

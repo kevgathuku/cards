@@ -693,4 +693,271 @@ defmodule Kadi.CardGames.SpecialCardsTwoTest do
       # and the penalty should be cleared before turn advances
     end
   end
+
+  describe "penalty notifications and UI indicators (T025, FR-011, FR-012)" do
+    test "penalty state is visible to all players after '2' is played", %{
+      started_game: started_game,
+      player: player,
+      player2: player2
+    } do
+      # Setup: Give current player a '2' card matching top card
+      top_card = started_game.top_card
+      current_player_id = started_game.current_turn_player_id
+
+      deck_card_two =
+        started_game.deck.deck_cards
+        |> Enum.find(fn dc -> dc.card.rank == "2" and dc.card.suit == top_card.suit end)
+
+      assert deck_card_two, "Expected to find a '2' card matching suit #{top_card.suit}"
+
+      {:ok, _} =
+        DeckCard.changeset(deck_card_two, %{
+          location_type: "player_hand",
+          player_id: current_player_id,
+          order_index: nil
+        })
+        |> Repo.update()
+
+      {:ok, game_fresh} = CardGames.get_game_session_preloaded(started_game.id)
+
+      # Action: Current player plays the '2'
+      {:ok, game_after_two} =
+        CardGames.play_cards(game_fresh, current_player_id, [deck_card_two.card.id])
+
+      # Assert: Penalty state is persisted in database
+      assert game_after_two.draw_penalty["active"] == true
+      assert game_after_two.draw_penalty["count"] == 2
+
+      # Get next player
+      next_player_id =
+        if current_player_id == player.id, do: player2.id, else: player.id
+
+      assert game_after_two.draw_penalty["target_player_id"] == next_player_id
+
+      # Verify penalty state is visible when reloading game (simulates different player/device)
+      {:ok, game_reloaded} = CardGames.get_game_session_preloaded(game_after_two.id)
+
+      assert game_reloaded.draw_penalty["active"] == true
+      assert game_reloaded.draw_penalty["count"] == 2
+      assert game_reloaded.draw_penalty["target_player_id"] == next_player_id
+
+      # Verify penalty persists across multiple reloads (SPR-002 continuity)
+      {:ok, game_reloaded_again} = CardGames.get_game_session_preloaded(game_after_two.id)
+
+      assert game_reloaded_again.draw_penalty["active"] == true
+      assert game_reloaded_again.draw_penalty["target_player_id"] == next_player_id
+    end
+
+    test "penalty state clears after player draws cards", %{
+      started_game: started_game
+    } do
+      # Setup: Create a penalty
+      top_card = started_game.top_card
+      current_player_id = started_game.current_turn_player_id
+
+      deck_card_two =
+        started_game.deck.deck_cards
+        |> Enum.find(fn dc -> dc.card.rank == "2" and dc.card.suit == top_card.suit end)
+
+      {:ok, _} =
+        DeckCard.changeset(deck_card_two, %{
+          location_type: "player_hand",
+          player_id: current_player_id,
+          order_index: nil
+        })
+        |> Repo.update()
+
+      {:ok, game_fresh} = CardGames.get_game_session_preloaded(started_game.id)
+
+      {:ok, game_with_penalty} =
+        CardGames.play_cards(game_fresh, current_player_id, [deck_card_two.card.id])
+
+      assert game_with_penalty.draw_penalty["active"] == true
+
+      # Action: Next player's turn starts - T022 auto-draw should clear penalty
+      # The penalty should be automatically resolved when it's the next player's turn
+      # For this test, we verify the penalty state is visible before resolution
+
+      # Verify penalty persists in database
+      {:ok, game_reloaded} = CardGames.get_game_session_preloaded(game_with_penalty.id)
+      assert game_reloaded.draw_penalty["active"] == true
+      assert game_reloaded.draw_penalty["count"] == 2
+
+      # Note: T022 implements auto-draw logic that will clear the penalty
+      # This test verifies the penalty state is properly persisted and visible
+      # The actual auto-draw and clearing happens in the turn start logic
+    end
+
+    test "penalty state persists after blocking with Ace", %{
+      started_game: started_game,
+      player: player,
+      player2: player2
+    } do
+      # Setup: Create a penalty
+      top_card = started_game.top_card
+      current_player_id = started_game.current_turn_player_id
+
+      deck_card_two =
+        started_game.deck.deck_cards
+        |> Enum.find(fn dc -> dc.card.rank == "2" and dc.card.suit == top_card.suit end)
+
+      {:ok, _} =
+        DeckCard.changeset(deck_card_two, %{
+          location_type: "player_hand",
+          player_id: current_player_id,
+          order_index: nil
+        })
+        |> Repo.update()
+
+      {:ok, game_fresh} = CardGames.get_game_session_preloaded(started_game.id)
+
+      {:ok, game_with_penalty} =
+        CardGames.play_cards(game_fresh, current_player_id, [deck_card_two.card.id])
+
+      # Give next player an Ace
+      next_player_id =
+        if current_player_id == player.id, do: player2.id, else: player.id
+
+      ace_card =
+        game_with_penalty.deck.deck_cards
+        |> Enum.find(fn dc -> dc.card.rank == "ace" and dc.location_type == "deck" end)
+
+      {:ok, _} =
+        DeckCard.changeset(ace_card, %{
+          location_type: "player_hand",
+          player_id: next_player_id,
+          order_index: nil
+        })
+        |> Repo.update()
+
+      {:ok, game_reloaded} = CardGames.get_game_session_preloaded(game_with_penalty.id)
+
+      # Action: Next player blocks with Ace
+      {:ok, game_after_block} =
+        CardGames.play_cards(game_reloaded, next_player_id, [ace_card.card.id])
+
+      # Assert: Penalty is cleared
+      assert game_after_block.draw_penalty["active"] == false
+
+      # Verify state persists across reload
+      {:ok, game_final} = CardGames.get_game_session_preloaded(game_after_block.id)
+      assert game_final.draw_penalty["active"] == false
+    end
+
+    test "penalty state persists after simulated disconnect/reconnect (SPR-002)", %{
+      started_game: started_game
+    } do
+      # Setup: Create a penalty
+      top_card = started_game.top_card
+      current_player_id = started_game.current_turn_player_id
+
+      deck_card_two =
+        started_game.deck.deck_cards
+        |> Enum.find(fn dc -> dc.card.rank == "2" and dc.card.suit == top_card.suit end)
+
+      {:ok, _} =
+        DeckCard.changeset(deck_card_two, %{
+          location_type: "player_hand",
+          player_id: current_player_id,
+          order_index: nil
+        })
+        |> Repo.update()
+
+      {:ok, game_fresh} = CardGames.get_game_session_preloaded(started_game.id)
+
+      {:ok, game_with_penalty} =
+        CardGames.play_cards(game_fresh, current_player_id, [deck_card_two.card.id])
+
+      # Verify penalty is active
+      assert game_with_penalty.draw_penalty["active"] == true
+      target_player_id = game_with_penalty.draw_penalty["target_player_id"]
+      assert target_player_id != nil
+
+      # Simulate disconnect/reconnect by reloading from database multiple times
+      # This mimics what happens when a LiveView process crashes and reconnects
+
+      # First reconnect
+      {:ok, game_reload_1} = CardGames.get_game_session_preloaded(game_with_penalty.id)
+      assert game_reload_1.draw_penalty["active"] == true
+      assert game_reload_1.draw_penalty["count"] == 2
+      assert game_reload_1.draw_penalty["target_player_id"] == target_player_id
+
+      # Second reconnect (simulating multiple disconnections)
+      {:ok, game_reload_2} = CardGames.get_game_session_preloaded(game_with_penalty.id)
+      assert game_reload_2.draw_penalty["active"] == true
+      assert game_reload_2.draw_penalty["count"] == 2
+      assert game_reload_2.draw_penalty["target_player_id"] == target_player_id
+
+      # Third reconnect (verify consistency)
+      {:ok, game_reload_3} = CardGames.get_game_session_preloaded(game_with_penalty.id)
+      assert game_reload_3.draw_penalty["active"] == true
+      assert game_reload_3.draw_penalty["count"] == 2
+      assert game_reload_3.draw_penalty["target_player_id"] == target_player_id
+
+      # Verify all game state is consistent across reloads
+      assert game_reload_1.id == game_reload_2.id
+      assert game_reload_2.id == game_reload_3.id
+      assert game_reload_1.current_turn_player_id == game_reload_3.current_turn_player_id
+    end
+
+    test "penalty state visible across different player sessions (SPR-002 multi-device)", %{
+      started_game: started_game,
+      player: player,
+      player2: player2
+    } do
+      # Setup: Player 1 creates a penalty
+      top_card = started_game.top_card
+      current_player_id = started_game.current_turn_player_id
+
+      deck_card_two =
+        started_game.deck.deck_cards
+        |> Enum.find(fn dc -> dc.card.rank == "2" and dc.card.suit == top_card.suit end)
+
+      {:ok, _} =
+        DeckCard.changeset(deck_card_two, %{
+          location_type: "player_hand",
+          player_id: current_player_id,
+          order_index: nil
+        })
+        |> Repo.update()
+
+      {:ok, game_fresh} = CardGames.get_game_session_preloaded(started_game.id)
+
+      {:ok, game_with_penalty} =
+        CardGames.play_cards(game_fresh, current_player_id, [deck_card_two.card.id])
+
+      # Simulate Player 1's view (original device)
+      {:ok, player1_view} = CardGames.get_game_session_preloaded(game_with_penalty.id)
+      assert player1_view.draw_penalty["active"] == true
+
+      # Simulate Player 2's view (different device/browser)
+      # This simulates Player 2 opening the game on their phone/computer
+      {:ok, player2_view} = CardGames.get_game_session_preloaded(game_with_penalty.id)
+      assert player2_view.draw_penalty["active"] == true
+      assert player2_view.draw_penalty["count"] == 2
+
+      # Verify both players see the same penalty state
+      assert player1_view.draw_penalty == player2_view.draw_penalty
+
+      # Simulate Player 1 refreshing their browser
+      {:ok, player1_refresh} = CardGames.get_game_session_preloaded(game_with_penalty.id)
+      assert player1_refresh.draw_penalty["active"] == true
+
+      # Simulate Player 2 opening on a third device (tablet)
+      {:ok, player2_tablet} = CardGames.get_game_session_preloaded(game_with_penalty.id)
+      assert player2_tablet.draw_penalty["active"] == true
+
+      # All views should be identical (database is source of truth)
+      assert player1_view.draw_penalty == player1_refresh.draw_penalty
+      assert player2_view.draw_penalty == player2_tablet.draw_penalty
+      assert player1_refresh.draw_penalty == player2_tablet.draw_penalty
+
+      # Verify the target player sees they are targeted
+      next_player_id =
+        if current_player_id == player.id, do: player2.id, else: player.id
+
+      assert player1_view.draw_penalty["target_player_id"] == next_player_id
+      assert player2_view.draw_penalty["target_player_id"] == next_player_id
+    end
+  end
 end

@@ -234,6 +234,14 @@ defmodule KadiWeb.GameLive do
         socket
       end
 
+    # T026: Check for active penalty targeting current player (FR-011)
+    socket =
+      check_and_show_penalty_notification(
+        socket,
+        updated_game_session,
+        current_player_id
+      )
+
     socket = assign_game_state(socket, updated_game_session)
     {:noreply, socket}
   end
@@ -262,6 +270,29 @@ defmodule KadiWeb.GameLive do
          message: message,
          updated_at: System.monotonic_time(),
          type: :warning
+       },
+       toast_timer: timer_ref
+     )}
+  end
+
+  # T026: Handle penalty notification broadcasts (FR-011)
+  @impl true
+  def handle_info({:penalty_notification, %{message: message}}, socket) do
+    # Show penalty notification as a toast
+    # Cancel existing toast timer if any
+    if socket.assigns.toast_timer do
+      Process.cancel_timer(socket.assigns.toast_timer)
+    end
+
+    # Set penalty toast with timer
+    timer_ref = Process.send_after(self(), :clear_toast, @toast_coalesce_ms)
+
+    {:noreply,
+     assign(socket,
+       toast: %{
+         message: message,
+         updated_at: System.monotonic_time(),
+         type: :penalty
        },
        toast_timer: timer_ref
      )}
@@ -361,6 +392,74 @@ defmodule KadiWeb.GameLive do
       is_selected -> "bg-blue-100 border-blue-500 border-2 -translate-y-2"
       matches_required_suit -> "bg-green-100 border-green-500 border-2"
       true -> "bg-white hover:bg-gray-50"
+    end
+  end
+
+  # T026: Check if current player has an active penalty and show notification (FR-011)
+  defp check_and_show_penalty_notification(socket, game_session, current_player_id) do
+    draw_penalty = game_session.draw_penalty || %{}
+
+    # Check if penalty is active and targets current player
+    if draw_penalty["active"] == true and
+         draw_penalty["target_player_id"] == current_player_id do
+      # Only show notification if it's a new penalty (not already shown)
+      old_penalty = socket.assigns.game_session.draw_penalty || %{}
+
+      if old_penalty["active"] != true or
+           old_penalty["target_player_id"] != current_player_id do
+        # Find who played the '2' card (previous player)
+        penalty_creator = find_penalty_creator(game_session)
+
+        message =
+          if penalty_creator do
+            "You must draw #{draw_penalty["count"]} cards due to #{penalty_creator}'s '2' card"
+          else
+            "You must draw #{draw_penalty["count"]} cards due to a '2' card penalty"
+          end
+
+        # Cancel existing toast timer if any
+        if socket.assigns.toast_timer do
+          Process.cancel_timer(socket.assigns.toast_timer)
+        end
+
+        # Set penalty toast with timer
+        timer_ref = Process.send_after(self(), :clear_toast, @toast_coalesce_ms)
+
+        assign(socket,
+          toast: %{
+            message: message,
+            updated_at: System.monotonic_time(),
+            type: :penalty
+          },
+          toast_timer: timer_ref
+        )
+      else
+        socket
+      end
+    else
+      socket
+    end
+  end
+
+  # T026: Find the player who created the penalty (for notification message)
+  defp find_penalty_creator(game_session) do
+    # Get all players in turn order
+    players =
+      game_session.game_session_players
+      |> Enum.sort_by(& &1.inserted_at)
+      |> Enum.map(& &1.player)
+
+    # Find current turn player index
+    current_index =
+      Enum.find_index(players, fn p -> p.id == game_session.current_turn_player_id end)
+
+    if current_index do
+      # Previous player is the one who created the penalty
+      previous_index = rem(current_index - 1 + length(players), length(players))
+      previous_player = Enum.at(players, previous_index)
+      previous_player.email
+    else
+      nil
     end
   end
 end

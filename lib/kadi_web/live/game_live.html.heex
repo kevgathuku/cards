@@ -95,14 +95,64 @@
     </span>
   </div>
 
+  <%!-- T027: Persistent Draw Penalty Indicator (FR-012) --%>
+  <%= if @game_session.draw_penalty && @game_session.draw_penalty["active"] == true do %>
+    <% target_player_id = @game_session.draw_penalty["target_player_id"] %>
+    <% penalty_count = @game_session.draw_penalty["count"] %>
+    <% target_player =
+      if target_player_id == @current_player.id do
+        "You"
+      else
+        player =
+          Enum.find(@other_players_hands, fn p -> p.id == target_player_id end)
+
+        if player, do: player.email, else: "Next player"
+      end %>
+    <div
+      class="penalty-indicator mt-4 p-4 bg-red-50 border-2 border-red-400 rounded-lg shadow-lg"
+      role="alert"
+      aria-live="assertive"
+    >
+      <div class="flex items-center justify-center gap-3">
+        <.icon name="hero-exclamation-triangle" class="w-6 h-6 text-red-600" />
+        <div class="text-center">
+          <p class="text-lg font-bold text-red-800">
+            Draw {penalty_count} Penalty Active
+          </p>
+          <p class="text-sm text-red-700 mt-1">
+            {target_player} must draw {penalty_count} cards or block with an Ace/'2'
+          </p>
+        </div>
+        <.icon name="hero-exclamation-triangle" class="w-6 h-6 text-red-600" />
+      </div>
+    </div>
+  <% end %>
+
   <%!-- T057: Toast Notification System with FR-025 coalescing --%>
   <%= if @toast do %>
+    <% toast_type = Map.get(@toast, :type, :info) %>
+    <% {bg_class, border_class, text_class} =
+      case toast_type do
+        :penalty ->
+          {"bg-red-50", "border-red-300", "text-red-800"}
+
+        :warning ->
+          {"bg-yellow-50", "border-yellow-300", "text-yellow-800"}
+
+        _ ->
+          if String.contains?(@toast.message, "recycle") or
+               String.contains?(@toast.message, "exhausted") do
+            {"bg-yellow-50", "border-yellow-300", "text-yellow-800"}
+          else
+            {"bg-blue-50", "border-blue-300", "text-blue-800"}
+          end
+      end %>
     <div
-      class={"mt-4 p-3 rounded-lg border #{if String.contains?(@toast.message, "recycle") or String.contains?(@toast.message, "exhausted"), do: "bg-yellow-50 border-yellow-300", else: "bg-blue-50 border-blue-300"}"}
+      class={"mt-4 p-3 rounded-lg border #{bg_class} #{border_class}"}
       role="status"
       aria-live="polite"
     >
-      <p class={"text-sm font-medium #{if String.contains?(@toast.message, "recycle") or String.contains?(@toast.message, "exhausted"), do: "text-yellow-800", else: "text-blue-800"}"}>
+      <p class={"text-sm font-medium #{text_class}"}>
         {@toast.message}
       </p>
     </div>
