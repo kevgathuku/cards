@@ -1203,7 +1203,8 @@ defmodule Kadi.CardGames do
         end
 
         # Return a fully preloaded game session for immediate use
-        get_game_session_preloaded(updated_game)
+        # Use fresh DB query to ensure we get the latest committed data
+        get_game_session_preloaded(updated_game.id)
 
       {:error, _failed_op, failed_value, _changes} ->
         {:error, failed_value}

@@ -346,13 +346,18 @@ defmodule KadiWeb.GameLive do
   defp assign_game_state(socket, game_session) do
     current_player_id = socket.assigns.current_player.id
 
+    # Use force: false to avoid reloading already-loaded associations
+    # This ensures we use the fresh data from broadcasts rather than stale DB data
     game_session =
       game_session
-      |> Kadi.Repo.preload([
-        :current_turn_player,
-        game_session_players: :player,
-        deck: [deck_cards: :card]
-      ])
+      |> Kadi.Repo.preload(
+        [
+          :current_turn_player,
+          game_session_players: :player,
+          deck: [deck_cards: :card]
+        ],
+        force: false
+      )
 
     all_deck_cards = game_session.deck.deck_cards
 
