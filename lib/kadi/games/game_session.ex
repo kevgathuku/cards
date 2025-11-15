@@ -13,6 +13,7 @@ defmodule Kadi.Games.GameSession do
     field :direction, :string, default: "clockwise"
     field :action_type, :string
     field :action_suit, :string
+    field :draw_penalty, :map, default: %{active: false, count: 0, target_player_id: nil}
     belongs_to :created_by, Kadi.Accounts.Player
     belongs_to :current_turn_player, Kadi.Accounts.Player
     belongs_to :top_card, Kadi.Games.Card
@@ -34,7 +35,8 @@ defmodule Kadi.Games.GameSession do
       :current_turn_player_id,
       :top_card_id,
       :action_type,
-      :action_suit
+      :action_suit,
+      :draw_penalty
     ])
     |> validate_required([:short_code, :created_by_id, :status, :direction])
     |> validate_inclusion(:status, @statuses)

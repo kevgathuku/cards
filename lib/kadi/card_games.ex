@@ -74,11 +74,13 @@ defmodule Kadi.CardGames do
   def get_game_session_players(game_session_id) do
     query =
       from gsp in GameSessionPlayer,
+        join: p in Player,
+        on: gsp.player_id == p.id,
         where: gsp.game_session_id == ^game_session_id,
         order_by: [asc: gsp.inserted_at],
-        select: gsp.player_id
+        select: p
 
-    Repo.all(from p in Player, where: p.id in subquery(query))
+    Repo.all(query)
   end
 
   @doc """
@@ -461,6 +463,165 @@ defmodule Kadi.CardGames do
   end
 
   @doc """
+  Processes draw penalty for a player at turn start (T022).
+
+  When a player's turn begins and they have an active draw penalty:
+  1. Automatically draws the required number of cards (typically 2)
+  2. Clears the penalty
+  3. Advances turn to the next player
+  4. Player cannot play the drawn cards (turn ends immediately)
+
+  ## Parameters
+  - game_session: GameSession struct with active draw_penalty
+  - player_id: ID of the penalized player
+
+  ## Returns
+  - `{:ok, updated_game_session}` with cards drawn, penalty cleared, turn advanced
+  - `{:error, reason}` if operation fails
+
+  ## Examples
+
+      iex> process_draw_penalty(game_session, player_id)
+      {:ok, %GameSession{draw_penalty: %{"active" => false}}}
+  """
+  def process_draw_penalty(game_session, player_id) do
+    # 1. Validate penalty is active for this player
+    penalty = game_session.draw_penalty
+
+    if !penalty["active"] || penalty["target_player_id"] != player_id do
+      {:error, :no_active_penalty}
+    else
+      do_process_draw_penalty(game_session, player_id, penalty)
+    end
+  end
+
+  defp do_process_draw_penalty(game_session, player_id, penalty) do
+    # 2. Preload associations
+    game_session = Repo.preload(game_session, [:created_by, deck: [deck_cards: :card]])
+
+    # 3. Get number of cards to draw
+    cards_to_draw = penalty["count"] || 2
+
+    # 4. Draw cards one by one (handles recycling automatically)
+    result =
+      Enum.reduce_while(1..cards_to_draw, {:ok, game_session}, fn _i, {:ok, current_game} ->
+        # Reload to get fresh deck state
+        fresh_game = Repo.preload(current_game, [deck: [deck_cards: :card]], force: true)
+
+        # Get deck cards
+        deck_cards =
+          fresh_game.deck.deck_cards
+          |> Enum.filter(&(&1.location_type == "deck"))
+          |> Enum.sort_by(& &1.order_index)
+
+        case deck_cards do
+          [] ->
+            # Try recycling
+            case recycle_played_stack(fresh_game) do
+              {:ok, recycled_game} ->
+                # Retry drawing from recycled deck
+                recycled_game =
+                  Repo.preload(recycled_game, [deck: [deck_cards: :card]], force: true)
+
+                recycled_deck_cards =
+                  recycled_game.deck.deck_cards
+                  |> Enum.filter(&(&1.location_type == "deck"))
+                  |> Enum.sort_by(& &1.order_index)
+
+                case recycled_deck_cards do
+                  [] ->
+                    # Anomaly: No cards after recycle (T024)
+                    require Logger
+
+                    Logger.warning(
+                      "Draw penalty: Deck empty after recycle for player #{player_id}"
+                    )
+
+                    {:halt, {:ok, recycled_game}}
+
+                  [card_to_draw | _] ->
+                    # Draw the card
+                    case draw_single_card_for_penalty(recycled_game, player_id, card_to_draw) do
+                      {:ok, updated_game} -> {:cont, {:ok, updated_game}}
+                      {:error, reason} -> {:halt, {:error, reason}}
+                    end
+                end
+
+              {:error, :insufficient_cards_to_recycle} ->
+                # Anomaly: Cannot recycle (T024)
+                require Logger
+
+                Logger.warning(
+                  "Draw penalty: Insufficient cards to recycle for player #{player_id}"
+                )
+
+                {:halt, {:ok, fresh_game}}
+
+              {:error, reason} ->
+                {:halt, {:error, reason}}
+            end
+
+          [card_to_draw | _] ->
+            # Draw the card
+            case draw_single_card_for_penalty(fresh_game, player_id, card_to_draw) do
+              {:ok, updated_game} -> {:cont, {:ok, updated_game}}
+              {:error, reason} -> {:halt, {:error, reason}}
+            end
+        end
+      end)
+
+    case result do
+      {:ok, game_after_draws} ->
+        # 5. Clear penalty and advance turn
+        players = get_game_session_players(game_after_draws.id)
+        next_player = get_next_player(players, player_id)
+
+        updated_game =
+          GameSession.changeset(game_after_draws, %{
+            draw_penalty: %{"active" => false, "count" => 0, "target_player_id" => nil},
+            current_turn_player_id: next_player.id
+          })
+          |> Repo.update!()
+
+        # 6. Reload and broadcast
+        reloaded_game =
+          GameSession
+          |> Repo.get!(updated_game.id)
+          |> Repo.preload(:created_by)
+
+        broadcast_game_update(reloaded_game)
+
+        {:ok, reloaded_game}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  # Helper function to draw a single card without advancing turn (for penalty processing)
+  defp draw_single_card_for_penalty(game_session, player_id, card_to_draw) do
+    DeckCard.changeset(card_to_draw, %{
+      location_type: "player_hand",
+      player_id: player_id,
+      order_index: nil
+    })
+    |> Repo.update()
+    |> case do
+      {:ok, _updated_card} ->
+        # Reload game with fresh associations
+        updated_game =
+          GameSession
+          |> Repo.get!(game_session.id)
+          |> Repo.preload([:created_by, deck: [deck_cards: :card]])
+
+        {:ok, updated_game}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  @doc """
   Recycles cards from the played stack back into the deck.
 
   Takes all cards from played_stack except the topmost card, shuffles them,
@@ -585,7 +746,7 @@ defmodule Kadi.CardGames do
            {:ok, player} <- get_player_in_session(game_session, player_id),
            {:ok, cards_to_play} <- validate_player_has_cards(game_session, player, card_ids),
            {:ok, top_card} <- get_top_card(game_session),
-           :ok <- validate_can_play(cards_to_play, top_card, game_session.action_suit),
+           :ok <- validate_can_play(cards_to_play, top_card, game_session),
            {:ok, updated_game} <- execute_play(game_session, player, cards_to_play) do
         broadcast_game_update(updated_game)
         {:ok, updated_game}
@@ -765,7 +926,7 @@ defmodule Kadi.CardGames do
   # Helper functions for play_cards/3
   # ============================================================================
 
-  defp get_game_session_preloaded(%GameSession{} = game_session) do
+  def get_game_session_preloaded(%GameSession{} = game_session) do
     preloaded =
       game_session
       |> Repo.preload([
@@ -779,7 +940,7 @@ defmodule Kadi.CardGames do
     {:ok, preloaded}
   end
 
-  defp get_game_session_preloaded(game_session_id) when is_integer(game_session_id) do
+  def get_game_session_preloaded(game_session_id) when is_integer(game_session_id) do
     case Repo.get(GameSession, game_session_id) do
       nil -> {:error, :game_not_found}
       game_session -> get_game_session_preloaded(game_session)
@@ -834,8 +995,11 @@ defmodule Kadi.CardGames do
     end
   end
 
-  defp validate_can_play(cards_to_play, top_card, action_suit) do
-    opts = if action_suit, do: [action_suit: action_suit], else: []
+  defp validate_can_play(cards_to_play, top_card, game_session) do
+    opts = [
+      action_suit: game_session.action_suit,
+      penalty_active?: game_session.draw_penalty["active"]
+    ]
 
     if PlayValidator.valid_play?(cards_to_play, top_card, opts) do
       :ok
@@ -854,6 +1018,8 @@ defmodule Kadi.CardGames do
     ace_played? = Enum.any?(cards_to_play, &(&1.rank == "ace"))
     king_played? = Enum.any?(cards_to_play, &(&1.rank == "king"))
     jack_played? = Enum.any?(cards_to_play, &(&1.rank == "jack"))
+    # Added for T004
+    two_played? = Enum.any?(cards_to_play, &(&1.rank == "2"))
     jack_count = if jack_played?, do: length(cards_to_play), else: 0
 
     # Calculate new direction (FR-002)
@@ -873,21 +1039,75 @@ defmodule Kadi.CardGames do
 
     # Determine next player and action type
     {next_player, action_type} =
-      if ace_played? do
-        # When Ace is played, turn does not advance, awaits suit selection
-        {game_session.current_turn_player, "select_suit"}
-      else
-        # Normal play: advance turn
-        next_player =
-          get_next_player_with_direction(players, player.id, new_direction, skip_count)
+      cond do
+        # If Ace is played to block a penalty, turn advances
+        ace_played? && game_session.draw_penalty["active"] ->
+          next_player =
+            get_next_player_with_direction(players, player.id, new_direction, skip_count)
 
-        {next_player, nil}
+          {next_player, nil}
+
+        # If Ace is played normally, await suit selection
+        ace_played? ->
+          {game_session.current_turn_player, "select_suit"}
+
+        # Normal play: advance turn
+        true ->
+          next_player =
+            get_next_player_with_direction(players, player.id, new_direction, skip_count)
+
+          {next_player, nil}
+      end
+
+    # Determine draw penalty for the next player if a '2' is played (T004)
+    draw_penalty_update =
+      cond do
+        # Case 1: Penalty is active, and player blocks with an Ace
+        game_session.draw_penalty["active"] && ace_played? ->
+          # Clear penalty, set action_suit
+          %{
+            "active" => false,
+            "count" => 0,
+            "target_player_id" => nil
+          }
+
+        # Case 2: Penalty is active, and player blocks with another '2'
+        game_session.draw_penalty["active"] && two_played? ->
+          # Transfer penalty to the next player (turn already calculated above)
+          %{
+            "active" => true,
+            "count" => 2,
+            "target_player_id" => next_player.id
+          }
+
+        # Case 3: No active penalty, player plays a '2' to create one
+        two_played? ->
+          %{"active" => true, "count" => 2, "target_player_id" => next_player.id}
+
+        # Case 4: No '2' played, no active penalty
+        true ->
+          game_session.draw_penalty
+      end
+
+    action_suit_update =
+      if game_session.draw_penalty["active"] && ace_played? do
+        # When Ace blocks a '2', the suit of the '2' becomes active
+        # We need to find the card that caused the penalty (the previous top_card)
+        game_session.top_card.suit
+      else
+        nil
       end
 
     # Check if player will be cardless after this play (FR-011, FR-012)
     player_hand = get_player_hand_count(game_session, player.id)
     cards_played_count = length(cards_to_play)
-    will_be_cardless = player_hand == cards_played_count and (king_played? or jack_played?)
+    will_be_cardless = player_hand == cards_played_count
+
+    # Only Kings, Jacks, and '2' cards trigger cardless state
+    # Note: Being cardless does NOT mean winning - the game continues
+    # (Playing '2' as last card still applies penalty to next player)
+    two_played? = Enum.any?(cards_to_play, fn card -> card.rank == "2" end)
+    will_enter_cardless = will_be_cardless and (king_played? or jack_played? or two_played?)
 
     # Build transaction
     multi = Ecto.Multi.new()
@@ -922,13 +1142,15 @@ defmodule Kadi.CardGames do
           current_turn_player_id: next_player.id,
           direction: new_direction,
           action_type: action_type,
-          action_suit: nil
+          action_suit: action_suit_update,
+          # Added for T004
+          draw_penalty: draw_penalty_update
         })
       )
 
     # Update player status if cardless (FR-011, FR-026)
     multi_with_status =
-      if will_be_cardless do
+      if will_enter_cardless do
         player_session =
           Repo.get_by!(GameSessionPlayer,
             game_session_id: game_session.id,
@@ -972,7 +1194,7 @@ defmodule Kadi.CardGames do
           )
         end
 
-        if will_be_cardless do
+        if will_enter_cardless do
           if jack_played? do
             emit_jack_cardless_event(game_session.id, player.id, last_card.id)
           else
@@ -980,15 +1202,11 @@ defmodule Kadi.CardGames do
           end
         end
 
-        # Reload with fresh associations
-        reloaded =
-          GameSession
-          |> Repo.get!(updated_game.id)
-          |> Repo.preload(:created_by)
+        # Return a fully preloaded game session for immediate use
+        # Use fresh DB query to ensure we get the latest committed data
+        get_game_session_preloaded(updated_game.id)
 
-        {:ok, reloaded}
-
-      {:error, _op, failed_value, _changes} ->
+      {:error, _failed_op, failed_value, _changes} ->
         {:error, failed_value}
     end
   end

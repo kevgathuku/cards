@@ -19,7 +19,8 @@ defmodule KadiWeb.GameLive do
        selected_cards: [],
        direction: "clockwise",
        toast: nil,
-       toast_timer: nil
+       toast_timer: nil,
+       show_penalty_animation: false
      )}
   end
 
@@ -131,12 +132,20 @@ defmodule KadiWeb.GameLive do
            |> assign(selected_cards: [])}
 
         {:error, :invalid_play} ->
-          # T063: Show specific error when action_suit requirement not met
+          # T044: Check if penalty is active and show specific error (FR-006)
+          draw_penalty = game_session.draw_penalty || %{}
+
           error_msg =
-            if game_session.action_suit do
-              "Invalid play - you must play a card matching the required suit (#{String.capitalize(game_session.action_suit)}) or an Ace"
+            if draw_penalty["active"] == true and
+                 draw_penalty["target_player_id"] == current_player.id do
+              "Penalty Active. You must play blocking card or draw penalty cards"
             else
-              "Invalid play - card(s) don't match the top card or are not yet implemented"
+              # T063: Show specific error when action_suit requirement not met
+              if game_session.action_suit do
+                "Invalid play - you must play a card matching the required suit (#{String.capitalize(game_session.action_suit)}) or an Ace"
+              else
+                "Invalid play - card(s) don't match the top card or are not yet implemented"
+              end
             end
 
           {:noreply,
@@ -174,6 +183,31 @@ defmodule KadiWeb.GameLive do
     end
   end
 
+  # T037: Handle explicit penalty acceptance via button click
+  # T046: Button click clears penalty (not transfers) even if player has blocking cards (FR-007)
+  @impl true
+  def handle_event("accept_penalty", _params, socket) do
+    game_session = socket.assigns.game_session
+    current_player = socket.assigns.current_player
+
+    # process_draw_penalty clears penalty (sets active=false) and advances turn
+    # This gives players strategic choice: accept penalty OR play blocking card
+    case CardGames.process_draw_penalty(game_session, current_player.id) do
+      {:ok, _updated_game_session} ->
+        # Don't update socket - wait for broadcast
+        {:noreply, socket}
+
+      {:error, :not_current_turn} ->
+        {:noreply, put_flash(socket, :error, "It's not your turn")}
+
+      {:error, :no_penalty} ->
+        {:noreply, put_flash(socket, :error, "No penalty to accept")}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Cannot draw penalty: #{reason}")}
+    end
+  end
+
   @impl true
   def handle_info(
         %Phoenix.Socket.Broadcast{event: "game_updated", payload: %{game_session: nil}},
@@ -196,10 +230,8 @@ defmodule KadiWeb.GameLive do
     old_turn_player_id =
       socket.assigns.current_turn_player && socket.assigns.current_turn_player.id
 
-    updated_game_session =
-      updated_game_session
-      |> Kadi.Repo.preload([:current_turn_player])
-
+    # Backend sends fully preloaded game_session from get_game_session_preloaded/1
+    # Don't re-preload here as it would lose the necessary associations
     new_turn_player_id = updated_game_session.current_turn_player_id
 
     socket =
@@ -232,6 +264,27 @@ defmodule KadiWeb.GameLive do
         )
       else
         socket
+      end
+
+    # T026: Check for active penalty targeting current player (FR-011)
+    socket =
+      check_and_show_penalty_notification(
+        socket,
+        updated_game_session,
+        current_player_id
+      )
+
+    # T038: Detect penalty clearing to trigger animation (FR-005)
+    old_penalty = socket.assigns.game_session.draw_penalty || %{}
+    new_penalty = updated_game_session.draw_penalty || %{}
+
+    socket =
+      if old_penalty["active"] == true and new_penalty["active"] != true and
+           old_penalty["target_player_id"] == current_player_id do
+        # Penalty was just cleared for current player - trigger animation
+        assign(socket, show_penalty_animation: true)
+      else
+        assign(socket, show_penalty_animation: false)
       end
 
     socket = assign_game_state(socket, updated_game_session)
@@ -267,16 +320,44 @@ defmodule KadiWeb.GameLive do
      )}
   end
 
+  # T026: Handle penalty notification broadcasts (FR-011)
+  @impl true
+  def handle_info({:penalty_notification, %{message: message}}, socket) do
+    # Show penalty notification as a toast
+    # Cancel existing toast timer if any
+    if socket.assigns.toast_timer do
+      Process.cancel_timer(socket.assigns.toast_timer)
+    end
+
+    # Set penalty toast with timer
+    timer_ref = Process.send_after(self(), :clear_toast, @toast_coalesce_ms)
+
+    {:noreply,
+     assign(socket,
+       toast: %{
+         message: message,
+         updated_at: System.monotonic_time(),
+         type: :penalty
+       },
+       toast_timer: timer_ref
+     )}
+  end
+
   defp assign_game_state(socket, game_session) do
     current_player_id = socket.assigns.current_player.id
 
+    # Use force: false to avoid reloading already-loaded associations
+    # This ensures we use the fresh data from broadcasts rather than stale DB data
     game_session =
       game_session
-      |> Kadi.Repo.preload([
-        :current_turn_player,
-        game_session_players: :player,
-        deck: [deck_cards: :card]
-      ])
+      |> Kadi.Repo.preload(
+        [
+          :current_turn_player,
+          game_session_players: :player,
+          deck: [deck_cards: :card]
+        ],
+        force: false
+      )
 
     all_deck_cards = game_session.deck.deck_cards
 
@@ -355,12 +436,91 @@ defmodule KadiWeb.GameLive do
   defp suit_symbol("spades"), do: "♠"
   defp suit_symbol(_), do: ""
 
-  # T062: Helper to determine card CSS class based on selection and required suit
-  defp card_class(is_selected, matches_required_suit) do
+  # T062: Helper to determine card CSS class based on selection, required suit, and blocking cards
+  defp card_class(is_selected, matches_required_suit, is_blocking_card) do
     cond do
       is_selected -> "bg-blue-100 border-blue-500 border-2 -translate-y-2"
       matches_required_suit -> "bg-green-100 border-green-500 border-2"
+      is_blocking_card -> "bg-green-100 border-green-500 border-2"
       true -> "bg-white hover:bg-gray-50"
     end
+  end
+
+  # T026: Check if current player has an active penalty and show notification (FR-011)
+  defp check_and_show_penalty_notification(socket, game_session, current_player_id) do
+    draw_penalty = game_session.draw_penalty || %{}
+
+    # Check if penalty is active and targets current player
+    if draw_penalty["active"] == true and
+         draw_penalty["target_player_id"] == current_player_id do
+      # Only show notification if it's a new penalty (not already shown)
+      old_penalty = socket.assigns.game_session.draw_penalty || %{}
+
+      if old_penalty["active"] != true or
+           old_penalty["target_player_id"] != current_player_id do
+        # Find who played the '2' card (previous player)
+        penalty_creator = find_penalty_creator(game_session)
+
+        message =
+          if penalty_creator do
+            "You must draw #{draw_penalty["count"]} cards due to #{penalty_creator}'s '2' card"
+          else
+            "You must draw #{draw_penalty["count"]} cards due to a '2' card penalty"
+          end
+
+        # Cancel existing toast timer if any
+        if socket.assigns.toast_timer do
+          Process.cancel_timer(socket.assigns.toast_timer)
+        end
+
+        # Set penalty toast with timer
+        timer_ref = Process.send_after(self(), :clear_toast, @toast_coalesce_ms)
+
+        assign(socket,
+          toast: %{
+            message: message,
+            updated_at: System.monotonic_time(),
+            type: :penalty
+          },
+          toast_timer: timer_ref
+        )
+      else
+        socket
+      end
+    else
+      socket
+    end
+  end
+
+  # T026: Find the player who created the penalty (for notification message)
+  defp find_penalty_creator(game_session) do
+    # Get all players in turn order
+    players =
+      game_session.game_session_players
+      |> Enum.sort_by(& &1.inserted_at)
+      |> Enum.map(& &1.player)
+
+    # Find current turn player index
+    current_index =
+      Enum.find_index(players, fn p -> p.id == game_session.current_turn_player_id end)
+
+    if current_index do
+      # Previous player is the one who created the penalty
+      previous_index = rem(current_index - 1 + length(players), length(players))
+      previous_player = Enum.at(players, previous_index)
+      previous_player.email
+    else
+      nil
+    end
+  end
+
+  # T035: Helper to determine if penalty acceptance button should be shown
+  # Shows button when: penalty is active AND it's the current player's turn
+  defp show_penalty_button?(game_session, current_player_id) do
+    draw_penalty = game_session.draw_penalty || %{}
+
+    draw_penalty["active"] == true and
+      draw_penalty["target_player_id"] == current_player_id and
+      game_session.current_turn_player_id == current_player_id
   end
 end

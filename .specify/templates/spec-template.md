@@ -100,6 +100,11 @@
 - **[Entity 1]**: [What it represents, key attributes without implementation]
 - **[Entity 2]**: [What it represents, relationships to other entities]
 
+### State Persistence Requirements *(mandatory if feature involves state)*
+
+- **SPR-001**: All game state critical for continuity (e.g., player hands, turn, scores, active penalties) MUST be persisted in the database.
+- **SPR-002**: Player progress MUST be recoverable after unexpected disconnections or client changes.
+
 ## Success Criteria *(mandatory)*
 
 <!--

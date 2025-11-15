@@ -31,7 +31,36 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+### Section 1: Code Quality Principles
+- [ ] **1.5 Feature Reuse**: Reviewed `specs/` directory for existing features that can be reused/extended
+- [ ] **1.6 Schema Verification**: Read actual schema files in `lib/*/` and migrations in `priv/repo/migrations/`
+- [ ] **1.7 DRY Principle**: Searched for existing functions (`grep -rn "def function_name" lib/`) and tests before creating new ones
+
+### Section 2: Architectural Principles
+- [ ] **2.1 Database-Backed State**: All new game state is persisted in PostgreSQL (not in-memory)
+- [ ] **2.1 Continuity**: Players can disconnect/reconnect without data loss
+- [ ] **2.1 Multi-Device**: Players can resume games on different devices
+- [ ] **2.1 Schema Updates**: Database schema changes documented for new stateful features
+- [ ] **2.1 Atomicity**: Compound state changes use `Ecto.Multi` for atomic transactions
+- [ ] **2.1 PubSub Role**: PubSub used only for notifications, not state synchronization
+
+### Section 3: Testing Standards
+- [ ] **3.1 Coverage**: All context functions have tests (90%+ coverage target)
+- [ ] **3.2 Quality**: Tests follow AAA pattern, are isolated, and descriptive
+- [ ] **3.4 Test Data**: Using factory functions for consistent test data creation
+
+### Section 4: User Experience Consistency
+- [ ] **4.1 LiveView Patterns**: Immediate feedback, optimistic updates, error visibility
+- [ ] **4.3 Player Experience**: Real-time updates via PubSub, graceful disconnection handling
+
+### Section 6: Security Standards
+- [ ] **6.1 Authorization**: Player authorization checks before allowing game actions
+- [ ] **6.2 Input Validation**: Server-side validation of all LiveView events
+
+### Section 7: Git and Development Workflow
+- [ ] **7.4 Database Safety**: Not running destructive database commands (`mix ecto.reset`, `mix ecto.drop`) during development
+
+*Note: Check all applicable gates. If any gate cannot be satisfied, document in Complexity Tracking section below with justification.*
 
 ## Project Structure
 

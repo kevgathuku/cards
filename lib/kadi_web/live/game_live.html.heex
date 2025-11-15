@@ -18,15 +18,26 @@
       <%= if @current_turn_player.id == @current_player.id do %>
         <p class="text-sm text-blue-600 mt-1">It's your turn!</p>
 
-        <%!-- Draw Card Button - Visible when deck has cards OR played pile can be recycled --%>
-        <%= if @deck_size > 0 or length(@played_pile) >= 2 do %>
-          <.button phx-click="draw_card" phx-disable-with="Drawing..." class="mt-2">
-            <%= if @deck_size == 0 do %>
-              Draw Card (Recycle Pile)
-            <% else %>
-              Draw Card
-            <% end %>
+        <%!-- T039: Conditional penalty acceptance button (FR-004, FR-005) --%>
+        <%= if show_penalty_button?(@game_session, @current_player.id) do %>
+          <.button
+            phx-click="accept_penalty"
+            phx-disable-with="Drawing penalty cards..."
+            class="mt-2 btn-penalty bg-red-600 hover:bg-red-700"
+          >
+            Draw {@game_session.draw_penalty["count"]} Cards
           </.button>
+        <% else %>
+          <%!-- Draw Card Button - Visible when deck has cards OR played pile can be recycled --%>
+          <%= if @deck_size > 0 or length(@played_pile) >= 2 do %>
+            <.button phx-click="draw_card" phx-disable-with="Drawing..." class="mt-2">
+              <%= if @deck_size == 0 do %>
+                Draw Card (Recycle Pile)
+              <% else %>
+                Draw Card
+              <% end %>
+            </.button>
+          <% end %>
         <% end %>
       <% end %>
     </div>
@@ -78,7 +89,7 @@
         </span>
       </p>
       <p class="text-sm text-purple-600 mt-1">
-        You must play a card of this suit (or another Ace)
+        You must play a card of this suit (or an Ace)
       </p>
     </div>
   <% end %>
@@ -95,14 +106,65 @@
     </span>
   </div>
 
+  <%!-- T027: Persistent Draw Penalty Indicator (FR-012) --%>
+  <%!-- T040: Hide indicator when animation is playing (FR-008) --%>
+  <%= if @game_session.draw_penalty && @game_session.draw_penalty["active"] == true && !@show_penalty_animation do %>
+    <% target_player_id = @game_session.draw_penalty["target_player_id"] %>
+    <% penalty_count = @game_session.draw_penalty["count"] %>
+    <% target_player =
+      if target_player_id == @current_player.id do
+        "You"
+      else
+        player =
+          Enum.find(@other_players_hands, fn p -> p.id == target_player_id end)
+
+        if player, do: player.email, else: "Next player"
+      end %>
+    <div
+      class="penalty-indicator mt-4 p-4 bg-red-50 border-2 border-red-400 rounded-lg shadow-lg"
+      role="alert"
+      aria-live="assertive"
+    >
+      <div class="flex items-center justify-center gap-3">
+        <.icon name="hero-exclamation-triangle" class="w-6 h-6 text-red-600" />
+        <div class="text-center">
+          <p class="text-lg font-bold text-red-800">
+            Draw {penalty_count} Penalty Active
+          </p>
+          <p class="text-sm text-red-700 mt-1">
+            {target_player} must draw {penalty_count} cards or block with an Ace/'2'
+          </p>
+        </div>
+        <.icon name="hero-exclamation-triangle" class="w-6 h-6 text-red-600" />
+      </div>
+    </div>
+  <% end %>
+
   <%!-- T057: Toast Notification System with FR-025 coalescing --%>
   <%= if @toast do %>
+    <% toast_type = Map.get(@toast, :type, :info) %>
+    <% {bg_class, border_class, text_class} =
+      case toast_type do
+        :penalty ->
+          {"bg-red-50", "border-red-300", "text-red-800"}
+
+        :warning ->
+          {"bg-yellow-50", "border-yellow-300", "text-yellow-800"}
+
+        _ ->
+          if String.contains?(@toast.message, "recycle") or
+               String.contains?(@toast.message, "exhausted") do
+            {"bg-yellow-50", "border-yellow-300", "text-yellow-800"}
+          else
+            {"bg-blue-50", "border-blue-300", "text-blue-800"}
+          end
+      end %>
     <div
-      class={"mt-4 p-3 rounded-lg border #{if String.contains?(@toast.message, "recycle") or String.contains?(@toast.message, "exhausted"), do: "bg-yellow-50 border-yellow-300", else: "bg-blue-50 border-blue-300"}"}
+      class={"mt-4 p-3 rounded-lg border #{bg_class} #{border_class}"}
       role="status"
       aria-live="polite"
     >
-      <p class={"text-sm font-medium #{if String.contains?(@toast.message, "recycle") or String.contains?(@toast.message, "exhausted"), do: "text-yellow-800", else: "text-blue-800"}"}>
+      <p class={"text-sm font-medium #{text_class}"}>
         {@toast.message}
       </p>
     </div>
@@ -175,8 +237,19 @@
         <% matches_required_suit =
           @game_session.action_suit &&
             (dc.card.suit == @game_session.action_suit || dc.card.rank == "ace") %>
+        <%!-- Highlight blocking cards (2 or Ace) when penalty is active --%>
+        <% draw_penalty = @game_session.draw_penalty || %{} %>
+        <% is_blocking_card =
+          draw_penalty["active"] == true &&
+            draw_penalty["target_player_id"] == @current_player.id &&
+            (dc.card.rank == "2" || dc.card.rank == "ace") %>
+        <%!-- T043: Add animation class when penalty animation is active --%>
+        <% animation_class = if @show_penalty_animation, do: "penalty-card-animation", else: "" %>
+        <%!-- T045: Cards remain clickable when penalty button shown (FR-007 strategic choice) --%>
         <div
-          class={"p-4 border rounded-md shadow-sm cursor-pointer transition-all #{card_class(is_selected, matches_required_suit)}"}
+          class={
+            "p-4 border rounded-md shadow-sm cursor-pointer transition-all #{card_class(is_selected, matches_required_suit, is_blocking_card)} #{animation_class}"
+          }
           phx-click="toggle_card"
           phx-value-card_id={dc.card_id}
         >

@@ -1,6 +1,7 @@
 #!/bin/sh
 #
 # Pre-commit hook to run mix format on staged Elixir and Phoenix files
+# Formats files in place and re-stages them
 #
 
 # Get all staged .ex, .exs, and .heex files
@@ -13,20 +14,18 @@ fi
 
 echo "Running mix format on staged files..."
 
-# Run mix format on staged files
+# Run mix format on staged files (formats in place)
 echo "$STAGED_FILES" | xargs mix format
 
-# Check if formatting made any changes
-FORMATTING_CHANGES=$(git diff --name-only $STAGED_FILES)
+# Check if formatting changed any files
+CHANGED_FILES=$(echo "$STAGED_FILES" | xargs git diff --name-only)
 
-if [ -n "$FORMATTING_CHANGES" ]; then
-  echo ""
-  echo "Code formatting applied. Please review the changes and re-stage:"
-  echo "$FORMATTING_CHANGES" | sed 's/^/  /'
-  echo ""
-  echo "Run: git add <files> && git commit"
-  exit 1
+if [ -n "$CHANGED_FILES" ]; then
+  echo "✓ Files were formatted. Re-staging changes..."
+  # Re-add the formatted files to staging
+  echo "$CHANGED_FILES" | xargs git add
+else
+  echo "✓ All files already formatted correctly"
 fi
 
-echo "✓ Code formatting check passed"
 exit 0

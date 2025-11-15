@@ -47,26 +47,42 @@ defmodule Kadi.Games.PlayValidator do
 
   def valid_play?([single_card], top_card, opts) do
     action_suit = Keyword.get(opts, :action_suit)
+    penalty_active? = Keyword.get(opts, :penalty_active?, false)
 
-    {valid?, _type} =
-      cond do
-        single_card.rank == "ace" ->
-          {valid_ace_play?([single_card], top_card, action_suit), :ace}
-
-        single_card.rank == "king" ->
-          {valid_king_play?([single_card], top_card, action_suit), :king}
-
-        single_card.rank == "jack" ->
-          {valid_jack_play?([single_card], top_card, action_suit), :jack}
-
-        valid_regular_card?(single_card) ->
-          {validate_single_card(single_card, top_card, action_suit), :regular}
-
-        true ->
-          {false, :unknown}
+    # If penalty is active, only Ace or '2' are valid plays
+    if penalty_active? do
+      case single_card.rank do
+        "ace" -> valid_ace_play?([single_card], top_card, action_suit)
+        "2" -> validate_single_card(single_card, top_card, action_suit)
+        _ -> false
       end
+    else
+      # Regular validation when no penalty is active
+      {valid?, _type} =
+        cond do
+          single_card.rank == "ace" ->
+            {valid_ace_play?([single_card], top_card, action_suit), :ace}
 
-    valid?
+          single_card.rank == "king" ->
+            {valid_king_play?([single_card], top_card, action_suit), :king}
+
+          single_card.rank == "jack" ->
+            {valid_jack_play?([single_card], top_card, action_suit), :jack}
+
+          # NEW: Handle '2' card specifically
+          single_card.rank == "2" ->
+            # Reuse validate_single_card
+            {validate_single_card(single_card, top_card, action_suit), :two}
+
+          valid_regular_card?(single_card) ->
+            {validate_single_card(single_card, top_card, action_suit), :regular}
+
+          true ->
+            {false, :unknown}
+        end
+
+      valid?
+    end
   end
 
   def valid_play?(cards, top_card, opts) when is_list(cards) do
@@ -82,6 +98,13 @@ defmodule Kadi.Games.PlayValidator do
 
         Enum.any?(cards, &(&1.rank == "jack")) ->
           {valid_jack_play?(cards, top_card, action_suit), :jack}
+
+        # NEW: Handle combo '2's specifically (T021)
+        # Note: Multiple '2' cards are allowed in a combo, but the penalty effect
+        # is NOT additive (handled in CardGames.play_cards/3 where penalty count is fixed at 2)
+        all_twos?(cards) ->
+          # Reuse validate_combo
+          {validate_combo(cards, top_card, action_suit), :two}
 
         all_regular_cards?(cards) ->
           {validate_combo(cards, top_card, action_suit), :regular}
@@ -224,6 +247,10 @@ defmodule Kadi.Games.PlayValidator do
     Enum.all?(cards, &(&1.rank == "ace"))
   end
 
+  defp all_twos?(cards) do
+    Enum.all?(cards, &(&1.rank == "2"))
+  end
+
   defp valid_regular_card?(%{rank: rank}) do
     rank in @regular_ranks
   end
@@ -234,7 +261,11 @@ defmodule Kadi.Games.PlayValidator do
 
   defp validate_single_card(card, top_card, action_suit) do
     if action_suit do
-      card.suit == action_suit
+      # When action_suit is set (from Ace blocking '2'), allow either:
+      # 1. Matching the action_suit, OR
+      # 2. Playing another '2' (matching rank of the blocked card)
+      # (Session 2025-11-15 clarification)
+      card.suit == action_suit or card.rank == "2"
     else
       matches_suit_or_rank?(card, top_card)
     end
@@ -257,7 +288,11 @@ defmodule Kadi.Games.PlayValidator do
 
   defp first_card_matches?([first_card | _rest], top_card, action_suit) do
     if action_suit do
-      first_card.suit == action_suit
+      # When action_suit is set (from Ace blocking '2'), allow either:
+      # 1. Matching the action_suit, OR
+      # 2. Playing another '2' (matching rank of the blocked card)
+      # (Session 2025-11-15 clarification)
+      first_card.suit == action_suit or first_card.rank == "2"
     else
       matches_suit_or_rank?(first_card, top_card)
     end

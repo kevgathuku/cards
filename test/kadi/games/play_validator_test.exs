@@ -88,9 +88,9 @@ defmodule Kadi.Games.PlayValidatorTest do
       end
     end
 
-    test "rejects unsupported special cards (2,3,8,Queen) even when they match" do
-      # King is supported in Feature 006, Jack in Feature 007, Ace in Feature 008
-      special_ranks = ["2", "3", "8", "queen"]
+    test "rejects unsupported special cards (3,8,Queen) even when they match" do
+      # King is supported in Feature 006, Jack in Feature 007, Ace in Feature 008, '2' in Feature 009
+      special_ranks = ["3", "8", "queen"]
 
       for rank <- special_ranks do
         top_card = %Card{suit: "hearts", rank: rank}
