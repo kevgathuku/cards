@@ -433,11 +433,12 @@ defmodule KadiWeb.GameLive do
   defp suit_symbol("spades"), do: "♠"
   defp suit_symbol(_), do: ""
 
-  # T062: Helper to determine card CSS class based on selection and required suit
-  defp card_class(is_selected, matches_required_suit) do
+  # T062: Helper to determine card CSS class based on selection, required suit, and blocking cards
+  defp card_class(is_selected, matches_required_suit, is_blocking_card) do
     cond do
       is_selected -> "bg-blue-100 border-blue-500 border-2 -translate-y-2"
       matches_required_suit -> "bg-green-100 border-green-500 border-2"
+      is_blocking_card -> "bg-green-100 border-green-500 border-2"
       true -> "bg-white hover:bg-gray-50"
     end
   end

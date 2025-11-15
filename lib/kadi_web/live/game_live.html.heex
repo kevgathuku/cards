@@ -237,12 +237,18 @@
         <% matches_required_suit =
           @game_session.action_suit &&
             (dc.card.suit == @game_session.action_suit || dc.card.rank == "ace") %>
+        <%!-- Highlight blocking cards (2 or Ace) when penalty is active --%>
+        <% draw_penalty = @game_session.draw_penalty || %{} %>
+        <% is_blocking_card =
+          draw_penalty["active"] == true &&
+            draw_penalty["target_player_id"] == @current_player.id &&
+            (dc.card.rank == "2" || dc.card.rank == "ace") %>
         <%!-- T043: Add animation class when penalty animation is active --%>
         <% animation_class = if @show_penalty_animation, do: "penalty-card-animation", else: "" %>
         <%!-- T045: Cards remain clickable when penalty button shown (FR-007 strategic choice) --%>
         <div
           class={
-            "p-4 border rounded-md shadow-sm cursor-pointer transition-all #{card_class(is_selected, matches_required_suit)} #{animation_class}"
+            "p-4 border rounded-md shadow-sm cursor-pointer transition-all #{card_class(is_selected, matches_required_suit, is_blocking_card)} #{animation_class}"
           }
           phx-click="toggle_card"
           phx-value-card_id={dc.card_id}
