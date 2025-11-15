@@ -1,6 +1,7 @@
 #!/bin/sh
 #
 # Pre-commit hook to run mix format on staged Elixir and Phoenix files
+# Preserves partially staged files by stashing unstaged changes
 #
 
 # Get all staged .ex, .exs, and .heex files
@@ -13,20 +14,17 @@ fi
 
 echo "Running mix format on staged files..."
 
+# Stash unstaged changes (including untracked files)
+git stash push --keep-index --include-untracked --quiet
+
 # Run mix format on staged files
 echo "$STAGED_FILES" | xargs mix format
 
-# Check if formatting made any changes
-FORMATTING_CHANGES=$(git diff --name-only $STAGED_FILES)
+# Re-add the formatted files to staging
+echo "$STAGED_FILES" | xargs git add
 
-if [ -n "$FORMATTING_CHANGES" ]; then
-  echo ""
-  echo "Code formatting applied. Please review the changes and re-stage:"
-  echo "$FORMATTING_CHANGES" | sed 's/^/  /'
-  echo ""
-  echo "Run: git add <files> && git commit"
-  exit 1
-fi
+# Restore unstaged changes
+git stash pop --quiet
 
-echo "✓ Code formatting check passed"
+echo "✓ Code formatting applied to staged changes only"
 exit 0
