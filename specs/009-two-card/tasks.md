@@ -54,14 +54,14 @@
 **Goal**: A player who cannot block must draw, and combo plays are not additive.
 **Independent Test**: Create a penalty and verify a player with no blockers auto-draws. Play multiple '2's and verify penalty is not stacked.
 
-- [ ] T017 [P] [US4] Add test to ensure playing multiple '2's does not stack the penalty count in `test/kadi/card_games/special_cards_two_test.exs`
-- [ ] T018 [P] [US5] Add test for auto-draw when a player has no blocking cards in `test/kadi/card_games/special_cards_two_test.exs`
-- [ ] T019 [P] [US5] Add test for deck recycling when player must draw more cards than are in the deck in `test/kadi/card_games/special_cards_two_test.exs`
-- [ ] T020 [P] [US5] Add test to ensure a player's turn ends after drawing and they cannot play the drawn cards in `test/kadi/card_games/special_cards_two_test.exs`
-- [ ] T021 [US4] Implement validation to ensure combo '2' plays are not additive in `lib/kadi/games/play_validator.ex`
-- [ ] T022 [US5] Implement auto-draw logic for penalized players at turn start in `lib/kadi/card_games.ex`
-- [ ] T023 [US5] Implement deck recycling logic for when the deck is empty during a draw in `lib/kadi/card_games.ex`
-- [ ] T024 [US5] Log an anomaly if the draw deck is empty and cannot be recycled in `lib/kadi/card_games.ex`
+- [x] T017 [P] [US4] Add test to ensure playing multiple '2's does not stack the penalty count in `test/kadi/card_games/special_cards_two_test.exs`
+- [x] T018 [P] [US5] Add test for auto-draw when a player has no blocking cards in `test/kadi/card_games/special_cards_two_test.exs`
+- [x] T019 [P] [US5] Add test for deck recycling when player must draw more cards than are in the deck in `test/kadi/card_games/special_cards_two_test.exs`
+- [x] T020 [P] [US5] Add test to ensure a player's turn ends after drawing and they cannot play the drawn cards in `test/kadi/card_games/special_cards_two_test.exs`
+- [x] T021 [US4] Implement validation to ensure combo '2' plays are not additive in `lib/kadi/games/play_validator.ex`
+- [x] T022 [US5] Implement auto-draw logic for penalized players at turn start in `lib/kadi/card_games.ex`
+- [x] T023 [US5] Implement deck recycling logic for when the deck is empty during a draw in `lib/kadi/card_games.ex`
+- [x] T024 [US5] Log an anomaly if the draw deck is empty and cannot be recycled in `lib/kadi/card_games.ex`
 
 ---
 

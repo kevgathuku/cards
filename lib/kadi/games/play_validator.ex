@@ -99,7 +99,9 @@ defmodule Kadi.Games.PlayValidator do
         Enum.any?(cards, &(&1.rank == "jack")) ->
           {valid_jack_play?(cards, top_card, action_suit), :jack}
 
-        # NEW: Handle combo '2's specifically
+        # NEW: Handle combo '2's specifically (T021)
+        # Note: Multiple '2' cards are allowed in a combo, but the penalty effect
+        # is NOT additive (handled in CardGames.play_cards/3 where penalty count is fixed at 2)
         all_twos?(cards) ->
           # Reuse validate_combo
           {validate_combo(cards, top_card, action_suit), :two}

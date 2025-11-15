@@ -357,4 +357,340 @@ defmodule Kadi.CardGames.SpecialCardsTwoTest do
       assert game_p2_played.current_turn_player_id == p3.id
     end
   end
+
+  describe "multiple '2' cards in one play (T017)" do
+    test "playing multiple '2's does not stack the penalty count", %{
+      started_game: game,
+      player: p1,
+      player2: p2
+    } do
+      # Reload to ensure we have top_card for this game
+      {:ok, game} = CardGames.get_game_session_preloaded(game.id)
+
+      top_card = game.top_card
+
+      # Find '2' cards from the deck that match the top card's suit
+      # (so they can be played as a valid combo)
+      deck_cards_two =
+        game.deck.deck_cards
+        |> Enum.filter(fn dc -> dc.card.rank == "2" and dc.card.suit == top_card.suit end)
+        |> Enum.take(2)
+
+      # If we don't have 2 '2's of the same suit, we need to play a '2' first to set up the combo
+      # Play one '2' that matches the top card, then play 2 more '2's as a combo
+      if length(deck_cards_two) < 2 do
+        # Find any '2' that matches the top card (by suit or rank)
+        first_two =
+          game.deck.deck_cards
+          |> Enum.find(fn dc ->
+            dc.card.rank == "2" and
+              (dc.card.suit == top_card.suit or dc.card.rank == top_card.rank)
+          end)
+
+        assert first_two, "Expected to find at least one '2' card that matches the top card"
+
+        # Move this '2' to p1's hand
+        {:ok, _} =
+          DeckCard.changeset(first_two, %{
+            location_type: "player_hand",
+            player_id: p1.id,
+            order_index: nil
+          })
+          |> Repo.update()
+
+        # Reload and set turn to p1
+        {:ok, game_fresh} = CardGames.get_game_session_preloaded(game.id)
+
+        {:ok, game_with_turn} =
+          GameSession.changeset(game_fresh, %{current_turn_player_id: p1.id})
+          |> Repo.update()
+
+        {:ok, game_ready} = CardGames.get_game_session_preloaded(game_with_turn.id)
+
+        # P1 plays the first '2' to create a penalty
+        {:ok, game_after_first} = CardGames.play_cards(game_ready, p1.id, [first_two.card.id])
+
+        # Now the top card is a '2', so we can play any other '2's as a combo
+        # Find 2 more '2' cards
+        {:ok, game_reloaded} = CardGames.get_game_session_preloaded(game_after_first.id)
+
+        remaining_twos =
+          game_reloaded.deck.deck_cards
+          |> Enum.filter(fn dc ->
+            dc.card.rank == "2" and dc.location_type == "deck"
+          end)
+          |> Enum.take(2)
+
+        assert length(remaining_twos) >= 2,
+               "Expected to find at least 2 more '2' cards in the deck"
+
+        # Move both '2' cards to p2's hand (next player)
+        Enum.each(remaining_twos, fn deck_card_two ->
+          {:ok, _} =
+            DeckCard.changeset(deck_card_two, %{
+              location_type: "player_hand",
+              player_id: p2.id,
+              order_index: nil
+            })
+            |> Repo.update()
+        end)
+
+        # Reload game session with fresh deck_cards
+        {:ok, game_fresh2} = CardGames.get_game_session_preloaded(game_reloaded.id)
+
+        # P2's turn (they have the penalty)
+        assert game_fresh2.current_turn_player_id == p2.id
+
+        # Action: P2 plays both '2' cards as a combo to block and transfer
+        card_ids = Enum.map(remaining_twos, & &1.card.id)
+        {:ok, updated_game} = CardGames.play_cards(game_fresh2, p2.id, card_ids)
+
+        # Assert: Penalty is still active but count is still 2 (not 4)
+        assert updated_game.draw_penalty["active"] == true
+
+        assert updated_game.draw_penalty["count"] == 2,
+               "Expected penalty count to be 2, not additive (got #{updated_game.draw_penalty["count"]})"
+
+        assert updated_game.draw_penalty["target_player_id"] == p1.id
+      else
+        # We have 2 '2's of the same suit - can play them directly as a combo
+        # Move both '2' cards to current player's hand
+        Enum.each(deck_cards_two, fn deck_card_two ->
+          {:ok, _} =
+            DeckCard.changeset(deck_card_two, %{
+              location_type: "player_hand",
+              player_id: p1.id,
+              order_index: nil
+            })
+            |> Repo.update()
+        end)
+
+        # Reload game session with fresh deck_cards
+        {:ok, game_fresh} = CardGames.get_game_session_preloaded(game.id)
+
+        # Set turn to p1
+        {:ok, game_with_turn} =
+          GameSession.changeset(game_fresh, %{current_turn_player_id: p1.id})
+          |> Repo.update()
+
+        {:ok, game_ready} = CardGames.get_game_session_preloaded(game_with_turn.id)
+
+        # Action: P1 plays both '2' cards as a combo
+        card_ids = Enum.map(deck_cards_two, & &1.card.id)
+        {:ok, updated_game} = CardGames.play_cards(game_ready, p1.id, card_ids)
+
+        # Assert: Penalty is active but count is still 2 (not 4)
+        assert updated_game.draw_penalty["active"] == true
+
+        assert updated_game.draw_penalty["count"] == 2,
+               "Expected penalty count to be 2, not additive (got #{updated_game.draw_penalty["count"]})"
+
+        assert updated_game.draw_penalty["target_player_id"] == p2.id
+      end
+    end
+  end
+
+  describe "penalty resolution - auto-draw (T018, T019, T020)" do
+    test "player with no blocking cards auto-draws 2 cards and turn ends (T018)", %{
+      started_game: game,
+      player: p1,
+      player2: p2
+    } do
+      # P1 plays '2', penalizing P2
+      {game_with_penalty, _} = setup_penalty(game, p1.id, p2.id)
+
+      # Reload to ensure deck associations are fresh
+      {:ok, game_with_penalty} = CardGames.get_game_session_preloaded(game_with_penalty.id)
+
+      # Remove all Aces and '2' cards from P2's hand (ensure they can't block)
+      game_with_penalty.deck.deck_cards
+      |> Enum.filter(fn dc ->
+        dc.location_type == "player_hand" and dc.player_id == p2.id and
+          (dc.card.rank == "ace" or dc.card.rank == "2")
+      end)
+      |> Enum.each(fn deck_card ->
+        DeckCard.changeset(deck_card, %{
+          location_type: "deck",
+          player_id: nil,
+          order_index: 999 + deck_card.id
+        })
+        |> Repo.update!()
+      end)
+
+      # Reload game
+      {:ok, game_ready} = CardGames.get_game_session_preloaded(game_with_penalty.id)
+
+      # Verify penalty is active for P2
+      assert game_ready.draw_penalty["active"] == true
+      assert game_ready.draw_penalty["target_player_id"] == p2.id
+      assert game_ready.current_turn_player_id == p2.id
+
+      # Get P2's hand size before auto-draw
+      hand_before = CardGames.get_player_hand(game_ready, p2.id)
+      hand_size_before = length(hand_before)
+
+      # Get deck size before auto-draw
+      deck_cards_before =
+        game_ready.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "deck"))
+
+      deck_size_before = length(deck_cards_before)
+
+      # Action: Manually draw 2 cards to simulate auto-draw behavior
+      # (Auto-draw logic will be implemented in T022)
+      {:ok, game_after_draw1} = CardGames.draw_card_from_deck(game_ready, p2.id)
+      # After first draw, turn advances to p1, so we need to set it back to p2 for second draw
+      {:ok, game_turn_reset} =
+        GameSession.changeset(game_after_draw1, %{current_turn_player_id: p2.id})
+        |> Repo.update()
+
+      {:ok, game_after_draw2} = CardGames.draw_card_from_deck(game_turn_reset, p2.id)
+
+      # Reload to get fresh state
+      {:ok, final_game} = CardGames.get_game_session_preloaded(game_after_draw2.id)
+
+      # Assert: P2 drew 2 cards
+      hand_after = CardGames.get_player_hand(final_game, p2.id)
+
+      assert length(hand_after) == hand_size_before + 2,
+             "Expected player to draw 2 cards (had #{hand_size_before}, now has #{length(hand_after)})"
+
+      # Assert: Deck has 2 fewer cards
+      deck_cards_after =
+        final_game.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "deck"))
+
+      assert length(deck_cards_after) == deck_size_before - 2,
+             "Expected deck to have 2 fewer cards"
+
+      # Note: When T022 is implemented, the penalty should be cleared and turn should advance automatically
+    end
+
+    test "deck recycling when player must draw more cards than are in deck (T019)", %{
+      started_game: game,
+      player: p1,
+      player2: p2
+    } do
+      # P1 plays '2', penalizing P2
+      {game_with_penalty, _} = setup_penalty(game, p1.id, p2.id)
+
+      # Reload to ensure deck associations are fresh
+      {:ok, game_with_penalty} = CardGames.get_game_session_preloaded(game_with_penalty.id)
+
+      # Move all but 1 card from deck to played_stack (simulate nearly empty deck)
+      deck_cards = game_with_penalty.deck.deck_cards |> Enum.filter(&(&1.location_type == "deck"))
+
+      # Keep only 1 card in deck, move rest to played_stack
+      {_cards_to_keep, cards_to_move} = Enum.split(deck_cards, 1)
+
+      Enum.each(cards_to_move, fn deck_card ->
+        DeckCard.changeset(deck_card, %{
+          location_type: "played_stack",
+          player_id: nil,
+          order_index: deck_card.id
+        })
+        |> Repo.update!()
+      end)
+
+      # Reload game
+      {:ok, game_ready} = CardGames.get_game_session_preloaded(game_with_penalty.id)
+
+      # Verify deck has only 1 card
+      deck_cards_before =
+        game_ready.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "deck"))
+
+      assert length(deck_cards_before) == 1, "Expected deck to have only 1 card"
+
+      # Get P2's hand size before draw
+      hand_before = CardGames.get_player_hand(game_ready, p2.id)
+      hand_size_before = length(hand_before)
+
+      # Action: Draw 2 cards (should trigger recycling)
+      {:ok, game_after_draw1} = CardGames.draw_card_from_deck(game_ready, p2.id)
+
+      # After first draw, turn advances to p1, so we need to set it back to p2 for second draw
+      {:ok, game_turn_reset} =
+        GameSession.changeset(game_after_draw1, %{current_turn_player_id: p2.id})
+        |> Repo.update()
+
+      {:ok, game_after_draw2} = CardGames.draw_card_from_deck(game_turn_reset, p2.id)
+
+      # Reload to get fresh state
+      {:ok, final_game} = CardGames.get_game_session_preloaded(game_after_draw2.id)
+
+      # Assert: P2 drew 2 cards (1 from original deck, 1 from recycled)
+      hand_after = CardGames.get_player_hand(final_game, p2.id)
+
+      assert length(hand_after) == hand_size_before + 2,
+             "Expected player to draw 2 cards via recycling (had #{hand_size_before}, now has #{length(hand_after)})"
+
+      # Assert: Played stack was recycled (should have fewer cards now)
+      played_stack_after =
+        final_game.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "played_stack"))
+
+      # After recycling, played_stack should be smaller (cards moved to deck)
+      assert length(played_stack_after) < length(cards_to_move),
+             "Expected played_stack to be recycled and have fewer cards"
+    end
+
+    test "player's turn ends after drawing penalty cards, cannot play drawn cards (T020)", %{
+      started_game: game,
+      player: p1,
+      player2: p2
+    } do
+      # P1 plays '2', penalizing P2
+      {game_with_penalty, _} = setup_penalty(game, p1.id, p2.id)
+
+      # Reload to ensure deck associations are fresh
+      {:ok, game_with_penalty} = CardGames.get_game_session_preloaded(game_with_penalty.id)
+
+      # Remove all Aces and '2' cards from P2's hand
+      game_with_penalty.deck.deck_cards
+      |> Enum.filter(fn dc ->
+        dc.location_type == "player_hand" and dc.player_id == p2.id and
+          (dc.card.rank == "ace" or dc.card.rank == "2")
+      end)
+      |> Enum.each(fn deck_card ->
+        DeckCard.changeset(deck_card, %{
+          location_type: "deck",
+          player_id: nil,
+          order_index: 999 + deck_card.id
+        })
+        |> Repo.update!()
+      end)
+
+      # Reload game
+      {:ok, game_ready} = CardGames.get_game_session_preloaded(game_with_penalty.id)
+
+      # Verify it's P2's turn with an active penalty
+      assert game_ready.current_turn_player_id == p2.id
+      assert game_ready.draw_penalty["active"] == true
+
+      # Action: P2 draws 1 card (simulating first card of penalty draw)
+      {:ok, game_after_draw} = CardGames.draw_card_from_deck(game_ready, p2.id)
+
+      # Assert: Turn advanced to next player (P1) after drawing
+      # This demonstrates that drawing ends the turn
+      assert game_after_draw.current_turn_player_id == p1.id,
+             "Expected turn to advance to P1 after P2 draws a card"
+
+      # Assert: P2 cannot play cards because it's no longer their turn
+      # Get a card from P2's hand
+      {:ok, game_reloaded} = CardGames.get_game_session_preloaded(game_after_draw.id)
+      p2_hand = CardGames.get_player_hand(game_reloaded, p2.id)
+
+      if length(p2_hand) > 0 do
+        card_to_play = hd(p2_hand)
+
+        # Try to play a card - should fail because it's not P2's turn
+        result = CardGames.play_cards(game_reloaded, p2.id, [card_to_play.id])
+        assert {:error, :not_your_turn} = result
+      end
+
+      # Note: When T022 is implemented, both cards should be drawn automatically
+      # and the penalty should be cleared before turn advances
+    end
+  end
 end

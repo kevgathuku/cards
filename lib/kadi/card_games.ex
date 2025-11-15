@@ -463,6 +463,165 @@ defmodule Kadi.CardGames do
   end
 
   @doc """
+  Processes draw penalty for a player at turn start (T022).
+
+  When a player's turn begins and they have an active draw penalty:
+  1. Automatically draws the required number of cards (typically 2)
+  2. Clears the penalty
+  3. Advances turn to the next player
+  4. Player cannot play the drawn cards (turn ends immediately)
+
+  ## Parameters
+  - game_session: GameSession struct with active draw_penalty
+  - player_id: ID of the penalized player
+
+  ## Returns
+  - `{:ok, updated_game_session}` with cards drawn, penalty cleared, turn advanced
+  - `{:error, reason}` if operation fails
+
+  ## Examples
+
+      iex> process_draw_penalty(game_session, player_id)
+      {:ok, %GameSession{draw_penalty: %{"active" => false}}}
+  """
+  def process_draw_penalty(game_session, player_id) do
+    # 1. Validate penalty is active for this player
+    penalty = game_session.draw_penalty
+
+    if !penalty["active"] || penalty["target_player_id"] != player_id do
+      {:error, :no_active_penalty}
+    else
+      do_process_draw_penalty(game_session, player_id, penalty)
+    end
+  end
+
+  defp do_process_draw_penalty(game_session, player_id, penalty) do
+    # 2. Preload associations
+    game_session = Repo.preload(game_session, [:created_by, deck: [deck_cards: :card]])
+
+    # 3. Get number of cards to draw
+    cards_to_draw = penalty["count"] || 2
+
+    # 4. Draw cards one by one (handles recycling automatically)
+    result =
+      Enum.reduce_while(1..cards_to_draw, {:ok, game_session}, fn _i, {:ok, current_game} ->
+        # Reload to get fresh deck state
+        fresh_game = Repo.preload(current_game, [deck: [deck_cards: :card]], force: true)
+
+        # Get deck cards
+        deck_cards =
+          fresh_game.deck.deck_cards
+          |> Enum.filter(&(&1.location_type == "deck"))
+          |> Enum.sort_by(& &1.order_index)
+
+        case deck_cards do
+          [] ->
+            # Try recycling
+            case recycle_played_stack(fresh_game) do
+              {:ok, recycled_game} ->
+                # Retry drawing from recycled deck
+                recycled_game =
+                  Repo.preload(recycled_game, [deck: [deck_cards: :card]], force: true)
+
+                recycled_deck_cards =
+                  recycled_game.deck.deck_cards
+                  |> Enum.filter(&(&1.location_type == "deck"))
+                  |> Enum.sort_by(& &1.order_index)
+
+                case recycled_deck_cards do
+                  [] ->
+                    # Anomaly: No cards after recycle (T024)
+                    require Logger
+
+                    Logger.warning(
+                      "Draw penalty: Deck empty after recycle for player #{player_id}"
+                    )
+
+                    {:halt, {:ok, recycled_game}}
+
+                  [card_to_draw | _] ->
+                    # Draw the card
+                    case draw_single_card_for_penalty(recycled_game, player_id, card_to_draw) do
+                      {:ok, updated_game} -> {:cont, {:ok, updated_game}}
+                      {:error, reason} -> {:halt, {:error, reason}}
+                    end
+                end
+
+              {:error, :insufficient_cards_to_recycle} ->
+                # Anomaly: Cannot recycle (T024)
+                require Logger
+
+                Logger.warning(
+                  "Draw penalty: Insufficient cards to recycle for player #{player_id}"
+                )
+
+                {:halt, {:ok, fresh_game}}
+
+              {:error, reason} ->
+                {:halt, {:error, reason}}
+            end
+
+          [card_to_draw | _] ->
+            # Draw the card
+            case draw_single_card_for_penalty(fresh_game, player_id, card_to_draw) do
+              {:ok, updated_game} -> {:cont, {:ok, updated_game}}
+              {:error, reason} -> {:halt, {:error, reason}}
+            end
+        end
+      end)
+
+    case result do
+      {:ok, game_after_draws} ->
+        # 5. Clear penalty and advance turn
+        players = get_game_session_players(game_after_draws.id)
+        next_player = get_next_player(players, player_id)
+
+        updated_game =
+          GameSession.changeset(game_after_draws, %{
+            draw_penalty: %{"active" => false, "count" => 0, "target_player_id" => nil},
+            current_turn_player_id: next_player.id
+          })
+          |> Repo.update!()
+
+        # 6. Reload and broadcast
+        reloaded_game =
+          GameSession
+          |> Repo.get!(updated_game.id)
+          |> Repo.preload(:created_by)
+
+        broadcast_game_update(reloaded_game)
+
+        {:ok, reloaded_game}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  # Helper function to draw a single card without advancing turn (for penalty processing)
+  defp draw_single_card_for_penalty(game_session, player_id, card_to_draw) do
+    DeckCard.changeset(card_to_draw, %{
+      location_type: "player_hand",
+      player_id: player_id,
+      order_index: nil
+    })
+    |> Repo.update()
+    |> case do
+      {:ok, _updated_card} ->
+        # Reload game with fresh associations
+        updated_game =
+          GameSession
+          |> Repo.get!(game_session.id)
+          |> Repo.preload([:created_by, deck: [deck_cards: :card]])
+
+        {:ok, updated_game}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  @doc """
   Recycles cards from the played stack back into the deck.
 
   Takes all cards from played_stack except the topmost card, shuffles them,
