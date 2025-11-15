@@ -28,35 +28,35 @@ Implements special rules for the '2' card:
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 ### Section 1: Code Quality Principles
-- [x] **1.5 Feature Reuse**: Reviewed `specs/` directory for existing features that can be reused/extended (references Ace/Jack/King features)
-- [x] **1.6 Schema Verification**: Read actual schema files in `lib/*/` and migrations in `priv/repo/migrations/` (verified GameSession schema)
-- [x] **1.7 DRY Principle**: Searched for existing functions and tests before creating new ones
+- [x] **1.5 Feature Reuse**: Reviewed `specs/` directory - reusing existing penalty logic from CardGames.process_draw_penalty/2, extending LiveView patterns from Ace feature (008-ace-card-feature) suit selection UI
+- [x] **1.6 Schema Verification**: Read GameSession schema - draw_penalty :map field already exists (line 16 in game_session.ex), no schema changes needed for UI improvements
+- [x] **1.7 DRY Principle**: Searched for existing functions - process_draw_penalty/2 exists in card_games.ex (lines 487-543), will add new accept_penalty LiveView event handler reusing this
 
 ### Section 2: Architectural Principles
-- [x] **2.1 Database-Backed State**: All new game state (draw_penalty) is persisted in PostgreSQL (not in-memory)
-- [x] **2.1 Continuity**: Players can disconnect/reconnect without data loss (draw_penalty field persisted in database)
-- [x] **2.1 Multi-Device**: Players can resume games on different devices (database-backed state enables this)
-- [x] **2.1 Schema Updates**: Database schema changes documented (T001.1-T001.3: add draw_penalty :map field to game_sessions)
-- [x] **2.1 Atomicity**: Compound state changes use `Ecto.Multi` for atomic transactions (T005: refactor penalty activation)
-- [x] **2.1 PubSub Role**: PubSub used only for notifications, not state synchronization (T009: broadcast penalty events for UI updates)
+- [x] **2.1 Database-Backed State**: draw_penalty field already persisted in game_sessions table, UI changes don't add new state
+- [x] **2.1 Continuity**: Players can disconnect/reconnect - penalty state preserved in database (verified in special_cards_two_test.exs SPR-002 tests)
+- [x] **2.1 Multi-Device**: Database-backed penalty enables multi-device access (tested lines 898-959 in special_cards_two_test.exs)
+- [x] **2.1 Schema Updates**: No schema changes required - UI layer only extends existing draw_penalty field usage
+- [x] **2.1 Atomicity**: process_draw_penalty/2 already uses Ecto.Multi (lines 498-543), no changes needed
+- [x] **2.1 PubSub Role**: PubSub for UI notifications only (existing pattern), database remains authoritative
 
 ### Section 3: Testing Standards
-- [x] **3.1 Coverage**: All context functions have tests (T002-T032 provide comprehensive coverage, 90%+ target)
-- [x] **3.2 Quality**: Tests follow AAA pattern, are isolated, and descriptive (special_cards_two_test.exs follows patterns)
-- [x] **3.4 Test Data**: Using factory functions for consistent test data creation (player_fixture, existing patterns)
+- [x] **3.1 Coverage**: Will add 10-15 LiveView tests for button interactions/animations, targeting 90%+ for new UI code
+- [x] **3.2 Quality**: Tests follow existing AAA patterns in game_live_test.exs and special_cards_two_test.exs
+- [x] **3.4 Test Data**: Using existing player_fixture and test helpers from test/support/
 
 ### Section 4: User Experience Consistency
-- [x] **4.1 LiveView Patterns**: Immediate feedback, optimistic updates, error visibility (T026-T028: notifications + visual indicators)
-- [x] **4.3 Player Experience**: Real-time updates via PubSub (T009), graceful disconnection handling (database-backed state)
+- [x] **4.1 LiveView Patterns**: Implementing immediate feedback (button states), animation (CSS transitions), error visibility (inline messages per FR-006)
+- [x] **4.3 Player Experience**: Real-time updates via existing PubSub pattern, graceful handling via database state
 
 ### Section 6: Security Standards
-- [x] **6.1 Authorization**: Player authorization checks before allowing game actions (existing CardGames context patterns)
-- [x] **6.2 Input Validation**: Server-side validation of all LiveView events (PlayValidator.ex for '2' card validation)
+- [x] **6.1 Authorization**: Will validate current_turn_player_id matches current_player before accepting penalty (existing pattern in handle_event("play_cards"))
+- [x] **6.2 Input Validation**: Server-side validation in handle_event("accept_penalty") - verify penalty["active"] and penalty["target_player_id"]
 
 ### Section 7: Git and Development Workflow
-- [x] **7.4 Database Safety**: Not running destructive database commands during development (using migrations T001.2-T001.3)
+- [x] **7.4 Database Safety**: No destructive operations - adding LiveView event handlers and template changes only
 
-*Note: All gates passed. Feature aligns with Constitution v1.4.0 requirements.*
+*Note: All gates passed. UI-only changes extend existing backend logic without schema modifications.*
 ## Project Structure
 
 ### Documentation (this feature)
@@ -75,12 +75,14 @@ specs/009-two-card/
 ```
 ### Source Code (repository root)
 ```text
-lib/kadi/card_games.ex            # Main game logic context
-lib/kadi/games/play_validator.ex  # Card play validation logic
-lib/kadi_web/live/game_live.ex    # LiveView game UI
-test/kadi/card_games/special_cards_two_test.exs  # New/updated tests for '2' card feature
-...existing files...
+lib/kadi_web/live/game_live.ex           # LiveView UI - add accept_penalty event handler
+lib/kadi_web/live/game_live.html.heex    # Template - add "Draw 2 Cards" button, update existing UI
+lib/kadi/card_games.ex                   # Reuse existing process_draw_penalty/2 function
+assets/css/app.css                       # Animation styles for card drawing (if needed)
+test/kadi_web/live/game_live_test.exs    # Add UI tests for button and animations
 ```
+
+**Structure Decision**: Phoenix web application with LiveView. All changes are UI-layer extensions to existing backend penalty logic. No new context modules or schemas needed.
 
 ## Implementation Phases
 
@@ -120,34 +122,36 @@ test/kadi/card_games/special_cards_two_test.exs  # New/updated tests for '2' car
 - Feature 006 (King), 007 (Jack), 008 (Ace)
 - docs/database-relationships.md
 - .specify/memory/constitution.md
-# Implementation Plan: [FEATURE]
+# Implementation Plan: Two Card Draw Penalty (UI Improvements)
 
-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
+**Branch**: `009-two-card` | **Date**: 2025-11-15 | **Spec**: [/specs/009-two-card/spec.md](/Users/kevin/code/elixir/cards/specs/009-two-card/spec.md)
+**Input**: Feature specification from `/specs/009-two-card/spec.md` - Session 2025-11-15 UI clarifications
 
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
+**Note**: This plan focuses on UI improvements for explicit penalty acceptance via "Draw 2 Cards" button.
 
 ## Summary
 
-[Extract from feature spec: primary requirement + technical approach from research]
+Enhance the existing Two Card ('2') penalty system with explicit UI controls:
+- Replace automatic penalty drawing with "Draw 2 Cards" button when penalty is active
+- Show animation/transition when drawing penalty cards  
+- Allow strategic choice: players can click button even if they have blocking cards (Ace/'2')
+- Keep cards clickable but show error message for invalid plays during penalty
+- Clear penalty indicator immediately on button click (before animation)
+- Auto-advance turn after drawing animation completes
+
+Backend penalty logic already implemented (draw_penalty field in GameSession). This plan adds LiveView UI layer for player control and visual feedback.
 
 ## Technical Context
 
-<!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
--->
-
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [single/web/mobile - determines source structure]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Language/Version**: Elixir 1.17+, Phoenix 1.7, LiveView 1.7  
+**Primary Dependencies**: Ecto 3.x, PostgreSQL, bcrypt_elixir, Tailwind CSS, esbuild  
+**Storage**: PostgreSQL (via Ecto) - draw_penalty field already exists in game_sessions table  
+**Testing**: ExUnit (async, Ecto Sandbox)  
+**Target Platform**: Web (Phoenix LiveView), macOS/Linux  
+**Project Type**: Web application (Phoenix)  
+**Performance Goals**: Real-time UI updates <100ms, button interactions <50ms, animation 300-500ms  
+**Constraints**: No destructive DB ops in dev, backward compatibility with existing penalty logic, DRY principle  
+**Scale/Scope**: ~500 LOC UI changes, 10-15 new tests, LiveView event handlers and template updates
 
 ## Constitution Check
 

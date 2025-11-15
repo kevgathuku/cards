@@ -1,4 +1,32 @@
 # Research: Two Card Draw Penalty (Feature 009)
+
+## UI Improvements Research (Session 2025-11-15)
+
+### Button State Management in LiveView
+**Decision**: Conditional rendering with socket assigns  
+**Pattern**: Replace "Draw Card" button with "Draw 2 Cards" when `draw_penalty["active"] && draw_penalty["target_player_id"] == current_player.id`  
+**Rationale**: Existing pattern in codebase, reactive updates via LiveView assigns
+
+### Card Drawing Animation
+**Decision**: CSS transitions (300-500ms) coordinated with LiveView JS hooks  
+**Pattern**: `push_event("animate_draw", %{count: 2, duration: 400})`  
+**Rationale**: Lightweight, no heavy JS libraries needed, matches existing Ace suit selection UX
+
+### Error Messages for Invalid Plays
+**Decision**: Flash messages with specific text per FR-006  
+**Message**: "Penalty Active. You must play blocking card or draw penalty cards"  
+**Rationale**: Existing flash message pattern, inline context near cards
+
+### Penalty Indicator Timing
+**Decision**: Clear immediately on button click (before animation)  
+**Rationale**: Per Session 2025-11-15 Q7, provides immediate feedback that penalty accepted
+
+### Strategic Choice Implementation  
+**Decision**: Show both button AND clickable cards (including Ace/'2')  
+**Rationale**: Per Session 2025-11-15 Q4, allows tactical decisions, server validates anyway
+
+---
+
 ## Version Details & Compatibility
 
 - **Elixir**: ~> 1.17 (from mix.exs)

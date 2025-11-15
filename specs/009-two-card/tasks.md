@@ -79,3 +79,92 @@
 - [x] T032 [P] Update `quickstart.md` and `contracts/` with any final implementation details
 - [x] T033 [P] Test penalty state persists after LiveView disconnect/reconnect (SPR-002 continuity verification)
 - [x] T034 [P] Test penalty state visible when resuming game in new browser/device (SPR-002 multi-device verification)
+
+---
+
+## Phase 6: User Story 5 & 6 - Explicit Penalty Acceptance UI (P2/P3) 🎯 Session 2025-11-15
+
+**Goal**: Replace automatic penalty drawing with explicit "Draw 2 Cards" button, add animations, enable strategic choice.
+**Independent Test**: Create penalty scenario, verify button appears, click it, verify animation plays and cards drawn.
+
+### User Story 5 - Player has no blocking cards and must accept penalty (P2)
+
+**FR Coverage**: FR-004, FR-005, FR-006, FR-008
+**Acceptance**: Button replaces normal draw, clicking draws cards with animation, error shown for invalid plays, indicator clears before animation.
+
+- [ ] T035 [P] [US5] Add helper function `show_penalty_button?/2` in `lib/kadi_web/live/game_live.ex` to determine button visibility based on penalty state and current turn
+- [ ] T036 [P] [US5] Add helper function `current_player_turn?/2` in `lib/kadi_web/live/game_live.ex` to check if current player's turn
+- [ ] T037 [US5] Add `accept_penalty` event handler in `lib/kadi_web/live/game_live.ex` that calls `CardGames.process_draw_penalty/2`
+- [ ] T038 [US5] Update `handle_info({:game_updated, game_session}, socket)` in `lib/kadi_web/live/game_live.ex` to detect penalty clearing and trigger animation
+- [ ] T039 [US5] Add conditional button rendering in `lib/kadi_web/live/game_live.html.heex` to show "Draw 2 Cards" when penalty active, hide normal "Draw Card"
+- [ ] T040 [US5] Update penalty indicator in `lib/kadi_web/live/game_live.html.heex` to hide when `show_penalty_animation` is true (clears before animation per FR-008)
+- [ ] T041 [P] [US5] Add CSS animation `.penalty-card-animation` with 300-500ms transition in `assets/css/app.css`
+- [ ] T042 [P] [US5] Add CSS animation `.btn-penalty` with pulse effect in `assets/css/app.css`
+- [ ] T043 [US5] Update card rendering in `lib/kadi_web/live/game_live.html.heex` to apply animation class when `show_penalty_animation` is true
+- [ ] T044 [US5] Add error flash message display for non-blocking card plays during penalty in `lib/kadi_web/live/game_live.ex` (FR-006: "Penalty Active. You must play blocking card or draw penalty cards")
+
+### User Story 6 - Player with blocking cards chooses to accept penalty (P3)
+
+**FR Coverage**: FR-007
+**Acceptance**: Both button and blocking cards clickable, player can choose strategic option.
+
+- [ ] T045 [P] [US6] Ensure blocking cards (Ace/'2') remain clickable when penalty button is shown in `lib/kadi_web/live/game_live.html.heex` (no disabling of card clicks)
+- [ ] T046 [US6] Verify button click path clears penalty (not transfers) when player has blocking cards in existing `accept_penalty` handler
+
+### LiveView UI Tests
+
+**Purpose**: Test UI interactions for penalty acceptance button, animations, error messages, strategic choice.
+
+- [ ] T047 [P] [US5] Add test "shows penalty button when penalty active and player's turn" in `test/kadi_web/live/game_live_test.exs`
+- [ ] T048 [P] [US5] Add test "accepts penalty and draws cards on button click" verifying DB update, broadcast, turn advance in `test/kadi_web/live/game_live_test.exs`
+- [ ] T049 [P] [US5] Add test "shows error when not player's turn" verifying flash message in `test/kadi_web/live/game_live_test.exs`
+- [ ] T050 [P] [US5] Add test "penalty indicator clears before animation starts" in `test/kadi_web/live/game_live_test.exs`
+- [ ] T051 [P] [US6] Add test "both button and blocking cards are clickable" verifying strategic choice in `test/kadi_web/live/game_live_test.exs`
+- [ ] T052 [P] [US6] Add test "clicking button with blocking cards clears penalty" verifying non-transfer in `test/kadi_web/live/game_live_test.exs`
+
+### Integration & Validation
+
+**Purpose**: Ensure UI changes integrate with existing backend, validate complete flow.
+
+- [ ] T053 [P] Add multi-device test for penalty button visibility and synchronization (SPR-002 pattern) in `test/kadi_web/live/game_live_test.exs`
+- [ ] T054 Run `mix test` and ensure all new UI tests pass
+- [ ] T055 Manual QA: Test happy path (button appears, click, animation, turn advances) in browser
+- [ ] T056 Manual QA: Test error path (click when not turn, non-blocking card) in browser
+- [ ] T057 Manual QA: Test strategic choice (button + blocking cards both work) in browser
+- [ ] T058 Manual QA: Test multi-device sync (two browsers, both see penalty state) in browser
+- [ ] T059 [P] Run `mix format` and ensure code style consistency
+- [ ] T060 [P] Update `quickstart.md` with UI implementation details (if not already done)
+
+---
+
+## Task Summary
+
+**Total Tasks**: 60 (34 existing backend + 26 new UI)
+- **Existing (T001-T034)**: Backend penalty logic ✅ Complete
+- **New (T035-T060)**: UI improvements for Session 2025-11-15 ⏳ Pending
+
+**Parallel Opportunities**:
+- Phase 6 Tests: T047-T052 can run in parallel (different test scenarios)
+- Phase 6 CSS: T041-T042 can be done in parallel (different animation classes)
+- Phase 6 Helpers: T035-T036 can be done in parallel (independent functions)
+- Phase 6 Manual QA: T055-T058 can overlap (multiple browser windows)
+
+**Dependencies**:
+- Phase 6 depends on Phase 1-5 backend logic being complete ✅
+- T037-T038 (event handlers) must complete before T039-T043 (template/CSS)
+- T047-T052 (tests) can be written in parallel with implementation
+- T053 (multi-device test) should come after T047-T052 pass
+
+**Independent Test Criteria**:
+- **US5**: Create penalty, verify "Draw 2 Cards" button replaces normal button, click it, verify 2 cards drawn with animation, turn advances
+- **US6**: Create penalty with player holding blocking card, verify both button AND card clickable, click button, verify penalty cleared (not transferred)
+
+**Implementation Strategy**:
+1. **Helpers first** (T035-T036): Foundation for button logic
+2. **Event handlers** (T037-T038): Backend integration
+3. **Template updates** (T039-T040, T043): UI rendering
+4. **CSS animations** (T041-T042): Visual polish
+5. **Error handling** (T044): Edge case coverage
+6. **Strategic choice** (T045-T046): Advanced UX
+7. **Tests** (T047-T053): Validation
+8. **QA & Polish** (T054-T060): Final verification
