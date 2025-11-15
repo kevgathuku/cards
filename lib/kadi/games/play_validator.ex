@@ -47,31 +47,42 @@ defmodule Kadi.Games.PlayValidator do
 
   def valid_play?([single_card], top_card, opts) do
     action_suit = Keyword.get(opts, :action_suit)
+    penalty_active? = Keyword.get(opts, :penalty_active?, false)
 
-    {valid?, _type} =
-      cond do
-        single_card.rank == "ace" ->
-          {valid_ace_play?([single_card], top_card, action_suit), :ace}
-
-        single_card.rank == "king" ->
-          {valid_king_play?([single_card], top_card, action_suit), :king}
-
-        single_card.rank == "jack" ->
-          {valid_jack_play?([single_card], top_card, action_suit), :jack}
-
-        # NEW: Handle '2' card specifically
-        single_card.rank == "2" ->
-          # Reuse validate_single_card
-          {validate_single_card(single_card, top_card, action_suit), :two}
-
-        valid_regular_card?(single_card) ->
-          {validate_single_card(single_card, top_card, action_suit), :regular}
-
-        true ->
-          {false, :unknown}
+    # If penalty is active, only Ace or '2' are valid plays
+    if penalty_active? do
+      case single_card.rank do
+        "ace" -> valid_ace_play?([single_card], top_card, action_suit)
+        "2" -> validate_single_card(single_card, top_card, action_suit)
+        _ -> false
       end
+    else
+      # Regular validation when no penalty is active
+      {valid?, _type} =
+        cond do
+          single_card.rank == "ace" ->
+            {valid_ace_play?([single_card], top_card, action_suit), :ace}
 
-    valid?
+          single_card.rank == "king" ->
+            {valid_king_play?([single_card], top_card, action_suit), :king}
+
+          single_card.rank == "jack" ->
+            {valid_jack_play?([single_card], top_card, action_suit), :jack}
+
+          # NEW: Handle '2' card specifically
+          single_card.rank == "2" ->
+            # Reuse validate_single_card
+            {validate_single_card(single_card, top_card, action_suit), :two}
+
+          valid_regular_card?(single_card) ->
+            {validate_single_card(single_card, top_card, action_suit), :regular}
+
+          true ->
+            {false, :unknown}
+        end
+
+      valid?
+    end
   end
 
   def valid_play?(cards, top_card, opts) when is_list(cards) do

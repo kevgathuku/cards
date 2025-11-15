@@ -74,11 +74,13 @@ defmodule Kadi.CardGames do
   def get_game_session_players(game_session_id) do
     query =
       from gsp in GameSessionPlayer,
+        join: p in Player,
+        on: gsp.player_id == p.id,
         where: gsp.game_session_id == ^game_session_id,
         order_by: [asc: gsp.inserted_at],
-        select: gsp.player_id
+        select: p
 
-    Repo.all(from p in Player, where: p.id in subquery(query))
+    Repo.all(query)
   end
 
   @doc """
@@ -585,7 +587,7 @@ defmodule Kadi.CardGames do
            {:ok, player} <- get_player_in_session(game_session, player_id),
            {:ok, cards_to_play} <- validate_player_has_cards(game_session, player, card_ids),
            {:ok, top_card} <- get_top_card(game_session),
-           :ok <- validate_can_play(cards_to_play, top_card, game_session.action_suit),
+           :ok <- validate_can_play(cards_to_play, top_card, game_session),
            {:ok, updated_game} <- execute_play(game_session, player, cards_to_play) do
         broadcast_game_update(updated_game)
         {:ok, updated_game}
@@ -834,8 +836,11 @@ defmodule Kadi.CardGames do
     end
   end
 
-  defp validate_can_play(cards_to_play, top_card, action_suit) do
-    opts = if action_suit, do: [action_suit: action_suit], else: []
+  defp validate_can_play(cards_to_play, top_card, game_session) do
+    opts = [
+      action_suit: game_session.action_suit,
+      penalty_active?: game_session.draw_penalty["active"]
+    ]
 
     if PlayValidator.valid_play?(cards_to_play, top_card, opts) do
       :ok
@@ -875,24 +880,63 @@ defmodule Kadi.CardGames do
 
     # Determine next player and action type
     {next_player, action_type} =
-      if ace_played? do
-        # When Ace is played, turn does not advance, awaits suit selection
-        {game_session.current_turn_player, "select_suit"}
-      else
-        # Normal play: advance turn
-        next_player =
-          get_next_player_with_direction(players, player.id, new_direction, skip_count)
+      cond do
+        # If Ace is played to block a penalty, turn advances
+        ace_played? && game_session.draw_penalty["active"] ->
+          next_player =
+            get_next_player_with_direction(players, player.id, new_direction, skip_count)
 
-        {next_player, nil}
+          {next_player, nil}
+
+        # If Ace is played normally, await suit selection
+        ace_played? ->
+          {game_session.current_turn_player, "select_suit"}
+
+        # Normal play: advance turn
+        true ->
+          next_player =
+            get_next_player_with_direction(players, player.id, new_direction, skip_count)
+
+          {next_player, nil}
       end
 
     # Determine draw penalty for the next player if a '2' is played (T004)
     draw_penalty_update =
-      if two_played? do
-        %{active: true, count: 2, target_player_id: next_player.id}
+      cond do
+        # Case 1: Penalty is active, and player blocks with an Ace
+        game_session.draw_penalty["active"] && ace_played? ->
+          # Clear penalty, set action_suit
+          %{
+            "active" => false,
+            "count" => 0,
+            "target_player_id" => nil
+          }
+
+        # Case 2: Penalty is active, and player blocks with another '2'
+        game_session.draw_penalty["active"] && two_played? ->
+          # Transfer penalty to the next player (turn already calculated above)
+          %{
+            "active" => true,
+            "count" => 2,
+            "target_player_id" => next_player.id
+          }
+
+        # Case 3: No active penalty, player plays a '2' to create one
+        two_played? ->
+          %{"active" => true, "count" => 2, "target_player_id" => next_player.id}
+
+        # Case 4: No '2' played, no active penalty
+        true ->
+          game_session.draw_penalty
+      end
+
+    action_suit_update =
+      if game_session.draw_penalty["active"] && ace_played? do
+        # When Ace blocks a '2', the suit of the '2' becomes active
+        # We need to find the card that caused the penalty (the previous top_card)
+        game_session.top_card.suit
       else
-        # Keep existing penalty or clear if it was blocked by Ace (handled in later tasks)
-        game_session.draw_penalty
+        nil
       end
 
     # Check if player will be cardless after this play (FR-011, FR-012)
@@ -939,7 +983,7 @@ defmodule Kadi.CardGames do
           current_turn_player_id: next_player.id,
           direction: new_direction,
           action_type: action_type,
-          action_suit: nil,
+          action_suit: action_suit_update,
           # Added for T004
           draw_penalty: draw_penalty_update
         })
@@ -999,24 +1043,10 @@ defmodule Kadi.CardGames do
           end
         end
 
-        # Reload with fresh associations
-        reloaded =
-          GameSession
-          |> Repo.get!(updated_game.id)
-          |> Repo.preload(:created_by)
+        # Return a fully preloaded game session for immediate use
+        get_game_session_preloaded(updated_game)
 
-        # Broadcast penalty activation if a '2' was played (T009)
-        if two_played? do
-          Phoenix.PubSub.broadcast(
-            Kadi.PubSub,
-            "game_session:#{reloaded.id}",
-            {:draw_penalty_activated, %{game_session: reloaded}}
-          )
-        end
-
-        {:ok, reloaded}
-
-      {:error, _op, failed_value, _changes} ->
+      {:error, _failed_op, failed_value, _changes} ->
         {:error, failed_value}
     end
   end

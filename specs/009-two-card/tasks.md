@@ -39,13 +39,13 @@
 **Goal**: A player facing a penalty can block it with an Ace or another '2'.
 **Independent Test**: Start a game, create a penalty, and verify the next player can successfully play a blocking card.
 
-- [ ] T010 [P] [US2] Add test for blocking a penalty with an Ace in `test/kadi/card_games/special_cards_two_test.exs`
-- [ ] T011 [P] [US3] Add test for blocking and transferring a penalty with another '2' in `test/kadi/card_games/special_cards_two_test.exs`
-- [ ] T012 [P] [US3] Add test for multi-player penalty chain reactions (A->B->C) in `test/kadi/card_games/special_cards_two_test.exs`
-- [ ] T013 [US2] Implement logic to block a penalty with an Ace in `lib/kadi/card_games.ex`
-- [ ] T014 [US3] Implement logic to block and transfer a penalty with another '2' in `lib/kadi/card_games.ex`
-- [ ] T015 [US2] Add validation to ensure a blocking card matches the active `requested_suit` (FR-007) in `lib/kadi/games/play_validator.ex`
-- [ ] T016 [US2] Prevent suit selection prompt in UI when an Ace is used for blocking in `lib/kadi_web/live/game_live.ex`
+- [x] T010 [P] [US2] Add test for blocking a penalty with an Ace in `test/kadi/card_games/special_cards_two_test.exs`
+- [x] T011 [P] [US3] Add test for blocking and transferring a penalty with another '2' in `test/kadi/card_games/special_cards_two_test.exs`
+- [x] T012 [P] [US3] Add test for multi-player penalty chain reactions (A->B->C) in `test/kadi/card_games/special_cards_two_test.exs`
+- [x] T013 [US2] Implement logic to block a penalty with an Ace in `lib/kadi/card_games.ex`
+- [x] T014 [US3] Implement logic to block and transfer a penalty with another '2' in `lib/kadi/card_games.ex`
+- [x] T015 [US2] Add validation to ensure a blocking card matches the active `requested_suit` (FR-007) in `lib/kadi/games/play_validator.ex`
+- [x] T016 [US2] Prevent suit selection prompt in UI when an Ace is used for blocking in `lib/kadi_web/live/game_live.ex`
 
 ---
 
