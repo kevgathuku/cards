@@ -131,7 +131,7 @@ defmodule Kadi.CardGamesTest do
 
       assert CardGames.start_game(game_session) == {:error, :not_enough_players}
 
-      refreshed_game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
+      {:ok, refreshed_game_session} = CardGames.get_game_session_preloaded(game_session.id)
       assert refreshed_game_session.status == "lobby"
     end
 
@@ -195,7 +195,8 @@ defmodule Kadi.CardGamesTest do
 
         {:ok, started_game_session} = CardGames.start_game(game_session)
 
-        started_game_session = Repo.preload(started_game_session, [:top_card])
+        {:ok, started_game_session} =
+          CardGames.get_game_session_preloaded(started_game_session.id)
 
         refute started_game_session.top_card.rank == "jack"
       end)
@@ -265,7 +266,7 @@ defmodule Kadi.CardGamesTest do
       assert {:ok, top_card} = CardGames.get_top_played_card(started_game_session)
 
       # Reload to get top_card association for comparison
-      started_game_session = Repo.preload(started_game_session, [:top_card])
+      {:ok, started_game_session} = CardGames.get_game_session_preloaded(started_game_session.id)
 
       # Verify top_card matches the played card
       assert started_game_session.top_card_id == top_card.card_id
@@ -393,8 +394,8 @@ defmodule Kadi.CardGamesTest do
 
           {:ok, started_game_session} = CardGames.start_game(game_session)
 
-          started_game_session =
-            Repo.preload(started_game_session, [deck: [deck_cards: :card]], force: true)
+          {:ok, started_game_session} =
+            CardGames.get_game_session_preloaded(started_game_session.id)
 
           player_hands =
             [player.id, player2.id]
@@ -435,8 +436,7 @@ defmodule Kadi.CardGamesTest do
       player2: player2
     } do
       # Reload to get fresh state
-      game_session =
-        Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
 
       current_player_id = game_session.current_turn_player_id
 
@@ -488,8 +488,7 @@ defmodule Kadi.CardGamesTest do
               |> Repo.update()
 
             # Reload game session to get updated state
-            reloaded_game = Repo.get!(Kadi.Games.GameSession, game_session.id)
-            reloaded_game = Repo.preload(reloaded_game, [deck: [deck_cards: :card]], force: true)
+            {:ok, reloaded_game} = CardGames.get_game_session_preloaded(game_session.id)
 
             {reloaded_game, deck_matching_card.card}
           else
@@ -502,7 +501,7 @@ defmodule Kadi.CardGamesTest do
           CardGames.play_cards(game_session, current_player.id, [matching_card.id])
 
         # Verify card was moved to played_stack
-        updated_game = Repo.preload(updated_game, [deck: [deck_cards: :card]], force: true)
+        {:ok, updated_game} = CardGames.get_game_session_preloaded(updated_game.id)
 
         played_cards =
           updated_game.deck.deck_cards
@@ -525,7 +524,7 @@ defmodule Kadi.CardGamesTest do
       player: player,
       player2: player2
     } do
-      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
       current_player_id = game_session.current_turn_player_id
 
       # Get the non-current player
@@ -544,7 +543,7 @@ defmodule Kadi.CardGamesTest do
     end
 
     test "rejects invalid card play", %{game_session: game_session, player: player} do
-      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
       current_player_id = game_session.current_turn_player_id
 
       if current_player_id == player.id do
@@ -574,7 +573,7 @@ defmodule Kadi.CardGamesTest do
     end
 
     test "rejects play with cards not in hand", %{game_session: game_session, player: player} do
-      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
       current_player_id = game_session.current_turn_player_id
 
       if current_player_id == player.id do
@@ -596,7 +595,7 @@ defmodule Kadi.CardGamesTest do
       player: player,
       player2: player2
     } do
-      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
 
       # Get the current player (could be player or player2)
       current_player =
@@ -690,8 +689,7 @@ defmodule Kadi.CardGamesTest do
             end)
 
             # Reload game session
-            reloaded_game = Repo.get!(Kadi.Games.GameSession, game_session.id)
-            reloaded_game = Repo.preload(reloaded_game, [deck: [deck_cards: :card]], force: true)
+            {:ok, reloaded_game} = CardGames.get_game_session_preloaded(game_session.id)
 
             {reloaded_game, combo_cards}
           else
@@ -704,7 +702,7 @@ defmodule Kadi.CardGamesTest do
 
         # Verify all cards were moved to played_stack
         {:ok, updated_game} = CardGames.play_cards(game_session, current_player.id, card_ids)
-        updated_game = Repo.preload(updated_game, [deck: [deck_cards: :card]], force: true)
+        {:ok, updated_game} = CardGames.get_game_session_preloaded(updated_game.id)
 
         played_cards =
           updated_game.deck.deck_cards
@@ -721,7 +719,7 @@ defmodule Kadi.CardGamesTest do
     end
 
     test "rejects combo with mixed ranks", %{game_session: game_session, player: player} do
-      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
       current_player_id = game_session.current_turn_player_id
 
       if current_player_id == player.id do
@@ -759,7 +757,7 @@ defmodule Kadi.CardGamesTest do
     end
 
     test "rejects empty card list", %{game_session: game_session, player: player} do
-      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
       current_player_id = game_session.current_turn_player_id
 
       if current_player_id == player.id do
@@ -770,7 +768,7 @@ defmodule Kadi.CardGamesTest do
 
     test "rejects play when player not in game", %{game_session: game_session} do
       other_player = player_fixture(%{email: "notingame@example.com"})
-      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
 
       # Get any card id (doesn't matter since player not in game)
       card =
@@ -787,7 +785,7 @@ defmodule Kadi.CardGamesTest do
     end
 
     test "rejects play with non-existent card id", %{game_session: game_session, player: player} do
-      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
       current_player_id = game_session.current_turn_player_id
 
       if current_player_id == player.id do
@@ -816,7 +814,7 @@ defmodule Kadi.CardGamesTest do
          %{
            game_session: game_session
          } do
-      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
       current_player_id = game_session.current_turn_player_id
 
       # Try to find a special card in current player's hand
@@ -839,8 +837,7 @@ defmodule Kadi.CardGamesTest do
     test "accepts regular cards (4,5,6,7,9,10) when they match", %{
       game_session: game_session
     } do
-      game_session =
-        Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
 
       current_player_id = game_session.current_turn_player_id
       top_card = game_session.top_card
@@ -897,7 +894,7 @@ defmodule Kadi.CardGamesTest do
       player3: player3
     } do
       # Reload game to get direction (should be clockwise by default)
-      game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
       assert game_session.direction == "clockwise"
 
       # Find current turn player
@@ -910,10 +907,7 @@ defmodule Kadi.CardGamesTest do
           current_player_id == player3.id -> player3
         end
 
-      # Get game with full associations
-      game_session =
-        Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
-
+      # Get game with full associations loaded
       top_card = game_session.top_card
 
       # Find a King in deck that matches top card suit (Kings excluded from deal)
@@ -936,10 +930,7 @@ defmodule Kadi.CardGamesTest do
         })
         |> Repo.update()
 
-      game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
-
-      game_session =
-        Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
 
       {:ok, updated_game} =
         CardGames.play_cards(game_session, current_player.id, [king_card.card_id])
@@ -978,8 +969,7 @@ defmodule Kadi.CardGamesTest do
         end
 
       # Get game with full associations
-      game_session =
-        Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
 
       top_card = game_session.top_card
 
@@ -1003,10 +993,7 @@ defmodule Kadi.CardGamesTest do
         })
         |> Repo.update()
 
-      game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
-
-      game_session =
-        Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
 
       {:ok, updated_game} =
         CardGames.play_cards(game_session, current_player.id, [king_card.card_id])
@@ -1037,8 +1024,7 @@ defmodule Kadi.CardGamesTest do
       other_player = if current_player_id == player1.id, do: player2, else: player1
 
       # Get game with full associations
-      started_game =
-        Repo.preload(started_game, [:top_card, deck: [deck_cards: :card]], force: true)
+      {:ok, started_game} = CardGames.get_game_session_preloaded(started_game.id)
 
       top_card = started_game.top_card
 
@@ -1062,10 +1048,7 @@ defmodule Kadi.CardGamesTest do
         })
         |> Repo.update()
 
-      started_game = Repo.get!(Kadi.Games.GameSession, started_game.id)
-
-      started_game =
-        Repo.preload(started_game, [:top_card, deck: [deck_cards: :card]], force: true)
+      {:ok, started_game} = CardGames.get_game_session_preloaded(started_game.id)
 
       {:ok, updated_game} =
         CardGames.play_cards(started_game, current_player.id, [king_card.card_id])
@@ -1101,12 +1084,9 @@ defmodule Kadi.CardGamesTest do
       player1: player1,
       player2: player2
     } do
-      game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
       current_player_id = game_session.current_turn_player_id
       current_player = if current_player_id == player1.id, do: player1, else: player2
-
-      game_session =
-        Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
 
       top_card = game_session.top_card
 
@@ -1142,8 +1122,7 @@ defmodule Kadi.CardGamesTest do
               })
               |> Repo.update()
 
-            reloaded = Repo.get!(Kadi.Games.GameSession, game_session.id)
-            reloaded = Repo.preload(reloaded, [:top_card, deck: [deck_cards: :card]], force: true)
+            {:ok, reloaded} = CardGames.get_game_session_preloaded(game_session.id)
             {reloaded, deck_king}
           else
             {game_session, nil}
@@ -1169,11 +1148,8 @@ defmodule Kadi.CardGamesTest do
       player1: player1,
       player2: player2
     } do
-      game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
-
       # Manually set a King as top card
-      game_session_preloaded =
-        Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
+      {:ok, game_session_preloaded} = CardGames.get_game_session_preloaded(game_session.id)
 
       # Find a King in the deck to use as top card
       king_in_deck =
@@ -1200,8 +1176,7 @@ defmodule Kadi.CardGamesTest do
         current_player_id = game_session.current_turn_player_id
         current_player = if current_player_id == player1.id, do: player1, else: player2
 
-        game_session =
-          Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
+        {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
 
         top_card = game_session.top_card
 
@@ -1238,10 +1213,7 @@ defmodule Kadi.CardGamesTest do
                 })
                 |> Repo.update()
 
-              reloaded = Repo.get!(Kadi.Games.GameSession, game_session.id)
-
-              reloaded =
-                Repo.preload(reloaded, [:top_card, deck: [deck_cards: :card]], force: true)
+              {:ok, reloaded} = CardGames.get_game_session_preloaded(game_session.id)
 
               {reloaded, deck_king}
             else
@@ -1272,8 +1244,7 @@ defmodule Kadi.CardGamesTest do
       current_player_id = game_session.current_turn_player_id
       current_player = if current_player_id == player1.id, do: player1, else: player2
 
-      game_session =
-        Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
 
       top_card = game_session.top_card
 
@@ -1309,8 +1280,7 @@ defmodule Kadi.CardGamesTest do
               })
               |> Repo.update()
 
-            reloaded = Repo.get!(Kadi.Games.GameSession, game_session.id)
-            reloaded = Repo.preload(reloaded, [:top_card, deck: [deck_cards: :card]], force: true)
+            {:ok, reloaded} = CardGames.get_game_session_preloaded(game_session.id)
             {reloaded, deck_king}
           else
             {game_session, nil}
@@ -1337,8 +1307,7 @@ defmodule Kadi.CardGamesTest do
       current_player_id = game_session.current_turn_player_id
       current_player = if current_player_id == player1.id, do: player1, else: player2
 
-      game_session =
-        Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
 
       # Find all Kings in deck
       all_kings =
@@ -1359,10 +1328,7 @@ defmodule Kadi.CardGamesTest do
         end)
 
         # Reload
-        game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
-
-        game_session =
-          Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
+        {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
 
         # Get the two King card IDs
         king_ids =
@@ -1587,8 +1553,7 @@ defmodule Kadi.CardGamesTest do
   # Returns {:ok, game_session, king_card_id} or {:skip, reason}
   defp setup_cardless_scenario(_player, _player2, game_session) do
     # Preload all deck cards and top card
-    game_session =
-      Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
+    {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
 
     top_card = game_session.top_card
     current_player_id = game_session.current_turn_player_id
@@ -1629,9 +1594,7 @@ defmodule Kadi.CardGamesTest do
       )
 
       # Reload game session with updated state
-      game_session =
-        Repo.get!(Kadi.Games.GameSession, game_session.id)
-        |> Repo.preload([:game_session_players, deck: [deck_cards: :card]], force: true)
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
 
       {:ok, game_session, king_deck_card.card.id}
     else
@@ -1725,10 +1688,7 @@ defmodule Kadi.CardGamesTest do
             CardGames.play_cards(game_session, current_player_id, [king_card_id])
 
           # Reload with associations
-          after_play_game =
-            Repo.preload(after_play_game, [:game_session_players, deck: [deck_cards: :card]],
-              force: true
-            )
+          {:ok, after_play_game} = CardGames.get_game_session_preloaded(after_play_game.id)
 
           player_session_cardless =
             after_play_game.game_session_players
@@ -1759,10 +1719,7 @@ defmodule Kadi.CardGamesTest do
           {:ok, updated_game} = CardGames.draw_card_from_deck(after_draw_game, current_player_id)
 
           # Reload with associations
-          updated_game =
-            Repo.preload(updated_game, [:game_session_players, deck: [deck_cards: :card]],
-              force: true
-            )
+          {:ok, updated_game} = CardGames.get_game_session_preloaded(updated_game.id)
 
           # Player should now have 1 card (the drawn card)
           player_cards_after =
@@ -1801,10 +1758,7 @@ defmodule Kadi.CardGamesTest do
       {:ok, game_session} = CardGames.start_game(game_session, exclude_ranks: ["king"])
 
       # Preload all deck cards and top card
-      game_session =
-        Repo.preload(game_session, [:top_card, :game_session_players, deck: [deck_cards: :card]],
-          force: true
-        )
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
 
       top_card = game_session.top_card
       current_player_id = game_session.current_turn_player_id
@@ -1844,10 +1798,7 @@ defmodule Kadi.CardGamesTest do
       )
 
       # Reload and play the King (making player cardless)
-      game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
-
-      game_session =
-        Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
 
       {:ok, game_session} =
         CardGames.play_cards(game_session, current_player_id, [king_deck_card.card.id])
@@ -1902,7 +1853,7 @@ defmodule Kadi.CardGamesTest do
     {:ok, game_session} = CardGames.start_game(game_session, exclude_ranks: ["jack"])
 
     # Preload and find a Jack that is playable (first must match top card)
-    game_session = Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]], force: true)
+    {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
     top_card = game_session.top_card
     current_player_id = game_session.current_turn_player_id
 
@@ -1938,14 +1889,12 @@ defmodule Kadi.CardGamesTest do
     )
 
     # Reload and play
-    game_session =
-      Repo.get!(Kadi.Games.GameSession, game_session.id)
-      |> Repo.preload([:game_session_players, deck: [deck_cards: :card]], force: true)
+    {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
 
     {:ok, updated_game} =
       CardGames.play_cards(game_session, current_player_id, [jack_deck_card.card.id])
 
-    updated_game = Repo.preload(updated_game, [:game_session_players], force: true)
+    {:ok, updated_game} = CardGames.get_game_session_preloaded(updated_game.id)
 
     player_session_after =
       updated_game.game_session_players
@@ -1970,7 +1919,7 @@ defmodule Kadi.CardGamesTest do
 
       # Setup: Create scenario where deck is empty and played stack has only 1 card
       # This will trigger anomaly when trying to draw
-      game_session = Repo.preload(game_session, [deck: [deck_cards: :card]], force: true)
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
 
       # Move all deck cards to player hands (emptying the deck)
       deck_cards =
@@ -2044,10 +1993,7 @@ defmodule Kadi.CardGamesTest do
       player3: _player3
     } do
       # Ensure player1 is current player
-      game_session =
-        Repo.preload(game_session, [:top_card, :current_turn_player, deck: [deck_cards: :card]],
-          force: true
-        )
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
 
       current_player = game_session.current_turn_player
       top_card = game_session.top_card
@@ -2070,12 +2016,7 @@ defmodule Kadi.CardGamesTest do
         |> Repo.update()
 
       # Reload game session
-      game_session = Repo.get!(Kadi.Games.GameSession, game_session.id)
-
-      game_session =
-        Repo.preload(game_session, [:top_card, :current_turn_player, deck: [deck_cards: :card]],
-          force: true
-        )
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
 
       # Get ordered players
       players =
@@ -2178,10 +2119,7 @@ defmodule Kadi.CardGamesTest do
       {:ok, _} = CardGames.join_game_session(player2, game_session.id)
       {:ok, game_session} = CardGames.start_game(game_session, exclude_ranks: ["jack"])
 
-      game_session =
-        Repo.preload(game_session, [:top_card, :current_turn_player, deck: [deck_cards: :card]],
-          force: true
-        )
+      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
 
       current_player = game_session.current_turn_player
       top_card = game_session.top_card
