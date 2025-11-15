@@ -108,8 +108,8 @@
 **FR Coverage**: FR-007
 **Acceptance**: Both button and blocking cards clickable, player can choose strategic option.
 
-- [ ] T045 [P] [US6] Ensure blocking cards (Ace/'2') remain clickable when penalty button is shown in `lib/kadi_web/live/game_live.html.heex` (no disabling of card clicks)
-- [ ] T046 [US6] Verify button click path clears penalty (not transfers) when player has blocking cards in existing `accept_penalty` handler
+- [x] T045 [P] [US6] Ensure blocking cards (Ace/'2') remain clickable when penalty button is shown in `lib/kadi_web/live/game_live.html.heex` (no disabling of card clicks)
+- [x] T046 [US6] Verify button click path clears penalty (not transfers) when player has blocking cards in existing `accept_penalty` handler
 
 ### LiveView UI Tests
 

@@ -239,6 +239,7 @@
             (dc.card.suit == @game_session.action_suit || dc.card.rank == "ace") %>
         <%!-- T043: Add animation class when penalty animation is active --%>
         <% animation_class = if @show_penalty_animation, do: "penalty-card-animation", else: "" %>
+        <%!-- T045: Cards remain clickable when penalty button shown (FR-007 strategic choice) --%>
         <div
           class={
             "p-4 border rounded-md shadow-sm cursor-pointer transition-all #{card_class(is_selected, matches_required_suit)} #{animation_class}"

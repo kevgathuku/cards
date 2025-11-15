@@ -184,11 +184,14 @@ defmodule KadiWeb.GameLive do
   end
 
   # T037: Handle explicit penalty acceptance via button click
+  # T046: Button click clears penalty (not transfers) even if player has blocking cards (FR-007)
   @impl true
   def handle_event("accept_penalty", _params, socket) do
     game_session = socket.assigns.game_session
     current_player = socket.assigns.current_player
 
+    # process_draw_penalty clears penalty (sets active=false) and advances turn
+    # This gives players strategic choice: accept penalty OR play blocking card
     case CardGames.process_draw_penalty(game_session, current_player.id) do
       {:ok, _updated_game_session} ->
         # Don't update socket - wait for broadcast
