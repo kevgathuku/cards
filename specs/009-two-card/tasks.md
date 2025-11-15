@@ -92,16 +92,16 @@
 **FR Coverage**: FR-004, FR-005, FR-006, FR-008
 **Acceptance**: Button replaces normal draw, clicking draws cards with animation, error shown for invalid plays, indicator clears before animation.
 
-- [ ] T035 [P] [US5] Add helper function `show_penalty_button?/2` in `lib/kadi_web/live/game_live.ex` to determine button visibility based on penalty state and current turn
-- [ ] T036 [P] [US5] Add helper function `current_player_turn?/2` in `lib/kadi_web/live/game_live.ex` to check if current player's turn
-- [ ] T037 [US5] Add `accept_penalty` event handler in `lib/kadi_web/live/game_live.ex` that calls `CardGames.process_draw_penalty/2`
-- [ ] T038 [US5] Update `handle_info({:game_updated, game_session}, socket)` in `lib/kadi_web/live/game_live.ex` to detect penalty clearing and trigger animation
-- [ ] T039 [US5] Add conditional button rendering in `lib/kadi_web/live/game_live.html.heex` to show "Draw 2 Cards" when penalty active, hide normal "Draw Card"
-- [ ] T040 [US5] Update penalty indicator in `lib/kadi_web/live/game_live.html.heex` to hide when `show_penalty_animation` is true (clears before animation per FR-008)
-- [ ] T041 [P] [US5] Add CSS animation `.penalty-card-animation` with 300-500ms transition in `assets/css/app.css`
-- [ ] T042 [P] [US5] Add CSS animation `.btn-penalty` with pulse effect in `assets/css/app.css`
-- [ ] T043 [US5] Update card rendering in `lib/kadi_web/live/game_live.html.heex` to apply animation class when `show_penalty_animation` is true
-- [ ] T044 [US5] Add error flash message display for non-blocking card plays during penalty in `lib/kadi_web/live/game_live.ex` (FR-006: "Penalty Active. You must play blocking card or draw penalty cards")
+- [x] T035 [P] [US5] Add helper function `show_penalty_button?/2` in `lib/kadi_web/live/game_live.ex` to determine button visibility based on penalty state and current turn
+- [x] T036 [P] [US5] Add helper function `current_player_turn?/2` in `lib/kadi_web/live/game_live.ex` to check if current player's turn (determined redundant - check inline in T035)
+- [x] T037 [US5] Add `accept_penalty` event handler in `lib/kadi_web/live/game_live.ex` that calls `CardGames.process_draw_penalty/2`
+- [x] T038 [US5] Update `handle_info({:game_updated, game_session}, socket)` in `lib/kadi_web/live/game_live.ex` to detect penalty clearing and trigger animation
+- [x] T039 [US5] Add conditional button rendering in `lib/kadi_web/live/game_live.html.heex` to show "Draw 2 Cards" when penalty active, hide normal "Draw Card"
+- [x] T040 [US5] Update penalty indicator in `lib/kadi_web/live/game_live.html.heex` to hide when `show_penalty_animation` is true (clears before animation per FR-008)
+- [x] T041 [P] [US5] Add CSS animation `.penalty-card-animation` with 300-500ms transition in `assets/css/app.css`
+- [x] T042 [P] [US5] Add CSS animation `.btn-penalty` with pulse effect in `assets/css/app.css`
+- [x] T043 [US5] Update card rendering in `lib/kadi_web/live/game_live.html.heex` to apply animation class when `show_penalty_animation` is true
+- [x] T044 [US5] Add error flash message display for non-blocking card plays during penalty in `lib/kadi_web/live/game_live.ex` (FR-006: "Penalty Active. You must play blocking card or draw penalty cards")
 
 ### User Story 6 - Player with blocking cards chooses to accept penalty (P3)
 

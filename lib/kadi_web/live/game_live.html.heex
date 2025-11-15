@@ -18,15 +18,26 @@
       <%= if @current_turn_player.id == @current_player.id do %>
         <p class="text-sm text-blue-600 mt-1">It's your turn!</p>
 
-        <%!-- Draw Card Button - Visible when deck has cards OR played pile can be recycled --%>
-        <%= if @deck_size > 0 or length(@played_pile) >= 2 do %>
-          <.button phx-click="draw_card" phx-disable-with="Drawing..." class="mt-2">
-            <%= if @deck_size == 0 do %>
-              Draw Card (Recycle Pile)
-            <% else %>
-              Draw Card
-            <% end %>
+        <%!-- T039: Conditional penalty acceptance button (FR-004, FR-005) --%>
+        <%= if show_penalty_button?(@game_session, @current_player.id) do %>
+          <.button
+            phx-click="accept_penalty"
+            phx-disable-with="Drawing penalty cards..."
+            class="mt-2 btn-penalty bg-red-600 hover:bg-red-700"
+          >
+            Draw {@game_session.draw_penalty["count"]} Cards
           </.button>
+        <% else %>
+          <%!-- Draw Card Button - Visible when deck has cards OR played pile can be recycled --%>
+          <%= if @deck_size > 0 or length(@played_pile) >= 2 do %>
+            <.button phx-click="draw_card" phx-disable-with="Drawing..." class="mt-2">
+              <%= if @deck_size == 0 do %>
+                Draw Card (Recycle Pile)
+              <% else %>
+                Draw Card
+              <% end %>
+            </.button>
+          <% end %>
         <% end %>
       <% end %>
     </div>
@@ -78,7 +89,7 @@
         </span>
       </p>
       <p class="text-sm text-purple-600 mt-1">
-        You must play a card of this suit (or another Ace)
+        You must play a card of this suit (or an Ace)
       </p>
     </div>
   <% end %>
@@ -96,7 +107,8 @@
   </div>
 
   <%!-- T027: Persistent Draw Penalty Indicator (FR-012) --%>
-  <%= if @game_session.draw_penalty && @game_session.draw_penalty["active"] == true do %>
+  <%!-- T040: Hide indicator when animation is playing (FR-008) --%>
+  <%= if @game_session.draw_penalty && @game_session.draw_penalty["active"] == true && !@show_penalty_animation do %>
     <% target_player_id = @game_session.draw_penalty["target_player_id"] %>
     <% penalty_count = @game_session.draw_penalty["count"] %>
     <% target_player =
@@ -225,8 +237,12 @@
         <% matches_required_suit =
           @game_session.action_suit &&
             (dc.card.suit == @game_session.action_suit || dc.card.rank == "ace") %>
+        <%!-- T043: Add animation class when penalty animation is active --%>
+        <% animation_class = if @show_penalty_animation, do: "penalty-card-animation", else: "" %>
         <div
-          class={"p-4 border rounded-md shadow-sm cursor-pointer transition-all #{card_class(is_selected, matches_required_suit)}"}
+          class={
+            "p-4 border rounded-md shadow-sm cursor-pointer transition-all #{card_class(is_selected, matches_required_suit)} #{animation_class}"
+          }
           phx-click="toggle_card"
           phx-value-card_id={dc.card_id}
         >

@@ -19,7 +19,8 @@ defmodule KadiWeb.GameLive do
        selected_cards: [],
        direction: "clockwise",
        toast: nil,
-       toast_timer: nil
+       toast_timer: nil,
+       show_penalty_animation: false
      )}
   end
 
@@ -131,12 +132,20 @@ defmodule KadiWeb.GameLive do
            |> assign(selected_cards: [])}
 
         {:error, :invalid_play} ->
-          # T063: Show specific error when action_suit requirement not met
+          # T044: Check if penalty is active and show specific error (FR-006)
+          draw_penalty = game_session.draw_penalty || %{}
+
           error_msg =
-            if game_session.action_suit do
-              "Invalid play - you must play a card matching the required suit (#{String.capitalize(game_session.action_suit)}) or an Ace"
+            if draw_penalty["active"] == true and
+                 draw_penalty["target_player_id"] == current_player.id do
+              "Penalty Active. You must play blocking card or draw penalty cards"
             else
-              "Invalid play - card(s) don't match the top card or are not yet implemented"
+              # T063: Show specific error when action_suit requirement not met
+              if game_session.action_suit do
+                "Invalid play - you must play a card matching the required suit (#{String.capitalize(game_session.action_suit)}) or an Ace"
+              else
+                "Invalid play - card(s) don't match the top card or are not yet implemented"
+              end
             end
 
           {:noreply,
@@ -171,6 +180,28 @@ defmodule KadiWeb.GameLive do
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Error selecting suit: #{reason}")}
+    end
+  end
+
+  # T037: Handle explicit penalty acceptance via button click
+  @impl true
+  def handle_event("accept_penalty", _params, socket) do
+    game_session = socket.assigns.game_session
+    current_player = socket.assigns.current_player
+
+    case CardGames.process_draw_penalty(game_session, current_player.id) do
+      {:ok, _updated_game_session} ->
+        # Don't update socket - wait for broadcast
+        {:noreply, socket}
+
+      {:error, :not_current_turn} ->
+        {:noreply, put_flash(socket, :error, "It's not your turn")}
+
+      {:error, :no_penalty} ->
+        {:noreply, put_flash(socket, :error, "No penalty to accept")}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Cannot draw penalty: #{reason}")}
     end
   end
 
@@ -241,6 +272,19 @@ defmodule KadiWeb.GameLive do
         updated_game_session,
         current_player_id
       )
+
+    # T038: Detect penalty clearing to trigger animation (FR-005)
+    old_penalty = socket.assigns.game_session.draw_penalty || %{}
+    new_penalty = updated_game_session.draw_penalty || %{}
+
+    socket =
+      if old_penalty["active"] == true and new_penalty["active"] != true and
+           old_penalty["target_player_id"] == current_player_id do
+        # Penalty was just cleared for current player - trigger animation
+        assign(socket, show_penalty_animation: true)
+      else
+        assign(socket, show_penalty_animation: false)
+      end
 
     socket = assign_game_state(socket, updated_game_session)
     {:noreply, socket}
@@ -461,5 +505,15 @@ defmodule KadiWeb.GameLive do
     else
       nil
     end
+  end
+
+  # T035: Helper to determine if penalty acceptance button should be shown
+  # Shows button when: penalty is active AND it's the current player's turn
+  defp show_penalty_button?(game_session, current_player_id) do
+    draw_penalty = game_session.draw_penalty || %{}
+
+    draw_penalty["active"] == true and
+      draw_penalty["target_player_id"] == current_player_id and
+      game_session.current_turn_player_id == current_player_id
   end
 end

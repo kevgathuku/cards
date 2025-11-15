@@ -19,3 +19,33 @@
 .penalty-indicator {
   animation: penalty-pulse 2s ease-in-out infinite;
 }
+
+/* T041: Penalty card drawing animation (FR-005) - 300-500ms transition */
+@keyframes card-draw {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.penalty-card-animation {
+  animation: card-draw 400ms ease-out;
+}
+
+/* T042: Penalty button pulse effect */
+@keyframes button-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(220, 38, 38, 0);
+  }
+}
+
+.btn-penalty {
+  animation: button-pulse 2s ease-in-out infinite;
+}
