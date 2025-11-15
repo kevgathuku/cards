@@ -230,10 +230,8 @@ defmodule KadiWeb.GameLive do
     old_turn_player_id =
       socket.assigns.current_turn_player && socket.assigns.current_turn_player.id
 
-    updated_game_session =
-      updated_game_session
-      |> Kadi.Repo.preload([:current_turn_player])
-
+    # Backend sends fully preloaded game_session from get_game_session_preloaded/1
+    # Don't re-preload here as it would lose the necessary associations
     new_turn_player_id = updated_game_session.current_turn_player_id
 
     socket =
