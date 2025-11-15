@@ -6,7 +6,7 @@ This implementation plan breaks down the 3 card feature into discrete, increment
 
 ## Task List
 
-- [ ] 1. Add penalty_count/1 helper function
+- [x] 1. Add penalty_count/1 helper function
   - Create public function in `CardGames` module that returns penalty count based on type
   - Handle "two" → 2, "three" → 3, nil/unknown → 0
   - Add @doc documentation explaining nil handling for inactive penalties

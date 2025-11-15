@@ -12,6 +12,27 @@ defmodule Kadi.CardGamesTest do
     %{player: player}
   end
 
+  describe "penalty_count/1" do
+    test "returns 2 for 'two' penalty type" do
+      assert CardGames.penalty_count("two") == 2
+    end
+
+    test "returns 3 for 'three' penalty type" do
+      assert CardGames.penalty_count("three") == 3
+    end
+
+    test "returns 0 for nil penalty type" do
+      assert CardGames.penalty_count(nil) == 0
+    end
+
+    test "returns 0 for unknown penalty type" do
+      assert CardGames.penalty_count("unknown") == 0
+      assert CardGames.penalty_count("invalid") == 0
+      assert CardGames.penalty_count("ace") == 0
+      assert CardGames.penalty_count("") == 0
+    end
+  end
+
   describe "get_game_session/1" do
     test "returns the game session if it exists", %{player: player} do
       {:ok, game_session} = CardGames.create_game_session(player, %{short_code: "Test Game"})

@@ -40,6 +40,45 @@ defmodule Kadi.CardGames do
   @ranks Enum.map(2..10, &to_string/1) ++ ~w(jack queen king ace)
 
   @doc """
+  Returns the number of cards to draw for a given penalty type.
+
+  This helper function maps penalty types to their corresponding card counts:
+  - "two" → 2 cards
+  - "three" → 3 cards
+  - nil or unknown → 0 cards
+
+  The nil case handles inactive penalties (when draw_penalty.active is false),
+  allowing the function to safely return 0 for display and calculation purposes.
+
+  ## Parameters
+  - penalty_type: String penalty type ("two", "three") or nil
+
+  ## Returns
+  - Integer count of cards to draw (2, 3, or 0)
+
+  ## Examples
+
+      iex> penalty_count("two")
+      2
+
+      iex> penalty_count("three")
+      3
+
+      iex> penalty_count(nil)
+      0
+
+      iex> penalty_count("unknown")
+      0
+  """
+  def penalty_count(penalty_type) do
+    case penalty_type do
+      "two" -> 2
+      "three" -> 3
+      _ -> 0
+    end
+  end
+
+  @doc """
   Returns the state of a specific game, with the game creator preloaded
 
   Takes the Game ID as a parameter to find the Game
