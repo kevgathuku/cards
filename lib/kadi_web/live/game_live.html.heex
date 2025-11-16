@@ -83,16 +83,10 @@
 
   <%!-- T061: Display active suit requirement --%>
   <%= if @game_session.action_suit do %>
-    <% top_card = List.last(@played_pile) %>
-    <%!-- Check if Ace blocked a penalty: top card is Ace AND second-to-last is 2 or 3 --%>
-    <% second_to_last = if length(@played_pile) >= 2, do: Enum.at(@played_pile, -2), else: nil %>
-    <% ace_blocked_penalty? =
-      top_card && top_card.card.rank == "ace" && second_to_last &&
-        (second_to_last.card.rank == "2" || second_to_last.card.rank == "3") %>
     <div class="mt-4 p-4 bg-purple-100 border border-purple-300 rounded-lg text-center">
-      <%= if ace_blocked_penalty? do %>
+      <%= if @ace_blocked_penalty_info.blocked? do %>
         <%!-- Show enhanced message when Ace blocked a penalty --%>
-        <% penalty_card = second_to_last.card %>
+        <% penalty_card = @ace_blocked_penalty_info.penalty_card %>
         <p class="text-lg font-semibold text-purple-800">
           Ace blocked penalty!
         </p>
@@ -107,7 +101,9 @@
           </span>
         </p>
         <p class="text-xs text-purple-500 mt-1">
-          You must play {suit_symbol(@game_session.action_suit)}, another {String.upcase(penalty_card.rank)}, or an Ace
+          You must play {suit_symbol(@game_session.action_suit)}, another {String.upcase(
+            penalty_card.rank
+          )}, or an Ace
         </p>
       <% else %>
         <%!-- Normal suit requirement message --%>
@@ -270,18 +266,12 @@
     <div class="flex space-x-4 flex-wrap">
       <%= for dc <- @player_hand do %>
         <% is_selected = dc.card_id in @selected_cards %>
-        <%!-- Determine if Ace blocked a penalty (for highlighting valid cards) --%>
-        <% top_card = List.last(@played_pile) %>
-        <% second_to_last = if length(@played_pile) >= 2, do: Enum.at(@played_pile, -2), else: nil %>
-        <% ace_blocked_penalty? =
-          @game_session.action_suit && top_card && top_card.card.rank == "ace" && second_to_last &&
-            (second_to_last.card.rank == "2" || second_to_last.card.rank == "3") %>
-        <% blocked_penalty_rank = if ace_blocked_penalty?, do: second_to_last.card.rank, else: nil %>
         <%!-- T062: Highlight cards matching required suit --%>
         <% matches_required_suit =
           @game_session.action_suit &&
             (dc.card.suit == @game_session.action_suit || dc.card.rank == "ace" ||
-               (ace_blocked_penalty? && dc.card.rank == blocked_penalty_rank)) %>
+               (@ace_blocked_penalty_info.blocked? &&
+                  dc.card.rank == @ace_blocked_penalty_info.penalty_card.rank)) %>
         <%!-- Highlight blocking cards (2, 3, or Ace) when penalty is active --%>
         <% draw_penalty = @game_session.draw_penalty || %{} %>
         <% penalty_type = draw_penalty["penalty_type"] %>
