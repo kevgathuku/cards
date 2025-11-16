@@ -121,7 +121,7 @@ This implementation plan breaks down the 3 card feature into discrete, increment
   - _Requirements: All CardGames requirements_
 
 - [ ] 5. Update LiveView for 3 card penalty UI
-- [ ] 5.1 Update handle_event("accept_penalty") to use penalty_count/1
+- [x] 5.1 Update handle_event("accept_penalty") to use penalty_count/1
   - Get penalty_type from game_session.draw_penalty
   - Calculate count using CardGames.penalty_count/1
   - Call CardGames.process_draw_penalty/2

@@ -458,14 +458,21 @@ defmodule KadiWeb.GameLive do
 
       if old_penalty["active"] != true or
            old_penalty["target_player_id"] != current_player_id do
-        # Find who played the '2' card (previous player)
+        # Find who played the penalty card (previous player)
         penalty_creator = find_penalty_creator(game_session)
+
+        # Calculate penalty count using penalty_count/1 helper
+        penalty_type = draw_penalty["penalty_type"]
+        count = CardGames.penalty_count(penalty_type)
+
+        # Determine card type for message (default to '2' for backward compatibility)
+        card_type = penalty_type || "2"
 
         message =
           if penalty_creator do
-            "You must draw #{draw_penalty["count"]} cards due to #{penalty_creator}'s '2' card"
+            "You must draw #{count} cards due to #{penalty_creator}'s '#{card_type}' card"
           else
-            "You must draw #{draw_penalty["count"]} cards due to a '2' card penalty"
+            "You must draw #{count} cards due to a '#{card_type}' card penalty"
           end
 
         # Cancel existing toast timer if any
