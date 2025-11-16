@@ -1263,5 +1263,184 @@ defmodule KadiWeb.GameLiveTest do
       refute html1_after =~ "must draw 3 cards"
       refute html2_after =~ "Draw 3 Cards"
     end
+
+    test "shows enhanced message when Ace blocks a penalty", %{
+      player1: player1,
+      player2: player2,
+      game_session: game_session
+    } do
+      # Set up: Current player plays a '3' to create a penalty
+      game_session =
+        Kadi.Repo.preload(game_session, [
+          :top_card,
+          :current_turn_player,
+          deck: [deck_cards: :card]
+        ])
+
+      # Determine who has the current turn
+      current_player = game_session.current_turn_player
+      next_player = if current_player.id == player1.id, do: player2, else: player1
+
+      top_card = game_session.top_card
+
+      # Find a '3' card that matches the top card (either rank or suit)
+      three_card =
+        game_session.deck.deck_cards
+        |> Enum.find(
+          &(&1.card.rank == "3" && &1.location_type == "deck" &&
+              (&1.card.suit == top_card.suit || &1.card.rank == top_card.rank))
+        )
+
+      # If no matching '3', find any '3' and set up the top card to match
+      three_card =
+        if three_card do
+          three_card
+        else
+          # Find any '3' in deck
+          any_three =
+            game_session.deck.deck_cards
+            |> Enum.find(&(&1.card.rank == "3" && &1.location_type == "deck"))
+
+          # Move a card with matching suit to played pile as top card
+          matching_card =
+            game_session.deck.deck_cards
+            |> Enum.find(
+              &(&1.location_type == "deck" && &1.card.suit == any_three.card.suit &&
+                  &1.card.rank != "3")
+            )
+
+          if matching_card do
+            {:ok, _} =
+              Kadi.Games.DeckCard.changeset(matching_card, %{
+                location_type: "played_stack",
+                order_index: 100,
+                player_id: nil
+              })
+              |> Kadi.Repo.update()
+
+            # Update game session top card
+            game_session
+            |> Ecto.Changeset.change(%{top_card_id: matching_card.card_id})
+            |> Kadi.Repo.update!()
+          end
+
+          any_three
+        end
+
+      three_suit = three_card.card.suit
+
+      {:ok, _} =
+        Kadi.Games.DeckCard.changeset(three_card, %{
+          location_type: "player_hand",
+          player_id: current_player.id,
+          order_index: nil
+        })
+        |> Kadi.Repo.update()
+
+      # Current player plays the '3'
+      game_session = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
+
+      {:ok, game_with_penalty} =
+        CardGames.play_cards(game_session, current_player.id, [three_card.card_id])
+
+      # Verify penalty is active
+      assert game_with_penalty.draw_penalty["active"] == true
+      assert game_with_penalty.draw_penalty["penalty_type"] == "three"
+
+      # Give next_player an Ace to block
+      game_with_penalty = Kadi.Repo.preload(game_with_penalty, deck: [deck_cards: :card])
+
+      ace_card =
+        game_with_penalty.deck.deck_cards
+        |> Enum.find(&(&1.card.rank == "ace" && &1.location_type == "deck"))
+
+      {:ok, _} =
+        Kadi.Games.DeckCard.changeset(ace_card, %{
+          location_type: "player_hand",
+          player_id: next_player.id,
+          order_index: nil
+        })
+        |> Kadi.Repo.update()
+
+      # Next player blocks with Ace
+      game_with_penalty = Kadi.Repo.get!(Kadi.Games.GameSession, game_with_penalty.id)
+
+      {:ok, game_after_block} =
+        CardGames.play_cards(game_with_penalty, next_player.id, [ace_card.card_id])
+
+      # Verify penalty is cleared and action_suit is set to the suit of the blocked card
+      assert game_after_block.draw_penalty["active"] == false
+      assert game_after_block.action_suit == three_suit
+
+      # Connect as any player and verify the enhanced message is shown
+      conn = log_in_player(build_conn(), current_player)
+      {:ok, _view, html} = live(conn, ~p"/games/#{game_after_block.id}")
+
+      # Should show enhanced message about Ace blocking penalty
+      assert html =~ "Ace blocked penalty!"
+      assert html =~ "Active suit:"
+      assert html =~ String.capitalize(three_suit)
+      assert html =~ "from last penalty card"
+      # Should show the penalty card (3 with suit symbol)
+      assert html =~ "3"
+    end
+
+    test "does NOT show enhanced message for normal Ace play (suit selection)", %{
+      player1: player1,
+      player2: player2,
+      game_session: game_session
+    } do
+      # Set up: Current player plays a normal Ace (not blocking a penalty)
+      game_session =
+        Kadi.Repo.preload(game_session, [
+          :top_card,
+          :current_turn_player,
+          deck: [deck_cards: :card]
+        ])
+
+      current_player = game_session.current_turn_player
+      other_player = if current_player.id == player1.id, do: player2, else: player1
+
+      # Find an Ace and give it to current player
+      ace_card =
+        game_session.deck.deck_cards
+        |> Enum.find(&(&1.card.rank == "ace" && &1.location_type == "deck"))
+
+      {:ok, _} =
+        Kadi.Games.DeckCard.changeset(ace_card, %{
+          location_type: "player_hand",
+          player_id: current_player.id,
+          order_index: nil
+        })
+        |> Kadi.Repo.update()
+
+      # Current player plays the Ace (normal play, not blocking)
+      game_session = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
+
+      {:ok, game_after_ace} =
+        CardGames.play_cards(game_session, current_player.id, [ace_card.card_id])
+
+      # Verify action_type is set to select_suit (normal Ace behavior)
+      assert game_after_ace.action_type == "select_suit"
+      assert game_after_ace.action_suit == nil
+
+      # Current player selects a suit
+      {:ok, game_after_selection} =
+        CardGames.select_suit(game_after_ace, current_player.id, "hearts")
+
+      # Verify action_suit is now set
+      assert game_after_selection.action_suit == "hearts"
+
+      # Connect as other player and verify the NORMAL message is shown (not the enhanced one)
+      conn = log_in_player(build_conn(), other_player)
+      {:ok, _view, html} = live(conn, ~p"/games/#{game_after_selection.id}")
+
+      # Should show normal suit requirement message
+      assert html =~ "Required Suit:"
+      assert html =~ "Hearts"
+      # Should NOT show the enhanced penalty blocking message
+      refute html =~ "Ace blocked penalty!"
+      refute html =~ "from last penalty card"
+    end
   end
 end

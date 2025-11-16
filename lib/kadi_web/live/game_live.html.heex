@@ -83,16 +83,44 @@
 
   <%!-- T061: Display active suit requirement --%>
   <%= if @game_session.action_suit do %>
+    <% top_card = List.last(@played_pile) %>
+    <%!-- Check if Ace blocked a penalty: top card is Ace AND second-to-last is 2 or 3 --%>
+    <% second_to_last = if length(@played_pile) >= 2, do: Enum.at(@played_pile, -2), else: nil %>
+    <% ace_blocked_penalty? =
+      top_card && top_card.card.rank == "ace" && second_to_last &&
+        (second_to_last.card.rank == "2" || second_to_last.card.rank == "3") %>
     <div class="mt-4 p-4 bg-purple-100 border border-purple-300 rounded-lg text-center">
-      <p class="text-lg font-semibold text-purple-800">
-        Required Suit:
-        <span class="text-2xl">
-          {suit_symbol(@game_session.action_suit)} {String.capitalize(@game_session.action_suit)}
-        </span>
-      </p>
-      <p class="text-sm text-purple-600 mt-1">
-        You must play a card of this suit (or an Ace)
-      </p>
+      <%= if ace_blocked_penalty? do %>
+        <%!-- Show enhanced message when Ace blocked a penalty --%>
+        <% penalty_card = second_to_last.card %>
+        <p class="text-lg font-semibold text-purple-800">
+          Ace blocked penalty!
+        </p>
+        <p class="text-sm text-purple-600 mt-1">
+          Active suit:
+          <span class="text-xl">
+            {suit_symbol(@game_session.action_suit)} {String.capitalize(@game_session.action_suit)}
+          </span>
+          from last penalty card
+          <span class="font-semibold">
+            {String.upcase(penalty_card.rank)}{suit_symbol(penalty_card.suit)}
+          </span>
+        </p>
+        <p class="text-xs text-purple-500 mt-1">
+          You must play {suit_symbol(@game_session.action_suit)} (or another Ace)
+        </p>
+      <% else %>
+        <%!-- Normal suit requirement message --%>
+        <p class="text-lg font-semibold text-purple-800">
+          Required Suit:
+          <span class="text-2xl">
+            {suit_symbol(@game_session.action_suit)} {String.capitalize(@game_session.action_suit)}
+          </span>
+        </p>
+        <p class="text-sm text-purple-600 mt-1">
+          You must play a card of this suit (or an Ace)
+        </p>
+      <% end %>
     </div>
   <% end %>
 
