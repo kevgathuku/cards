@@ -67,7 +67,7 @@ This implementation plan breaks down the 3 card feature into discrete, increment
   - _Requirements: All validation requirements_
 
 - [ ] 4. Update CardGames context for 3 card penalty
-- [ ] 4.1 Update play_cards/3 to create 3 card penalty
+- [x] 4.1 Update play_cards/3 to create 3 card penalty
   - Detect when cards contain rank "3"
   - Create draw_penalty map with penalty_type="three"
   - Set target_player_id to next player
@@ -75,26 +75,26 @@ This implementation plan breaks down the 3 card feature into discrete, increment
   - Use Ecto.Multi for atomic transaction
   - _Requirements: 1.1, 1.4_
 
-- [ ] 4.2 Update play_cards/3 to handle 3 card blocking
+- [x] 4.2 Update play_cards/3 to handle 3 card blocking
   - When penalty is active and 3 is played, check penalty_type
   - If penalty_type="three", transfer penalty to next player
   - If penalty_type="two", return error (cross-blocking prevention)
   - Keep penalty_type="three" when transferring
   - _Requirements: 3.1, 3.2, 3.3, 8.1, 8.2_
 
-- [ ] 4.3 Update play_cards/3 to handle Ace blocking 3 penalty
+- [x] 4.3 Update play_cards/3 to handle Ace blocking 3 penalty
   - When Ace is played and penalty_type="three", clear penalty
   - Set action_suit to suit of the most recent 3 card
   - Do not prompt for suit selection (same as 2 card behavior)
   - _Requirements: 2.1, 2.2, 2.3, 2.4_
 
-- [ ] 4.4 Update play_cards/3 to pass penalty_type to validator
+- [x] 4.4 Update play_cards/3 to pass penalty_type to validator
   - Extract penalty_type from game_session.draw_penalty
   - Add penalty_type to opts passed to PlayValidator.valid_play?/3
   - Ensure validation uses correct penalty type for blocking checks
   - _Requirements: 8.3, 8.4_
 
-- [ ] 4.5 Update process_draw_penalty/2 to handle 3 card penalty
+- [x] 4.5 Update process_draw_penalty/2 to handle 3 card penalty
   - Check penalty_type from game_session.draw_penalty
   - Calculate count using penalty_count/1 helper
   - Draw correct number of cards (2 for "two", 3 for "three")
@@ -102,7 +102,7 @@ This implementation plan breaks down the 3 card feature into discrete, increment
   - Clear penalty after drawing
   - _Requirements: 1.4, 6.1, 6.2, 6.3_
 
-- [ ] 4.6 Update select_starting_card/1 to exclude 3 cards
+- [x] 4.6 Update select_starting_card/1 to exclude 3 cards
   - Filter out cards with rank "3" from eligible starting cards
   - Also exclude rank "2" (already implemented, verify it's working)
   - Handle edge case where all cards are 2s or 3s (use fallback)

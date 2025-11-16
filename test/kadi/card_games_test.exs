@@ -225,6 +225,33 @@ defmodule Kadi.CardGamesTest do
       IO.puts("✓ T060: Jack excluded from starting card selection")
     end
 
+    test "2 and 3 cards are excluded from starting card selection" do
+      # Run multiple attempts to verify 2s and 3s are never selected as starting cards
+      Enum.each(1..10, fn attempt ->
+        player1 = player_fixture(%{email: "two-three-start-p#{attempt}@example.com"})
+        player2 = player_fixture(%{email: "two-three-start-q#{attempt}@example.com"})
+
+        {:ok, game_session} =
+          CardGames.create_game_session(player1, %{short_code: "two-three-start-#{attempt}"})
+
+        CardGames.join_game_session(player2, game_session.id)
+
+        {:ok, started_game_session} = CardGames.start_game(game_session)
+
+        {:ok, started_game_session} =
+          CardGames.get_game_session_preloaded(started_game_session.id)
+
+        # Verify starting card is not a 2 or 3
+        refute started_game_session.top_card.rank == "2",
+               "Starting card should not be a 2"
+
+        refute started_game_session.top_card.rank == "3",
+               "Starting card should not be a 3"
+      end)
+
+      IO.puts("✓ 2 and 3 cards excluded from starting card selection")
+    end
+
     test "sets the order_index for the starting card", %{player: player} do
       player2 = player_fixture(%{email: "player2@example.com"})
 

@@ -59,7 +59,7 @@ defmodule Kadi.CardGames.SpecialCardsTwoTest do
       # Assert: Game state is updated to indicate next player must draw 2 cards
       # Note: PostgreSQL :map type returns string keys, not atom keys
       assert updated_game_session.draw_penalty["active"] == true
-      assert updated_game_session.draw_penalty["count"] == 2
+      assert updated_game_session.draw_penalty["penalty_type"] == "two"
       assert updated_game_session.draw_penalty["target_player_id"] == next_player.id
     end
 
@@ -120,7 +120,7 @@ defmodule Kadi.CardGames.SpecialCardsTwoTest do
 
       # Assert: Penalty is activated for next player
       assert updated_game_session.draw_penalty["active"] == true
-      assert updated_game_session.draw_penalty["count"] == 2
+      assert updated_game_session.draw_penalty["penalty_type"] == "two"
       assert updated_game_session.draw_penalty["target_player_id"] == next_player.id
 
       # Assert: Game continues (turn advanced to next player)
@@ -213,7 +213,7 @@ defmodule Kadi.CardGames.SpecialCardsTwoTest do
 
       # Assert: Penalty is cleared
       assert updated_game.draw_penalty["active"] == false
-      assert updated_game.draw_penalty["count"] == 0
+      assert updated_game.draw_penalty["penalty_type"] == nil
       assert updated_game.draw_penalty["target_player_id"] == nil
 
       # Assert: action_suit is set to the suit of the '2' that was blocked
@@ -254,7 +254,7 @@ defmodule Kadi.CardGames.SpecialCardsTwoTest do
 
       # Assert: Penalty is still active
       assert updated_game.draw_penalty["active"] == true
-      assert updated_game.draw_penalty["count"] == 2
+      assert updated_game.draw_penalty["penalty_type"] == "two"
 
       # Assert: Penalty is transferred to the next player (P1 in a 2-player game)
       assert updated_game.draw_penalty["target_player_id"] == p1.id
@@ -294,7 +294,7 @@ defmodule Kadi.CardGames.SpecialCardsTwoTest do
 
       # Assert: Penalty is still active
       assert updated_game.draw_penalty["active"] == true
-      assert updated_game.draw_penalty["count"] == 2
+      assert updated_game.draw_penalty["penalty_type"] == "two"
 
       # Assert: Penalty is transferred to the next player (P1 in a 2-player game)
       assert updated_game.draw_penalty["target_player_id"] == p1.id
@@ -499,7 +499,7 @@ defmodule Kadi.CardGames.SpecialCardsTwoTest do
 
       # Assert: Penalty is transferred to P3
       assert game_p2_played.draw_penalty["active"] == true
-      assert game_p2_played.draw_penalty["count"] == 2
+      assert game_p2_played.draw_penalty["penalty_type"] == "two"
       assert game_p2_played.draw_penalty["target_player_id"] == p3.id
       assert game_p2_played.current_turn_player_id == p3.id
     end
@@ -592,11 +592,11 @@ defmodule Kadi.CardGames.SpecialCardsTwoTest do
         card_ids = Enum.map(remaining_twos, & &1.card.id)
         {:ok, updated_game} = CardGames.play_cards(game_fresh2, p2.id, card_ids)
 
-        # Assert: Penalty is still active but count is still 2 (not 4)
+        # Assert: Penalty is still active with type "two" (not additive)
         assert updated_game.draw_penalty["active"] == true
 
-        assert updated_game.draw_penalty["count"] == 2,
-               "Expected penalty count to be 2, not additive (got #{updated_game.draw_penalty["count"]})"
+        assert updated_game.draw_penalty["penalty_type"] == "two",
+               "Expected penalty type to be 'two', not additive (got #{updated_game.draw_penalty["penalty_type"]})"
 
         assert updated_game.draw_penalty["target_player_id"] == p1.id
       else
@@ -626,11 +626,11 @@ defmodule Kadi.CardGames.SpecialCardsTwoTest do
         card_ids = Enum.map(deck_cards_two, & &1.card.id)
         {:ok, updated_game} = CardGames.play_cards(game_ready, p1.id, card_ids)
 
-        # Assert: Penalty is active but count is still 2 (not 4)
+        # Assert: Penalty is active with type "two" (not additive)
         assert updated_game.draw_penalty["active"] == true
 
-        assert updated_game.draw_penalty["count"] == 2,
-               "Expected penalty count to be 2, not additive (got #{updated_game.draw_penalty["count"]})"
+        assert updated_game.draw_penalty["penalty_type"] == "two",
+               "Expected penalty type to be 'two', not additive (got #{updated_game.draw_penalty["penalty_type"]})"
 
         assert updated_game.draw_penalty["target_player_id"] == p2.id
       end
@@ -873,7 +873,7 @@ defmodule Kadi.CardGames.SpecialCardsTwoTest do
 
       # Assert: Penalty state is persisted in database
       assert game_after_two.draw_penalty["active"] == true
-      assert game_after_two.draw_penalty["count"] == 2
+      assert game_after_two.draw_penalty["penalty_type"] == "two"
 
       # Get next player
       next_player_id =
@@ -885,7 +885,7 @@ defmodule Kadi.CardGames.SpecialCardsTwoTest do
       {:ok, game_reloaded} = CardGames.get_game_session_preloaded(game_after_two.id)
 
       assert game_reloaded.draw_penalty["active"] == true
-      assert game_reloaded.draw_penalty["count"] == 2
+      assert game_reloaded.draw_penalty["penalty_type"] == "two"
       assert game_reloaded.draw_penalty["target_player_id"] == next_player_id
 
       # Verify penalty persists across multiple reloads (SPR-002 continuity)
@@ -928,7 +928,7 @@ defmodule Kadi.CardGames.SpecialCardsTwoTest do
       # Verify penalty persists in database
       {:ok, game_reloaded} = CardGames.get_game_session_preloaded(game_with_penalty.id)
       assert game_reloaded.draw_penalty["active"] == true
-      assert game_reloaded.draw_penalty["count"] == 2
+      assert game_reloaded.draw_penalty["penalty_type"] == "two"
 
       # Note: T022 implements auto-draw logic that will clear the penalty
       # This test verifies the penalty state is properly persisted and visible
@@ -1026,19 +1026,19 @@ defmodule Kadi.CardGames.SpecialCardsTwoTest do
       # First reconnect
       {:ok, game_reload_1} = CardGames.get_game_session_preloaded(game_with_penalty.id)
       assert game_reload_1.draw_penalty["active"] == true
-      assert game_reload_1.draw_penalty["count"] == 2
+      assert game_reload_1.draw_penalty["penalty_type"] == "two"
       assert game_reload_1.draw_penalty["target_player_id"] == target_player_id
 
       # Second reconnect (simulating multiple disconnections)
       {:ok, game_reload_2} = CardGames.get_game_session_preloaded(game_with_penalty.id)
       assert game_reload_2.draw_penalty["active"] == true
-      assert game_reload_2.draw_penalty["count"] == 2
+      assert game_reload_2.draw_penalty["penalty_type"] == "two"
       assert game_reload_2.draw_penalty["target_player_id"] == target_player_id
 
       # Third reconnect (verify consistency)
       {:ok, game_reload_3} = CardGames.get_game_session_preloaded(game_with_penalty.id)
       assert game_reload_3.draw_penalty["active"] == true
-      assert game_reload_3.draw_penalty["count"] == 2
+      assert game_reload_3.draw_penalty["penalty_type"] == "two"
       assert game_reload_3.draw_penalty["target_player_id"] == target_player_id
 
       # Verify all game state is consistent across reloads
@@ -1081,7 +1081,7 @@ defmodule Kadi.CardGames.SpecialCardsTwoTest do
       # This simulates Player 2 opening the game on their phone/computer
       {:ok, player2_view} = CardGames.get_game_session_preloaded(game_with_penalty.id)
       assert player2_view.draw_penalty["active"] == true
-      assert player2_view.draw_penalty["count"] == 2
+      assert player2_view.draw_penalty["penalty_type"] == "two"
 
       # Verify both players see the same penalty state
       assert player1_view.draw_penalty == player2_view.draw_penalty
