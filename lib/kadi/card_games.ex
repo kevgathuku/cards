@@ -1160,11 +1160,20 @@ defmodule Kadi.CardGames do
         game_session.draw_penalty["active"] && ace_played? ->
           game_session.top_card.suit
 
+        # When Ace is played normally (not blocking), clear action_suit (will be set by select_suit)
+        ace_played? ->
+          nil
+
         # When '2' or '3' is played, clear any existing action_suit
         two_played? || three_played? ->
           nil
 
-        # Otherwise, keep existing action_suit
+        # When a non-Ace card is played and action_suit is set, clear it
+        # (The card must match action_suit to be valid, so if we're here, it matched)
+        game_session.action_suit != nil ->
+          nil
+
+        # Otherwise, keep existing action_suit (should be nil in normal play)
         true ->
           game_session.action_suit
       end
