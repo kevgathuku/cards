@@ -86,10 +86,6 @@ defmodule Kadi.Games.PlayValidator do
           # When blocking a '3' penalty with another '3'
           validate_penalty_card(single_card, top_card, penalty_blocked_suit)
 
-        # Backward compatibility: if penalty_type is nil, allow 2 cards (old behavior)
-        {"2", nil} ->
-          validate_penalty_card(single_card, top_card, penalty_blocked_suit)
-
         _ ->
           false
       end
@@ -152,8 +148,7 @@ defmodule Kadi.Games.PlayValidator do
           # Aces can always be played, even during penalties
           valid_ace_play?(cards, top_card, required_suit)
 
-        all_twos?(cards) and (penalty_type == "two" or penalty_type == nil) ->
-          # Backward compatibility: if penalty_type is nil, allow 2 cards (old behavior)
+        all_twos?(cards) and penalty_type == "two" ->
           # When blocking a '2' penalty with multiple '2's
           validate_penalty_combo(cards, top_card, penalty_blocked_suit)
 
@@ -404,15 +399,18 @@ defmodule Kadi.Games.PlayValidator do
         validate_penalty_card(card, top_card, penalty_blocked_suit)
 
       action_suit ->
-        # BACKWARD COMPATIBILITY: If action_suit is set but penalty_blocked_suit is not,
-        # and the top card is an Ace (indicating it just blocked a penalty), treat this
-        # as a penalty block scenario where penalty cards can match by rank
+        # When action_suit is set, we need to determine if it's from:
+        # 1. Regular Ace play (strict suit matching for all cards), OR
+        # 2. Ace blocking a penalty (penalty cards can bypass by matching rank)
+        #
+        # We detect penalty blocking by checking if top card is an Ace and the card
+        # being played is a penalty card (2 or 3). In this case, allow the penalty card
+        # to be played (it will match by rank with the blocked penalty card).
         if top_card.rank == "ace" and (card.rank == "2" or card.rank == "3") do
-          # Allow penalty cards to match by rank (legacy behavior for penalty blocking)
-          card.suit == action_suit or card.rank == "2" or card.rank == "3"
+          # Ace blocked a penalty: allow penalty cards (they match by rank with blocked card)
+          true
         else
-          # When action_suit is set from regular Ace, ALL cards (including penalty cards)
-          # must match the requested suit - no bypass allowed
+          # Regular Ace play: ALL cards must match the requested suit
           card.suit == action_suit
         end
 
@@ -451,15 +449,18 @@ defmodule Kadi.Games.PlayValidator do
         validate_penalty_combo(cards, top_card, penalty_blocked_suit)
 
       action_suit ->
-        # BACKWARD COMPATIBILITY: If action_suit is set but penalty_blocked_suit is not,
-        # and the top card is an Ace (indicating it just blocked a penalty), treat this
-        # as a penalty block scenario where penalty cards can match by rank
+        # When action_suit is set, we need to determine if it's from:
+        # 1. Regular Ace play (strict suit matching for all cards), OR
+        # 2. Ace blocking a penalty (penalty cards can bypass by matching rank)
+        #
+        # We detect penalty blocking by checking if top card is an Ace and the cards
+        # being played are penalty cards (2s or 3s). In this case, allow the combo
+        # (they match by rank with the blocked penalty card).
         if top_card.rank == "ace" and (all_twos?(cards) or all_threes?(cards)) do
-          # Allow penalty card combos to match by rank (legacy behavior for penalty blocking)
-          validate_penalty_combo(cards, top_card, action_suit)
+          # Ace blocked a penalty: allow penalty card combos (they match by rank)
+          same_rank?(cards)
         else
-          # When action_suit is set from regular Ace, ALL cards (including penalty cards)
-          # must match the requested suit - no bypass allowed
+          # Regular Ace play: ALL cards must match the requested suit
           same_rank?(cards) and first_card_matches?(cards, top_card, action_suit)
         end
 
