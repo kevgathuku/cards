@@ -120,7 +120,7 @@ This implementation plan breaks down the 3 card feature into discrete, increment
   - Test multiple 3s played together create single penalty (not cumulative)
   - _Requirements: All CardGames requirements_
 
-- [ ] 5. Update LiveView for 3 card penalty UI
+- [x] 5. Update LiveView for 3 card penalty UI
 - [x] 5.1 Update handle_event("accept_penalty") to use penalty_count/1
   - Get penalty_type from game_session.draw_penalty
   - Calculate count using CardGames.penalty_count/1
@@ -128,25 +128,25 @@ This implementation plan breaks down the 3 card feature into discrete, increment
   - Wait for broadcast (don't update socket directly)
   - _Requirements: 1.4, 5.2_
 
-- [ ] 5.2 Update penalty button rendering to show correct count
+- [x] 5.2 Update penalty button rendering to show correct count
   - Use penalty_count/1 to calculate button text
   - Display "Draw 2 Cards" or "Draw 3 Cards" based on penalty_type
   - Show button only when penalty is active and targets current player
   - _Requirements: 1.3, 7.1_
 
-- [ ] 5.3 Update penalty indicator to show correct count
+- [x] 5.3 Update penalty indicator to show correct count
   - Use penalty_count/1 to calculate indicator text
   - Display "Draw 2 penalty active" or "Draw 3 penalty active"
   - Show indicator when penalty is active (visible to all players)
   - _Requirements: 7.1, 7.3_
 
-- [ ] 5.4 Update error messages for 3 card penalty
+- [x] 5.4 Update error messages for 3 card penalty
   - Show "Penalty Active. You must play blocking card or draw penalty cards" when non-blocking card played
   - Show specific error for cross-blocking attempts
   - Display notification when player must draw 3 cards
   - _Requirements: 5.3, 7.2, 8.1, 8.2_
 
-- [ ] 5.5 Write LiveView integration tests for 3 card UI
+- [x] 5.5 Write LiveView integration tests for 3 card UI
   - Test "Draw 3 Cards" button displays when penalty_type="three"
   - Test "Draw 3 penalty active" indicator displays
   - Test clicking "Draw 3 Cards" button draws 3 cards

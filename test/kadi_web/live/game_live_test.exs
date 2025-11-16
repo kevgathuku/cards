@@ -1033,4 +1033,235 @@ defmodule KadiWeb.GameLiveTest do
     # Return the card_id
     card.id
   end
+
+  describe "3 Card Penalty UI" do
+    setup do
+      player1 = player_fixture()
+      player2 = player_fixture(%{email: "player2@example.com"})
+
+      {:ok, game_session} =
+        CardGames.create_game_session(player1, %{short_code: "three-penalty-ui"})
+
+      {:ok, _} = CardGames.join_game_session(player2, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session)
+
+      %{player1: player1, player2: player2, game_session: game_session}
+    end
+
+    test "displays 'Draw 3 Cards' button when penalty_type is 'three'", %{
+      player1: player1,
+      player2: player2,
+      game_session: game_session
+    } do
+      # Set up a 3 card penalty targeting player2
+      game_session =
+        game_session
+        |> Ecto.Changeset.change(%{
+          draw_penalty: %{
+            active: true,
+            penalty_type: "three",
+            target_player_id: player2.id,
+            created_by_player_id: player1.id
+          },
+          current_turn_player_id: player2.id
+        })
+        |> Kadi.Repo.update!()
+
+      conn = log_in_player(build_conn(), player2)
+      {:ok, _view, html} = live(conn, ~p"/games/#{game_session.id}")
+
+      # Should display "Draw 3 Cards" button
+      assert html =~ "Draw 3 Cards"
+      assert html =~ "phx-click=\"accept_penalty\""
+    end
+
+    test "displays 'Draw 3 penalty active' indicator", %{
+      player1: player1,
+      player2: player2,
+      game_session: game_session
+    } do
+      # Set up a 3 card penalty
+      game_session =
+        game_session
+        |> Ecto.Changeset.change(%{
+          draw_penalty: %{
+            active: true,
+            penalty_type: "three",
+            target_player_id: player2.id,
+            created_by_player_id: player1.id
+          },
+          current_turn_player_id: player2.id
+        })
+        |> Kadi.Repo.update!()
+
+      # Player1 (not the target) should see the penalty indicator
+      conn = log_in_player(build_conn(), player1)
+      {:ok, _view, html} = live(conn, ~p"/games/#{game_session.id}")
+
+      # Should display penalty indicator with count of 3
+      assert html =~ "must draw 3 cards"
+    end
+
+    test "clicking 'Draw 3 Cards' button draws 3 cards", %{
+      player1: player1,
+      player2: player2,
+      game_session: game_session
+    } do
+      # Set up a 3 card penalty targeting player2
+      game_session =
+        game_session
+        |> Ecto.Changeset.change(%{
+          draw_penalty: %{
+            active: true,
+            penalty_type: "three",
+            target_player_id: player2.id,
+            created_by_player_id: player1.id
+          },
+          current_turn_player_id: player2.id
+        })
+        |> Kadi.Repo.update!()
+
+      # Get initial hand size
+      initial_hand_size = CardGames.count_player_cards(game_session, player2.id)
+
+      conn = log_in_player(build_conn(), player2)
+      {:ok, view, _html} = live(conn, ~p"/games/#{game_session.id}")
+
+      # Click the "Draw 3 Cards" button
+      render_click(view, "accept_penalty")
+      Process.sleep(100)
+
+      # Verify 3 cards were drawn
+      updated_game_session = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
+      final_hand_size = CardGames.count_player_cards(updated_game_session, player2.id)
+
+      assert final_hand_size == initial_hand_size + 3,
+             "Expected player to draw 3 cards (had #{initial_hand_size}, now has #{final_hand_size})"
+
+      # Verify penalty is cleared
+      assert updated_game_session.draw_penalty["active"] == false
+    end
+
+    test "blocking cards are clickable when 3 penalty active", %{
+      player1: player1,
+      player2: player2,
+      game_session: game_session
+    } do
+      # Set up a 3 card penalty targeting player2
+      game_session =
+        game_session
+        |> Ecto.Changeset.change(%{
+          draw_penalty: %{
+            active: true,
+            penalty_type: "three",
+            target_player_id: player2.id,
+            created_by_player_id: player1.id
+          },
+          current_turn_player_id: player2.id
+        })
+        |> Kadi.Repo.update!()
+
+      # Give player2 an Ace (blocking card)
+      ace_card_id = deal_card_to_player(game_session, player2, "ace", "hearts")
+
+      conn = log_in_player(build_conn(), player2)
+      {:ok, view, html} = live(conn, ~p"/games/#{game_session.id}")
+
+      # Should show both the penalty button and clickable cards
+      assert html =~ "Draw 3 Cards"
+
+      # Try to select the Ace card (should work)
+      render_click(view, "toggle_card", %{"card_id" => to_string(ace_card_id)})
+      html = render(view)
+
+      # Card should be selected
+      assert html =~ "bg-blue-100"
+    end
+
+    test "shows error message when non-blocking card clicked during 3 penalty", %{
+      player1: player1,
+      player2: player2,
+      game_session: game_session
+    } do
+      # Set up a 3 card penalty targeting player2
+      game_session =
+        game_session
+        |> Ecto.Changeset.change(%{
+          draw_penalty: %{
+            active: true,
+            penalty_type: "three",
+            target_player_id: player2.id,
+            created_by_player_id: player1.id
+          },
+          current_turn_player_id: player2.id
+        })
+        |> Kadi.Repo.update!()
+
+      game_session = Kadi.Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]])
+
+      # Find a non-blocking card (not Ace, not 3)
+      non_blocking_card =
+        game_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == player2.id))
+        |> Enum.find(fn dc ->
+          card = dc.card
+          card.rank != "ace" and card.rank != "3"
+        end)
+
+      if non_blocking_card do
+        conn = log_in_player(build_conn(), player2)
+        {:ok, view, _html} = live(conn, ~p"/games/#{game_session.id}")
+
+        # Try to play the non-blocking card
+        render_click(view, "toggle_card", %{"card_id" => to_string(non_blocking_card.card_id)})
+        html = render_click(view, "play_cards")
+
+        # Should show error message
+        assert html =~ "Penalty Active. You must play blocking card or draw penalty cards"
+      end
+    end
+
+    test "penalty indicator disappears after accepting penalty", %{
+      player1: player1,
+      player2: player2,
+      game_session: game_session
+    } do
+      # Set up a 3 card penalty targeting player2
+      game_session =
+        game_session
+        |> Ecto.Changeset.change(%{
+          draw_penalty: %{
+            active: true,
+            penalty_type: "three",
+            target_player_id: player2.id,
+            created_by_player_id: player1.id
+          },
+          current_turn_player_id: player2.id
+        })
+        |> Kadi.Repo.update!()
+
+      # Connect both players
+      conn1 = log_in_player(build_conn(), player1)
+      conn2 = log_in_player(build_conn(), player2)
+
+      {:ok, view1, html1} = live(conn1, ~p"/games/#{game_session.id}")
+      {:ok, view2, html2} = live(conn2, ~p"/games/#{game_session.id}")
+
+      # Both should see penalty indicator
+      assert html1 =~ "must draw 3 cards"
+      assert html2 =~ "Draw 3 Cards"
+
+      # Player2 accepts the penalty
+      render_click(view2, "accept_penalty")
+      Process.sleep(100)
+
+      # Re-render both views
+      html1_after = render(view1)
+      html2_after = render(view2)
+
+      # Penalty indicator should be gone for both players
+      refute html1_after =~ "must draw 3 cards"
+      refute html2_after =~ "Draw 3 Cards"
+    end
+  end
 end
