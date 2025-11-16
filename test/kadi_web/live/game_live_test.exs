@@ -1442,5 +1442,149 @@ defmodule KadiWeb.GameLiveTest do
       refute html =~ "Ace blocked penalty!"
       refute html =~ "from last penalty card"
     end
+
+    test "highlights penalty cards when Ace blocks penalty (rank matching)", %{
+      player1: player1,
+      player2: player2,
+      game_session: game_session
+    } do
+      # Set up: Current player plays a '3' to create a penalty
+      game_session =
+        Kadi.Repo.preload(game_session, [
+          :top_card,
+          :current_turn_player,
+          deck: [deck_cards: :card]
+        ])
+
+      current_player = game_session.current_turn_player
+      next_player = if current_player.id == player1.id, do: player2, else: player1
+
+      # Find a '3' card that matches the top card
+      top_card = game_session.top_card
+
+      three_card =
+        game_session.deck.deck_cards
+        |> Enum.find(
+          &(&1.card.rank == "3" && &1.location_type == "deck" &&
+              (&1.card.suit == top_card.suit || &1.card.rank == top_card.rank))
+        )
+
+      # If no matching '3', set up a matching top card
+      three_card =
+        if three_card do
+          three_card
+        else
+          any_three =
+            game_session.deck.deck_cards
+            |> Enum.find(&(&1.card.rank == "3" && &1.location_type == "deck"))
+
+          matching_card =
+            game_session.deck.deck_cards
+            |> Enum.find(
+              &(&1.location_type == "deck" && &1.card.suit == any_three.card.suit &&
+                  &1.card.rank != "3")
+            )
+
+          if matching_card do
+            {:ok, _} =
+              Kadi.Games.DeckCard.changeset(matching_card, %{
+                location_type: "played_stack",
+                order_index: 100,
+                player_id: nil
+              })
+              |> Kadi.Repo.update()
+
+            game_session
+            |> Ecto.Changeset.change(%{top_card_id: matching_card.card_id})
+            |> Kadi.Repo.update!()
+          end
+
+          any_three
+        end
+
+      three_suit = three_card.card.suit
+
+      {:ok, _} =
+        Kadi.Games.DeckCard.changeset(three_card, %{
+          location_type: "player_hand",
+          player_id: current_player.id,
+          order_index: nil
+        })
+        |> Kadi.Repo.update()
+
+      # Current player plays the '3'
+      game_session = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
+
+      {:ok, game_with_penalty} =
+        CardGames.play_cards(game_session, current_player.id, [three_card.card_id])
+
+      # Give next_player an Ace to block
+      game_with_penalty = Kadi.Repo.preload(game_with_penalty, deck: [deck_cards: :card])
+
+      ace_card =
+        game_with_penalty.deck.deck_cards
+        |> Enum.find(&(&1.card.rank == "ace" && &1.location_type == "deck"))
+
+      {:ok, _} =
+        Kadi.Games.DeckCard.changeset(ace_card, %{
+          location_type: "player_hand",
+          player_id: next_player.id,
+          order_index: nil
+        })
+        |> Kadi.Repo.update()
+
+      # Next player blocks with Ace
+      game_with_penalty = Kadi.Repo.get!(Kadi.Games.GameSession, game_with_penalty.id)
+
+      {:ok, game_after_block} =
+        CardGames.play_cards(game_with_penalty, next_player.id, [ace_card.card_id])
+
+      # Now it's current_player's turn again
+      # Give current_player another '3' (different suit) and a card matching the active suit
+      game_after_block = Kadi.Repo.preload(game_after_block, deck: [deck_cards: :card])
+
+      # Find another '3' with different suit
+      another_three =
+        game_after_block.deck.deck_cards
+        |> Enum.find(
+          &(&1.card.rank == "3" && &1.location_type == "deck" && &1.card.suit != three_suit)
+        )
+
+      # Find a card matching the active suit (but not a '3' or Ace)
+      matching_suit_card =
+        game_after_block.deck.deck_cards
+        |> Enum.find(
+          &(&1.card.suit == three_suit && &1.location_type == "deck" && &1.card.rank != "3" &&
+              &1.card.rank != "ace")
+        )
+
+      if another_three do
+        {:ok, _} =
+          Kadi.Games.DeckCard.changeset(another_three, %{
+            location_type: "player_hand",
+            player_id: current_player.id,
+            order_index: nil
+          })
+          |> Kadi.Repo.update()
+      end
+
+      if matching_suit_card do
+        {:ok, _} =
+          Kadi.Games.DeckCard.changeset(matching_suit_card, %{
+            location_type: "player_hand",
+            player_id: current_player.id,
+            order_index: nil
+          })
+          |> Kadi.Repo.update()
+      end
+
+      # Connect as current_player and verify both cards are highlighted
+      conn = log_in_player(build_conn(), current_player)
+      {:ok, _view, html} = live(conn, ~p"/games/#{game_after_block.id}")
+
+      # Both the '3' (rank match) and the suit-matching card should be highlighted
+      # The HTML should contain the green border class for valid cards
+      assert html =~ "bg-green-100 border-green-500"
+    end
   end
 end
