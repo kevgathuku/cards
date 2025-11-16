@@ -48,13 +48,26 @@ defmodule Kadi.Games.PlayValidator do
   def valid_play?([single_card], top_card, opts) do
     action_suit = Keyword.get(opts, :action_suit)
     penalty_active? = Keyword.get(opts, :penalty_active?, false)
+    penalty_type = Keyword.get(opts, :penalty_type)
 
-    # If penalty is active, only Ace or '2' are valid plays
+    # If penalty is active, only Ace or matching penalty card are valid plays
     if penalty_active? do
-      case single_card.rank do
-        "ace" -> valid_ace_play?([single_card], top_card, action_suit)
-        "2" -> validate_single_card(single_card, top_card, action_suit)
-        _ -> false
+      case {single_card.rank, penalty_type} do
+        {"ace", _} ->
+          valid_ace_play?([single_card], top_card, action_suit)
+
+        {"2", "two"} ->
+          validate_single_card(single_card, top_card, action_suit)
+
+        {"3", "three"} ->
+          validate_single_card(single_card, top_card, action_suit)
+
+        # Backward compatibility: if penalty_type is nil, allow 2 cards (old behavior)
+        {"2", nil} ->
+          validate_single_card(single_card, top_card, action_suit)
+
+        _ ->
+          false
       end
     else
       # Regular validation when no penalty is active
@@ -74,6 +87,11 @@ defmodule Kadi.Games.PlayValidator do
             # Reuse validate_single_card
             {validate_single_card(single_card, top_card, action_suit), :two}
 
+          # NEW: Handle '3' card specifically
+          single_card.rank == "3" ->
+            # Reuse validate_single_card
+            {validate_single_card(single_card, top_card, action_suit), :three}
+
           valid_regular_card?(single_card) ->
             {validate_single_card(single_card, top_card, action_suit), :regular}
 
@@ -87,33 +105,60 @@ defmodule Kadi.Games.PlayValidator do
 
   def valid_play?(cards, top_card, opts) when is_list(cards) do
     action_suit = Keyword.get(opts, :action_suit)
+    penalty_active? = Keyword.get(opts, :penalty_active?, false)
+    penalty_type = Keyword.get(opts, :penalty_type)
 
-    {valid?, _type} =
+    # If penalty is active, only Ace combos or matching penalty card combos are valid
+    if penalty_active? do
       cond do
         all_aces?(cards) ->
-          {valid_ace_play?(cards, top_card, action_suit), :ace}
+          valid_ace_play?(cards, top_card, action_suit)
 
-        Enum.any?(cards, &(&1.rank == "king")) ->
-          {valid_king_play?(cards, top_card, action_suit), :king}
+        all_twos?(cards) and (penalty_type == "two" or penalty_type == nil) ->
+          # Backward compatibility: if penalty_type is nil, allow 2 cards (old behavior)
+          validate_combo(cards, top_card, action_suit)
 
-        Enum.any?(cards, &(&1.rank == "jack")) ->
-          {valid_jack_play?(cards, top_card, action_suit), :jack}
-
-        # NEW: Handle combo '2's specifically (T021)
-        # Note: Multiple '2' cards are allowed in a combo, but the penalty effect
-        # is NOT additive (handled in CardGames.play_cards/3 where penalty count is fixed at 2)
-        all_twos?(cards) ->
-          # Reuse validate_combo
-          {validate_combo(cards, top_card, action_suit), :two}
-
-        all_regular_cards?(cards) ->
-          {validate_combo(cards, top_card, action_suit), :regular}
+        all_threes?(cards) and penalty_type == "three" ->
+          validate_combo(cards, top_card, action_suit)
 
         true ->
-          {false, :unknown}
+          false
       end
+    else
+      {valid?, _type} =
+        cond do
+          all_aces?(cards) ->
+            {valid_ace_play?(cards, top_card, action_suit), :ace}
 
-    valid?
+          Enum.any?(cards, &(&1.rank == "king")) ->
+            {valid_king_play?(cards, top_card, action_suit), :king}
+
+          Enum.any?(cards, &(&1.rank == "jack")) ->
+            {valid_jack_play?(cards, top_card, action_suit), :jack}
+
+          # NEW: Handle combo '2's specifically (T021)
+          # Note: Multiple '2' cards are allowed in a combo, but the penalty effect
+          # is NOT additive (handled in CardGames.play_cards/3 where penalty count is fixed at 2)
+          all_twos?(cards) ->
+            # Reuse validate_combo
+            {validate_combo(cards, top_card, action_suit), :two}
+
+          # NEW: Handle combo '3's specifically
+          # Note: Multiple '3' cards are allowed in a combo, but the penalty effect
+          # is NOT additive (handled in CardGames.play_cards/3 where penalty count is fixed at 3)
+          all_threes?(cards) ->
+            # Reuse validate_combo
+            {validate_combo(cards, top_card, action_suit), :three}
+
+          all_regular_cards?(cards) ->
+            {validate_combo(cards, top_card, action_suit), :regular}
+
+          true ->
+            {false, :unknown}
+        end
+
+      valid?
+    end
   end
 
   @doc """
@@ -251,6 +296,10 @@ defmodule Kadi.Games.PlayValidator do
     Enum.all?(cards, &(&1.rank == "2"))
   end
 
+  defp all_threes?(cards) do
+    Enum.all?(cards, &(&1.rank == "3"))
+  end
+
   defp valid_regular_card?(%{rank: rank}) do
     rank in @regular_ranks
   end
@@ -261,11 +310,11 @@ defmodule Kadi.Games.PlayValidator do
 
   defp validate_single_card(card, top_card, action_suit) do
     if action_suit do
-      # When action_suit is set (from Ace blocking '2'), allow either:
+      # When action_suit is set (from Ace blocking '2' or '3'), allow either:
       # 1. Matching the action_suit, OR
-      # 2. Playing another '2' (matching rank of the blocked card)
-      # (Session 2025-11-15 clarification)
-      card.suit == action_suit or card.rank == "2"
+      # 2. Playing another '2' (matching rank of the blocked card), OR
+      # 3. Playing another '3' (matching rank of the blocked card)
+      card.suit == action_suit or card.rank == "2" or card.rank == "3"
     else
       matches_suit_or_rank?(card, top_card)
     end
@@ -288,11 +337,11 @@ defmodule Kadi.Games.PlayValidator do
 
   defp first_card_matches?([first_card | _rest], top_card, action_suit) do
     if action_suit do
-      # When action_suit is set (from Ace blocking '2'), allow either:
+      # When action_suit is set (from Ace blocking '2' or '3'), allow either:
       # 1. Matching the action_suit, OR
-      # 2. Playing another '2' (matching rank of the blocked card)
-      # (Session 2025-11-15 clarification)
-      first_card.suit == action_suit or first_card.rank == "2"
+      # 2. Playing another '2' (matching rank of the blocked card), OR
+      # 3. Playing another '3' (matching rank of the blocked card)
+      first_card.suit == action_suit or first_card.rank == "2" or first_card.rank == "3"
     else
       matches_suit_or_rank?(first_card, top_card)
     end

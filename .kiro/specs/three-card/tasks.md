@@ -20,43 +20,43 @@ This implementation plan breaks down the 3 card feature into discrete, increment
   - Add logging for migration progress
   - _Requirements: 9.1 (backward compatibility)_
 
-- [ ] 3. Extend PlayValidator for 3 card validation
-- [ ] 3.1 Add all_threes?/1 helper function
+- [x] 3. Extend PlayValidator for 3 card validation
+- [x] 3.1 Add all_threes?/1 helper function
   - Add private function to check if all cards in list are rank "3"
   - Follow same pattern as existing `all_twos?/1` and `all_jacks?/1`
   - _Requirements: 1.1, 4.1_
 
-- [ ] 3.2 Update valid_play?/3 for single 3 card (no penalty)
+- [x] 3.2 Update valid_play?/3 for single 3 card (no penalty)
   - Add case for rank "3" in single card validation
   - Use existing `validate_single_card/3` for matching rules
   - Return {:three, valid?} tuple for type tracking
   - _Requirements: 1.1, 1.2_
 
-- [ ] 3.3 Update valid_play?/3 for combo 3 cards (no penalty)
+- [x] 3.3 Update valid_play?/3 for combo 3 cards (no penalty)
   - Add case for `all_threes?(cards)` in combo validation
   - Use existing `validate_combo/3` for matching rules
   - Ensure non-additive behavior (handled in CardGames, not validator)
   - _Requirements: 4.1, 4.2, 4.3_
 
-- [ ] 3.4 Update valid_play?/3 to accept penalty_type option
+- [x] 3.4 Update valid_play?/3 to accept penalty_type option
   - Add `:penalty_type` to opts keyword list
   - Extract penalty_type in single card and combo validation
   - Pass penalty_type to blocking validation logic
   - _Requirements: 8.1, 8.2, 8.3, 8.4_
 
-- [ ] 3.5 Implement 3 card blocking validation when penalty active
+- [x] 3.5 Implement 3 card blocking validation when penalty active
   - When penalty_active? is true, check penalty_type
   - If penalty_type == "three", accept "ace" or "3" cards only
   - If penalty_type == "two", reject "3" cards (cross-blocking prevention)
   - Return false for non-blocking cards
   - _Requirements: 2.1, 3.1, 5.3, 8.1, 8.2_
 
-- [ ] 3.6 Update validate_single_card/3 for 3 card with action_suit
+- [x] 3.6 Update validate_single_card/3 for 3 card with action_suit
   - When action_suit is set, allow 3 to match either action_suit OR rank "3"
   - Follow same pattern as existing 2 card logic
   - _Requirements: 6.4_
 
-- [ ] 3.7 Write unit tests for PlayValidator 3 card logic
+- [x] 3.7 Write unit tests for PlayValidator 3 card logic
   - Test `all_threes?/1` with various card combinations
   - Test single 3 card validation (matching suit, matching rank, no match)
   - Test combo 3 cards validation
