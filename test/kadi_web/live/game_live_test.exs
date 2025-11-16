@@ -1281,7 +1281,12 @@ defmodule KadiWeb.GameLiveTest do
 
       # Determine who has the current turn
       current_player = game_session.current_turn_player
-      next_player = if current_player.id == player1.id, do: player2, else: player1
+
+      # Get the actual next player based on turn order
+      players = CardGames.get_game_session_players(game_session.id)
+      player_order = Enum.sort_by(players, & &1.inserted_at)
+      current_index = Enum.find_index(player_order, &(&1.id == current_player.id))
+      next_player = Enum.at(player_order, rem(current_index + 1, length(player_order)))
 
       top_card = game_session.top_card
 
@@ -1364,9 +1369,14 @@ defmodule KadiWeb.GameLiveTest do
         })
         |> Kadi.Repo.update()
 
-      # Next player blocks with Ace
+      # Reload game and verify it's next_player's turn
       game_with_penalty = Kadi.Repo.get!(Kadi.Games.GameSession, game_with_penalty.id)
 
+      # Verify it's the next player's turn
+      assert game_with_penalty.current_turn_player_id == next_player.id,
+             "Expected turn to be next_player's (#{next_player.id}), got #{game_with_penalty.current_turn_player_id}"
+
+      # Next player blocks with Ace
       {:ok, game_after_block} =
         CardGames.play_cards(game_with_penalty, next_player.id, [ace_card.card_id])
 
