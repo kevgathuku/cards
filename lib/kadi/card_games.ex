@@ -1110,7 +1110,6 @@ defmodule Kadi.CardGames do
           # Clear penalty, set action_suit
           %{
             "active" => false,
-            "count" => 0,
             "penalty_type" => nil,
             "target_player_id" => nil
           }
@@ -1120,7 +1119,6 @@ defmodule Kadi.CardGames do
           # Transfer penalty to the next player (turn already calculated above)
           %{
             "active" => true,
-            "count" => 2,
             "penalty_type" => "two",
             "target_player_id" => next_player.id
           }
@@ -1140,7 +1138,6 @@ defmodule Kadi.CardGames do
         two_played? ->
           %{
             "active" => true,
-            "count" => 2,
             "penalty_type" => "two",
             "target_player_id" => next_player.id
           }
