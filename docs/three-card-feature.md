@@ -162,18 +162,33 @@ When Ace blocks a '3' penalty:
 ### Penalty State Structure
 ```elixir
 %{
-  active: true,
-  penalty_type: "three",  # Distinguishes from "two" penalty
+  active: boolean,
+  penalty_type: string,    # "two" or "three" - count derived via penalty_count/1
   target_player_id: integer,
-  created_by_player_id: integer
+  created_by_player_id: integer  # optional, for tracking
 }
 ```
+
+**Important**: The `count` field has been removed from the data structure. The penalty count is derived dynamically using the `CardGames.penalty_count/1` helper function:
+
+```elixir
+def penalty_count(penalty_type) do
+  case penalty_type do
+    "two" -> 2
+    "three" -> 3
+    _ -> 0
+  end
+end
+```
+
+This eliminates redundancy and ensures the count always matches the penalty_type.
 
 ### Migration
 - Reused existing `draw_penalty` column (`:map` type) from Feature 009
 - Added `penalty_type` field to distinguish between '2' and '3' penalties
-- Migration script: `priv/repo/migrate_penalty_data.exs` (backfills existing penalties)
-- Backward compatible: Existing '2' penalties work without migration
+- Removed `count` field to eliminate redundancy
+- Migration script: `priv/repo/migrate_penalty_data.exs` (backfills existing penalties and removes count field)
+- Backward compatible: Old code with count field still works, but new code uses penalty_type only
 
 ---
 
