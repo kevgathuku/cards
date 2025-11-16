@@ -540,20 +540,21 @@ defmodule Kadi.Games.PlayValidatorTest do
       assert PlayValidator.valid_play?([three], top_card, action_suit: action_suit)
     end
 
-    test "accepts 3 matching rank when action_suit is set" do
+    test "rejects 3 not matching action_suit (penalty cards must match action_suit)" do
       top_card = %Card{suit: "hearts", rank: "3"}
       action_suit = "clubs"
       three = %Card{suit: "diamonds", rank: "3"}
 
-      assert PlayValidator.valid_play?([three], top_card, action_suit: action_suit)
+      # When action_suit is set from regular Ace play, ALL cards must match it
+      refute PlayValidator.valid_play?([three], top_card, action_suit: action_suit)
     end
 
-    test "accepts 3 even when not matching action_suit (penalty cards bypass action_suit)" do
+    test "accepts 3 matching action_suit even with different rank" do
       top_card = %Card{suit: "hearts", rank: "5"}
       action_suit = "clubs"
-      three = %Card{suit: "diamonds", rank: "3"}
+      three = %Card{suit: "clubs", rank: "3"}
 
-      # 3 cards can be played even when action_suit is set (they bypass the requirement)
+      # 3 of clubs matches the action_suit requirement
       assert PlayValidator.valid_play?([three], top_card, action_suit: action_suit)
     end
   end

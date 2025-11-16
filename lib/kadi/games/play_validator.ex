@@ -24,7 +24,23 @@ defmodule Kadi.Games.PlayValidator do
   - cards: List of Card structs to play
   - top_card: The current top card on the played stack
   - opts: Optional keyword list. Supported keys:
-    * `:action_suit` - suit that must be matched unless the play itself is an Ace action
+    * `:action_suit` - Suit requested by a previous Ace play (regular gameplay)
+    * `:penalty_blocked_suit` - Suit of penalty card that was blocked by an Ace
+    * `:penalty_active?` - Whether a draw penalty is currently active
+    * `:penalty_type` - Type of penalty ("two" or "three")
+
+  ## Action Suit vs Penalty Blocked Suit
+
+  These two options represent different game scenarios:
+
+  - **`:action_suit`** - Used when an Ace was played in regular gameplay to request
+    a specific suit. ALL cards (including penalty cards 2s and 3s) MUST match that
+    suit. No bypass allowed. Only another Ace can override this requirement.
+
+  - **`:penalty_blocked_suit`** - Used when an Ace blocked a penalty (2 or 3 card).
+    The suit of the blocked penalty card becomes active. Regular cards must match
+    the suit, but penalty cards (2s and 3s) CAN bypass by matching rank instead
+    (this enables chaining penalty blocks).
 
   ## Returns
   - `true` if the play is valid
@@ -47,24 +63,32 @@ defmodule Kadi.Games.PlayValidator do
 
   def valid_play?([single_card], top_card, opts) do
     action_suit = Keyword.get(opts, :action_suit)
+    penalty_blocked_suit = Keyword.get(opts, :penalty_blocked_suit)
     penalty_active? = Keyword.get(opts, :penalty_active?, false)
     penalty_type = Keyword.get(opts, :penalty_type)
+
+    # Determine which suit constraint applies (if any)
+    # Priority: penalty_blocked_suit > action_suit
+    required_suit = penalty_blocked_suit || action_suit
 
     # If penalty is active, only Ace or matching penalty card are valid plays
     if penalty_active? do
       case {single_card.rank, penalty_type} do
         {"ace", _} ->
-          valid_ace_play?([single_card], top_card, action_suit)
+          # Aces can always be played, even during penalties
+          valid_ace_play?([single_card], top_card, required_suit)
 
         {"2", "two"} ->
-          validate_single_card(single_card, top_card, action_suit)
+          # When blocking a '2' penalty with another '2'
+          validate_penalty_card(single_card, top_card, penalty_blocked_suit)
 
         {"3", "three"} ->
-          validate_single_card(single_card, top_card, action_suit)
+          # When blocking a '3' penalty with another '3'
+          validate_penalty_card(single_card, top_card, penalty_blocked_suit)
 
         # Backward compatibility: if penalty_type is nil, allow 2 cards (old behavior)
         {"2", nil} ->
-          validate_single_card(single_card, top_card, action_suit)
+          validate_penalty_card(single_card, top_card, penalty_blocked_suit)
 
         _ ->
           false
@@ -74,7 +98,7 @@ defmodule Kadi.Games.PlayValidator do
       {valid?, _type} =
         cond do
           single_card.rank == "ace" ->
-            {valid_ace_play?([single_card], top_card, action_suit), :ace}
+            {valid_ace_play?([single_card], top_card, required_suit), :ace}
 
           single_card.rank == "king" ->
             {valid_king_play?([single_card], top_card, action_suit), :king}
@@ -82,15 +106,23 @@ defmodule Kadi.Games.PlayValidator do
           single_card.rank == "jack" ->
             {valid_jack_play?([single_card], top_card, action_suit), :jack}
 
-          # NEW: Handle '2' card specifically
+          # Handle '2' card - can initiate penalty or be played normally
           single_card.rank == "2" ->
-            # Reuse validate_single_card
-            {validate_single_card(single_card, top_card, action_suit), :two}
+            {validate_regular_or_penalty_card(
+               single_card,
+               top_card,
+               action_suit,
+               penalty_blocked_suit
+             ), :two}
 
-          # NEW: Handle '3' card specifically
+          # Handle '3' card - can initiate penalty or be played normally
           single_card.rank == "3" ->
-            # Reuse validate_single_card
-            {validate_single_card(single_card, top_card, action_suit), :three}
+            {validate_regular_or_penalty_card(
+               single_card,
+               top_card,
+               action_suit,
+               penalty_blocked_suit
+             ), :three}
 
           valid_regular_card?(single_card) ->
             {validate_single_card(single_card, top_card, action_suit), :regular}
@@ -105,21 +137,29 @@ defmodule Kadi.Games.PlayValidator do
 
   def valid_play?(cards, top_card, opts) when is_list(cards) do
     action_suit = Keyword.get(opts, :action_suit)
+    penalty_blocked_suit = Keyword.get(opts, :penalty_blocked_suit)
     penalty_active? = Keyword.get(opts, :penalty_active?, false)
     penalty_type = Keyword.get(opts, :penalty_type)
+
+    # Determine which suit constraint applies (if any)
+    # Priority: penalty_blocked_suit > action_suit
+    required_suit = penalty_blocked_suit || action_suit
 
     # If penalty is active, only Ace combos or matching penalty card combos are valid
     if penalty_active? do
       cond do
         all_aces?(cards) ->
-          valid_ace_play?(cards, top_card, action_suit)
+          # Aces can always be played, even during penalties
+          valid_ace_play?(cards, top_card, required_suit)
 
         all_twos?(cards) and (penalty_type == "two" or penalty_type == nil) ->
           # Backward compatibility: if penalty_type is nil, allow 2 cards (old behavior)
-          validate_combo(cards, top_card, action_suit)
+          # When blocking a '2' penalty with multiple '2's
+          validate_penalty_combo(cards, top_card, penalty_blocked_suit)
 
         all_threes?(cards) and penalty_type == "three" ->
-          validate_combo(cards, top_card, action_suit)
+          # When blocking a '3' penalty with multiple '3's
+          validate_penalty_combo(cards, top_card, penalty_blocked_suit)
 
         true ->
           false
@@ -128,7 +168,7 @@ defmodule Kadi.Games.PlayValidator do
       {valid?, _type} =
         cond do
           all_aces?(cards) ->
-            {valid_ace_play?(cards, top_card, action_suit), :ace}
+            {valid_ace_play?(cards, top_card, required_suit), :ace}
 
           Enum.any?(cards, &(&1.rank == "king")) ->
             {valid_king_play?(cards, top_card, action_suit), :king}
@@ -136,19 +176,27 @@ defmodule Kadi.Games.PlayValidator do
           Enum.any?(cards, &(&1.rank == "jack")) ->
             {valid_jack_play?(cards, top_card, action_suit), :jack}
 
-          # NEW: Handle combo '2's specifically (T021)
+          # Handle combo '2's - can initiate penalty or be played normally
           # Note: Multiple '2' cards are allowed in a combo, but the penalty effect
           # is NOT additive (handled in CardGames.play_cards/3 where penalty count is fixed at 2)
           all_twos?(cards) ->
-            # Reuse validate_combo
-            {validate_combo(cards, top_card, action_suit), :two}
+            {validate_combo_with_penalty_bypass(
+               cards,
+               top_card,
+               action_suit,
+               penalty_blocked_suit
+             ), :two}
 
-          # NEW: Handle combo '3's specifically
+          # Handle combo '3's - can initiate penalty or be played normally
           # Note: Multiple '3' cards are allowed in a combo, but the penalty effect
           # is NOT additive (handled in CardGames.play_cards/3 where penalty count is fixed at 3)
           all_threes?(cards) ->
-            # Reuse validate_combo
-            {validate_combo(cards, top_card, action_suit), :three}
+            {validate_combo_with_penalty_bypass(
+               cards,
+               top_card,
+               action_suit,
+               penalty_blocked_suit
+             ), :three}
 
           all_regular_cards?(cards) ->
             {validate_combo(cards, top_card, action_suit), :regular}
@@ -284,6 +332,10 @@ defmodule Kadi.Games.PlayValidator do
 
   # Private Functions
 
+  # ============================================================================
+  # Card Type Checkers
+  # ============================================================================
+
   defp all_jacks?(cards) do
     Enum.all?(cards, &(&1.rank == "jack"))
   end
@@ -308,21 +360,118 @@ defmodule Kadi.Games.PlayValidator do
     Enum.all?(cards, &valid_regular_card?/1)
   end
 
+  # ============================================================================
+  # Single Card Validation
+  # ============================================================================
+  # These functions handle validation for single cards in different scenarios:
+  # - Regular cards with action_suit (strict suit matching)
+  # - Penalty cards with penalty_blocked_suit (can match by rank to chain blocks)
+  # - Penalty cards in regular gameplay (follow same rules as regular cards)
+  # ============================================================================
+
+  # Validates a regular card when action_suit is set (from Ace in regular gameplay)
   defp validate_single_card(card, top_card, action_suit) do
     if action_suit do
-      # When action_suit is set (from Ace blocking '2' or '3'), allow either:
-      # 1. Matching the action_suit, OR
-      # 2. Playing another '2' (matching rank of the blocked card), OR
-      # 3. Playing another '3' (matching rank of the blocked card)
-      card.suit == action_suit or card.rank == "2" or card.rank == "3"
+      # When action_suit is set from a regular Ace play, card must match the requested suit
+      card.suit == action_suit
     else
+      # Normal matching: suit or rank
       matches_suit_or_rank?(card, top_card)
     end
   end
 
+  # Validates a penalty card (2 or 3) when penalty_blocked_suit is set
+  # Penalty cards can bypass penalty_blocked_suit by matching rank (enables chaining)
+  defp validate_penalty_card(card, top_card, penalty_blocked_suit) do
+    if penalty_blocked_suit do
+      # When penalty_blocked_suit is set (from Ace blocking a penalty), allow either:
+      # 1. Matching the penalty_blocked_suit, OR
+      # 2. Playing another penalty card of the same rank (2 blocks 2, 3 blocks 3)
+      card.suit == penalty_blocked_suit or card.rank == top_card.rank
+    else
+      # Normal matching: suit or rank
+      matches_suit_or_rank?(card, top_card)
+    end
+  end
+
+  # Validates a penalty card (2 or 3) in regular gameplay
+  # When action_suit is set: penalty cards MUST match the suit (no bypass)
+  # When penalty_blocked_suit is set: penalty cards CAN match by rank (bypass enabled)
+  defp validate_regular_or_penalty_card(card, top_card, action_suit, penalty_blocked_suit) do
+    cond do
+      penalty_blocked_suit ->
+        # When penalty was blocked by Ace, penalty cards can match by rank
+        validate_penalty_card(card, top_card, penalty_blocked_suit)
+
+      action_suit ->
+        # BACKWARD COMPATIBILITY: If action_suit is set but penalty_blocked_suit is not,
+        # and the top card is an Ace (indicating it just blocked a penalty), treat this
+        # as a penalty block scenario where penalty cards can match by rank
+        if top_card.rank == "ace" and (card.rank == "2" or card.rank == "3") do
+          # Allow penalty cards to match by rank (legacy behavior for penalty blocking)
+          card.suit == action_suit or card.rank == "2" or card.rank == "3"
+        else
+          # When action_suit is set from regular Ace, ALL cards (including penalty cards)
+          # must match the requested suit - no bypass allowed
+          card.suit == action_suit
+        end
+
+      true ->
+        # Normal matching: suit or rank
+        matches_suit_or_rank?(card, top_card)
+    end
+  end
+
+  # ============================================================================
+  # Combo Validation
+  # ============================================================================
+  # These functions handle validation for card combos in different scenarios:
+  # - Regular combos with action_suit (strict suit matching)
+  # - Penalty card combos with penalty_blocked_suit (can match by rank)
+  # - Penalty card combos in regular gameplay (follow same rules as regular combos)
+  # ============================================================================
+
+  # Validates a regular combo when action_suit is set
   defp validate_combo(cards, top_card, action_suit) do
     same_rank?(cards) and first_card_matches?(cards, top_card, action_suit)
   end
+
+  # Validates a penalty card combo when blocking another penalty
+  defp validate_penalty_combo(cards, top_card, penalty_blocked_suit) do
+    same_rank?(cards) and first_penalty_card_matches?(cards, top_card, penalty_blocked_suit)
+  end
+
+  # Validates a penalty card combo (2s or 3s) in regular gameplay
+  # When action_suit is set: penalty cards MUST match the suit (no bypass)
+  # When penalty_blocked_suit is set: penalty cards CAN match by rank (bypass enabled)
+  defp validate_combo_with_penalty_bypass(cards, top_card, action_suit, penalty_blocked_suit) do
+    cond do
+      penalty_blocked_suit ->
+        # When penalty was blocked by Ace, validate as penalty combo
+        validate_penalty_combo(cards, top_card, penalty_blocked_suit)
+
+      action_suit ->
+        # BACKWARD COMPATIBILITY: If action_suit is set but penalty_blocked_suit is not,
+        # and the top card is an Ace (indicating it just blocked a penalty), treat this
+        # as a penalty block scenario where penalty cards can match by rank
+        if top_card.rank == "ace" and (all_twos?(cards) or all_threes?(cards)) do
+          # Allow penalty card combos to match by rank (legacy behavior for penalty blocking)
+          validate_penalty_combo(cards, top_card, action_suit)
+        else
+          # When action_suit is set from regular Ace, ALL cards (including penalty cards)
+          # must match the requested suit - no bypass allowed
+          same_rank?(cards) and first_card_matches?(cards, top_card, action_suit)
+        end
+
+      true ->
+        # Normal combo validation
+        validate_combo(cards, top_card, nil)
+    end
+  end
+
+  # ============================================================================
+  # Helper Functions
+  # ============================================================================
 
   defp matches_suit_or_rank?(card, top_card) do
     card.suit == top_card.suit or card.rank == top_card.rank
@@ -335,17 +484,37 @@ defmodule Kadi.Games.PlayValidator do
     |> length() == 1
   end
 
+  # ============================================================================
+  # First Card Matching (for combos)
+  # ============================================================================
+  # These functions check if the first card in a combo meets the requirements:
+  # - first_card_matches?: Regular combos with action_suit (strict matching)
+  # - first_penalty_card_matches?: Penalty combos with penalty_blocked_suit (can match by rank)
+  # ============================================================================
+
+  # Checks if first card matches when action_suit is set (regular Ace play)
   defp first_card_matches?([first_card | _rest], top_card, action_suit) do
     if action_suit do
-      # When action_suit is set (from Ace blocking '2' or '3'), allow either:
-      # 1. Matching the action_suit, OR
-      # 2. Playing another '2' (matching rank of the blocked card), OR
-      # 3. Playing another '3' (matching rank of the blocked card)
-      first_card.suit == action_suit or first_card.rank == "2" or first_card.rank == "3"
+      # When action_suit is set from a regular Ace play, first card must match the requested suit
+      first_card.suit == action_suit
     else
+      # Normal matching: suit or rank
       matches_suit_or_rank?(first_card, top_card)
     end
   end
 
   defp first_card_matches?([], _top_card, _action_suit), do: false
+
+  # Checks if first penalty card matches when penalty_blocked_suit is set (Ace blocked penalty)
+  defp first_penalty_card_matches?([first_card | _rest], top_card, penalty_blocked_suit) do
+    if penalty_blocked_suit do
+      # When penalty_blocked_suit is set, allow matching the suit OR matching rank
+      first_card.suit == penalty_blocked_suit or first_card.rank == top_card.rank
+    else
+      # Normal matching: suit or rank
+      matches_suit_or_rank?(first_card, top_card)
+    end
+  end
+
+  defp first_penalty_card_matches?([], _top_card, _penalty_blocked_suit), do: false
 end
