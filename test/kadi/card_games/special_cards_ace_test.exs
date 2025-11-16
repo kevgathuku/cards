@@ -278,7 +278,7 @@ defmodule Kadi.CardGames.SpecialCardsAceTest do
         )
 
       # Find a valid card (clubs, regular rank) and an invalid card (not clubs) that are in the deck
-      regular_ranks = ["4", "5", "6", "7", "9", "10", "king"]
+      regular_ranks = ["4", "5", "6", "7", "9", "10"]
 
       valid_deck_card =
         game_after_suit_selection.deck.deck_cards

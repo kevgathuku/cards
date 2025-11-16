@@ -88,9 +88,9 @@ defmodule Kadi.Games.PlayValidatorTest do
       end
     end
 
-    test "rejects unsupported special cards (3,8,Queen) even when they match" do
-      # King is supported in Feature 006, Jack in Feature 007, Ace in Feature 008, '2' in Feature 009
-      special_ranks = ["3", "8", "queen"]
+    test "rejects unsupported special cards (8,Queen) even when they match" do
+      # King is supported in Feature 006, Jack in Feature 007, Ace in Feature 008, '2' in Feature 009, '3' in Feature 010
+      special_ranks = ["8", "queen"]
 
       for rank <- special_ranks do
         top_card = %Card{suit: "hearts", rank: rank}
@@ -403,6 +403,159 @@ defmodule Kadi.Games.PlayValidatorTest do
       ]
 
       refute PlayValidator.valid_jack_play?(jacks, top_card)
+    end
+  end
+
+  describe "valid_play?/3 - 3 card validation (no penalty)" do
+    test "accepts single 3 matching suit" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+      three = %Card{suit: "hearts", rank: "3"}
+
+      assert PlayValidator.valid_play?([three], top_card, [])
+    end
+
+    test "accepts single 3 matching rank" do
+      top_card = %Card{suit: "diamonds", rank: "3"}
+      three = %Card{suit: "clubs", rank: "3"}
+
+      assert PlayValidator.valid_play?([three], top_card, [])
+    end
+
+    test "rejects single 3 not matching suit or rank" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+      three = %Card{suit: "clubs", rank: "3"}
+
+      refute PlayValidator.valid_play?([three], top_card, [])
+    end
+
+    test "accepts combo of 3s when first matches" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+
+      threes = [
+        %Card{suit: "hearts", rank: "3"},
+        %Card{suit: "clubs", rank: "3"}
+      ]
+
+      assert PlayValidator.valid_play?(threes, top_card, [])
+    end
+
+    test "rejects combo of 3s when first doesn't match" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+
+      threes = [
+        %Card{suit: "clubs", rank: "3"},
+        %Card{suit: "diamonds", rank: "3"}
+      ]
+
+      refute PlayValidator.valid_play?(threes, top_card, [])
+    end
+  end
+
+  describe "valid_play?/3 - 3 card blocking when penalty active" do
+    test "accepts 3 card when penalty_type is 'three'" do
+      top_card = %Card{suit: "hearts", rank: "3"}
+      three = %Card{suit: "clubs", rank: "3"}
+
+      assert PlayValidator.valid_play?([three], top_card,
+               penalty_active?: true,
+               penalty_type: "three"
+             )
+    end
+
+    test "rejects 3 card when penalty_type is 'two' (cross-blocking prevention)" do
+      top_card = %Card{suit: "hearts", rank: "2"}
+      three = %Card{suit: "hearts", rank: "3"}
+
+      refute PlayValidator.valid_play?([three], top_card,
+               penalty_active?: true,
+               penalty_type: "two"
+             )
+    end
+
+    test "accepts Ace when penalty_type is 'three'" do
+      top_card = %Card{suit: "hearts", rank: "3"}
+      ace = %Card{suit: "clubs", rank: "ace"}
+
+      assert PlayValidator.valid_play?([ace], top_card,
+               penalty_active?: true,
+               penalty_type: "three"
+             )
+    end
+
+    test "rejects regular card when penalty_type is 'three'" do
+      top_card = %Card{suit: "hearts", rank: "3"}
+      regular = %Card{suit: "hearts", rank: "5"}
+
+      refute PlayValidator.valid_play?([regular], top_card,
+               penalty_active?: true,
+               penalty_type: "three"
+             )
+    end
+
+    test "rejects 2 card when penalty_type is 'three' (cross-blocking prevention)" do
+      top_card = %Card{suit: "hearts", rank: "3"}
+      two = %Card{suit: "hearts", rank: "2"}
+
+      refute PlayValidator.valid_play?([two], top_card,
+               penalty_active?: true,
+               penalty_type: "three"
+             )
+    end
+
+    test "accepts combo of 3s when penalty_type is 'three'" do
+      top_card = %Card{suit: "hearts", rank: "3"}
+
+      threes = [
+        %Card{suit: "clubs", rank: "3"},
+        %Card{suit: "diamonds", rank: "3"}
+      ]
+
+      assert PlayValidator.valid_play?(threes, top_card,
+               penalty_active?: true,
+               penalty_type: "three"
+             )
+    end
+
+    test "rejects combo of 2s when penalty_type is 'three'" do
+      top_card = %Card{suit: "hearts", rank: "3"}
+
+      twos = [
+        %Card{suit: "hearts", rank: "2"},
+        %Card{suit: "clubs", rank: "2"}
+      ]
+
+      refute PlayValidator.valid_play?(twos, top_card,
+               penalty_active?: true,
+               penalty_type: "three"
+             )
+    end
+  end
+
+  describe "valid_play?/3 - 3 card with action_suit" do
+    test "accepts 3 matching action_suit" do
+      top_card = %Card{suit: "hearts", rank: "3"}
+      action_suit = "clubs"
+      three = %Card{suit: "clubs", rank: "3"}
+
+      assert PlayValidator.valid_play?([three], top_card, action_suit: action_suit)
+    end
+
+    test "rejects 3 not matching action_suit (penalty cards must match action_suit)" do
+      top_card = %Card{suit: "hearts", rank: "3"}
+      action_suit = "clubs"
+      three = %Card{suit: "diamonds", rank: "3"}
+
+      # When action_suit is set from regular Ace play, ALL cards must match it
+      refute PlayValidator.valid_play?([three], top_card, action_suit: action_suit)
+    end
+
+    test "accepts 3 matching action_suit even with different rank" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+      action_suit = "clubs"
+      three = %Card{suit: "clubs", rank: "3"}
+
+      # 3 of clubs matches the action_suit requirement
+      assert PlayValidator.valid_play?([three], top_card, action_suit: action_suit)
     end
   end
 end

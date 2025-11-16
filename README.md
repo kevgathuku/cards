@@ -236,23 +236,26 @@ This ensures code is properly formatted before commits. The hook will:
 - **Players**: 2-6 players
 - **Initial Deal**: 4 cards per player
 - **Start Card**: Cannot be 2, 3, J, Q, K, or A
-- **Turn Order**: Sequential, wraps around
+- **Turn Order**: Sequential, wraps around (affected by King and Jack)
 - **Actions**: Draw a card OR play a card (not both)
 - **Objective**: First to play all cards wins
+- **Penalty Cards**: Playing 2 or 3 forces next player to draw cards (unless blocked)
+- **Blocking**: Penalties can be blocked with Ace or matching penalty card
 
 ### Special Cards
 
 **Implemented**:
 - **King**: Reverses turn order (clockwise ⟷ counter-clockwise). See [King Card Feature Documentation](docs/king-card-feature.md) for details.
 - **Jack**: Skips `N` players based on the number of Jacks played and integrates with the cardless state. See [Jack Card Feature Documentation](docs/jack-card-feature.md) for details.
+- **Ace**: Suit selection mechanic, suit enforcement, and penalty blocking. See [Ace Card Feature Documentation](docs/ace-card-feature.md) for details.
+- **2**: Draw penalty (2 cards) with blocking and transfer mechanics. See [Two Card Feature Documentation](docs/two-card-feature.md) for details.
+- **3**: Draw penalty (3 cards) with blocking and transfer mechanics. See [Three Card Feature Documentation](docs/three-card-feature.md) for details.
 
 **Coming Soon**:
-- **2, 3**: Pick cards
 - **Queen / 8**: Question cards -> Need to be played in combination with an "answer" This could be:
   - another card
   - A combination of compatible cards (same suit as the question)
   - Drawing a card if the player has no compatible card
-- **Ace**: Is an allowed finishing card. When a player plays it, they can request for a specific suit to be played on the next turn
 
 ---
 
@@ -276,11 +279,12 @@ graph TD;
 - **Player Authentication**: Registration, login, session management
 - **King Card (Feature 006)**: Direction reversal, cardless state, auto-draw mechanics - [Full Documentation](docs/king-card-feature.md)
 - **Jack Card (Feature 007)**: Skip mechanics, combo support, King interaction, telemetry - [Full Documentation](docs/jack-card-feature.md)
-- **Ace Card (Feature 008)**: Suit selection mechanic, suit enforcement, Ace override - [Full Documentation](docs/ace-card-feature.md)
 - **Ace Card (Feature 008)**: Suit selection, suit enforcement with persistence, override mechanics - [Full Documentation](docs/ace-card-feature.md)
+- **Two Card (Feature 009)**: Draw penalty (2 cards), blocking, transfer, cross-blocking prevention - [Full Documentation](docs/two-card-feature.md)
+- **Three Card (Feature 010)**: Draw penalty (3 cards), blocking, transfer, cross-blocking prevention - [Full Documentation](docs/three-card-feature.md)
 
 ### Coming Soon
-- Additional special cards (2, 3, Queen)
+- Additional special cards (Queen, 8)
 - Game completion and winner detection
 - Player statistics and leaderboards
 

@@ -40,6 +40,45 @@ defmodule Kadi.CardGames do
   @ranks Enum.map(2..10, &to_string/1) ++ ~w(jack queen king ace)
 
   @doc """
+  Returns the number of cards to draw for a given penalty type.
+
+  This helper function maps penalty types to their corresponding card counts:
+  - "two" → 2 cards
+  - "three" → 3 cards
+  - nil or unknown → 0 cards
+
+  The nil case handles inactive penalties (when draw_penalty.active is false),
+  allowing the function to safely return 0 for display and calculation purposes.
+
+  ## Parameters
+  - penalty_type: String penalty type ("two", "three") or nil
+
+  ## Returns
+  - Integer count of cards to draw (2, 3, or 0)
+
+  ## Examples
+
+      iex> penalty_count("two")
+      2
+
+      iex> penalty_count("three")
+      3
+
+      iex> penalty_count(nil)
+      0
+
+      iex> penalty_count("unknown")
+      0
+  """
+  def penalty_count(penalty_type) do
+    case penalty_type do
+      "two" -> 2
+      "three" -> 3
+      _ -> 0
+    end
+  end
+
+  @doc """
   Returns the state of a specific game, with the game creator preloaded
 
   Takes the Game ID as a parameter to find the Game
@@ -499,8 +538,9 @@ defmodule Kadi.CardGames do
     # 2. Preload associations
     game_session = Repo.preload(game_session, [:created_by, deck: [deck_cards: :card]])
 
-    # 3. Get number of cards to draw
-    cards_to_draw = penalty["count"] || 2
+    # 3. Get number of cards to draw based on penalty type
+    penalty_type = penalty["penalty_type"]
+    cards_to_draw = penalty_count(penalty_type)
 
     # 4. Draw cards one by one (handles recycling automatically)
     result =
@@ -578,7 +618,7 @@ defmodule Kadi.CardGames do
 
         updated_game =
           GameSession.changeset(game_after_draws, %{
-            draw_penalty: %{"active" => false, "count" => 0, "target_player_id" => nil},
+            draw_penalty: %{"active" => false, "penalty_type" => nil, "target_player_id" => nil},
             current_turn_player_id: next_player.id
           })
           |> Repo.update!()
@@ -998,7 +1038,8 @@ defmodule Kadi.CardGames do
   defp validate_can_play(cards_to_play, top_card, game_session) do
     opts = [
       action_suit: game_session.action_suit,
-      penalty_active?: game_session.draw_penalty["active"]
+      penalty_active?: game_session.draw_penalty["active"],
+      penalty_type: game_session.draw_penalty["penalty_type"]
     ]
 
     if PlayValidator.valid_play?(cards_to_play, top_card, opts) do
@@ -1020,6 +1061,8 @@ defmodule Kadi.CardGames do
     jack_played? = Enum.any?(cards_to_play, &(&1.rank == "jack"))
     # Added for T004
     two_played? = Enum.any?(cards_to_play, &(&1.rank == "2"))
+    # Added for three card feature
+    three_played? = Enum.any?(cards_to_play, &(&1.rank == "3"))
     jack_count = if jack_played?, do: length(cards_to_play), else: 0
 
     # Calculate new direction (FR-002)
@@ -1059,7 +1102,7 @@ defmodule Kadi.CardGames do
           {next_player, nil}
       end
 
-    # Determine draw penalty for the next player if a '2' is played (T004)
+    # Determine draw penalty for the next player if a '2' or '3' is played
     draw_penalty_update =
       cond do
         # Case 1: Penalty is active, and player blocks with an Ace
@@ -1067,7 +1110,7 @@ defmodule Kadi.CardGames do
           # Clear penalty, set action_suit
           %{
             "active" => false,
-            "count" => 0,
+            "penalty_type" => nil,
             "target_player_id" => nil
           }
 
@@ -1076,26 +1119,60 @@ defmodule Kadi.CardGames do
           # Transfer penalty to the next player (turn already calculated above)
           %{
             "active" => true,
-            "count" => 2,
+            "penalty_type" => "two",
             "target_player_id" => next_player.id
           }
 
-        # Case 3: No active penalty, player plays a '2' to create one
-        two_played? ->
-          %{"active" => true, "count" => 2, "target_player_id" => next_player.id}
+        # Case 3: Penalty is active, and player blocks with a '3'
+        # Note: Cross-blocking prevention is handled by PlayValidator
+        # If we reach here, the play is valid (3 can only block 3, not 2)
+        game_session.draw_penalty["active"] && three_played? ->
+          # Transfer penalty to the next player (turn already calculated above)
+          %{
+            "active" => true,
+            "penalty_type" => "three",
+            "target_player_id" => next_player.id
+          }
 
-        # Case 4: No '2' played, no active penalty
+        # Case 4: No active penalty, player plays a '2' to create one
+        two_played? ->
+          %{
+            "active" => true,
+            "penalty_type" => "two",
+            "target_player_id" => next_player.id
+          }
+
+        # Case 5: No active penalty, player plays a '3' to create one
+        three_played? ->
+          %{"active" => true, "penalty_type" => "three", "target_player_id" => next_player.id}
+
+        # Case 6: No '2' or '3' played, no active penalty
         true ->
           game_session.draw_penalty
       end
 
     action_suit_update =
-      if game_session.draw_penalty["active"] && ace_played? do
-        # When Ace blocks a '2', the suit of the '2' becomes active
-        # We need to find the card that caused the penalty (the previous top_card)
-        game_session.top_card.suit
-      else
-        nil
+      cond do
+        # When Ace blocks a '2' or '3', the suit of the penalty card becomes active
+        game_session.draw_penalty["active"] && ace_played? ->
+          game_session.top_card.suit
+
+        # When Ace is played normally (not blocking), clear action_suit (will be set by select_suit)
+        ace_played? ->
+          nil
+
+        # When '2' or '3' is played, clear any existing action_suit
+        two_played? || three_played? ->
+          nil
+
+        # When a non-Ace card is played and action_suit is set, clear it
+        # (The card must match action_suit to be valid, so if we're here, it matched)
+        game_session.action_suit != nil ->
+          nil
+
+        # Otherwise, keep existing action_suit (should be nil in normal play)
+        true ->
+          game_session.action_suit
       end
 
     # Check if player will be cardless after this play (FR-011, FR-012)
@@ -1103,11 +1180,11 @@ defmodule Kadi.CardGames do
     cards_played_count = length(cards_to_play)
     will_be_cardless = player_hand == cards_played_count
 
-    # Only Kings, Jacks, and '2' cards trigger cardless state
+    # Only Kings, Jacks, '2' cards, and '3' cards trigger cardless state
     # Note: Being cardless does NOT mean winning - the game continues
-    # (Playing '2' as last card still applies penalty to next player)
-    two_played? = Enum.any?(cards_to_play, fn card -> card.rank == "2" end)
-    will_enter_cardless = will_be_cardless and (king_played? or jack_played? or two_played?)
+    # (Playing '2' or '3' as last card still applies penalty to next player)
+    will_enter_cardless =
+      will_be_cardless and (king_played? or jack_played? or two_played? or three_played?)
 
     # Build transaction
     multi = Ecto.Multi.new()
@@ -1290,20 +1367,24 @@ defmodule Kadi.CardGames do
     # Aces are also allowed as start cards (player can play any suit, no suit selection required)
     # Other special cards (2, 3, 8, jack, queen) are excluded
     special_ranks = ["2", "3", "8", "jack", "queen"]
-    shuffled_cards = Enum.shuffle(deck_cards)
 
-    start_card =
-      Enum.find(shuffled_cards, fn deck_card ->
-        deck_card.card.rank not in special_ranks
+    # Filter out special ranks from eligible starting cards
+    eligible_cards =
+      Enum.reject(deck_cards, fn deck_card ->
+        deck_card.card.rank in special_ranks
       end)
 
-    if start_card do
-      changeset = DeckCard.changeset(start_card, %{location_type: "played_stack", order_index: 1})
-      remaining_cards = List.delete(deck_cards, start_card)
-      {:ok, changeset, remaining_cards}
-    else
-      {:error, :no_valid_start_card_found}
-    end
+    # If all cards are special ranks (edge case), use any card as fallback
+    start_card =
+      if Enum.empty?(eligible_cards) do
+        Enum.random(deck_cards)
+      else
+        Enum.random(eligible_cards)
+      end
+
+    changeset = DeckCard.changeset(start_card, %{location_type: "played_stack", order_index: 1})
+    remaining_cards = List.delete(deck_cards, start_card)
+    {:ok, changeset, remaining_cards}
   end
 
   # Returns the next player in turn order after the current player.

@@ -20,7 +20,8 @@ defmodule KadiWeb.GameLive do
        direction: "clockwise",
        toast: nil,
        toast_timer: nil,
-       show_penalty_animation: false
+       show_penalty_animation: false,
+       ace_blocked_penalty_info: %{blocked?: false, penalty_card: nil}
      )}
   end
 
@@ -397,6 +398,9 @@ defmodule KadiWeb.GameLive do
     # T058: Build player statuses map for cardless badge display
     player_statuses = build_player_statuses_map(game_session)
 
+    # Compute Ace-blocked penalty info for UI highlighting and messaging
+    ace_blocked_penalty_info = compute_ace_blocked_penalty_info(played_pile, game_session)
+
     assign(socket,
       game_session: game_session,
       player_hand: player_hand,
@@ -406,8 +410,29 @@ defmodule KadiWeb.GameLive do
       other_players_hands: other_players_hands,
       selected_cards: socket.assigns[:selected_cards] || [],
       direction: game_session.direction || "clockwise",
-      player_statuses: player_statuses
+      player_statuses: player_statuses,
+      ace_blocked_penalty_info: ace_blocked_penalty_info
     )
+  end
+
+  # Compute information about whether an Ace blocked a penalty
+  # Returns a map with:
+  # - blocked?: boolean - true if Ace blocked a penalty
+  # - penalty_card: Card struct or nil - the penalty card that was blocked
+  defp compute_ace_blocked_penalty_info(played_pile, game_session) do
+    if game_session.action_suit && length(played_pile) >= 2 do
+      top_card = List.last(played_pile)
+      second_to_last = Enum.at(played_pile, -2)
+
+      if top_card && top_card.card.rank == "ace" && second_to_last &&
+           (second_to_last.card.rank == "2" || second_to_last.card.rank == "3") do
+        %{blocked?: true, penalty_card: second_to_last.card}
+      else
+        %{blocked?: false, penalty_card: nil}
+      end
+    else
+      %{blocked?: false, penalty_card: nil}
+    end
   end
 
   # T037: Helper function to build player status map for UI tracking
@@ -458,14 +483,21 @@ defmodule KadiWeb.GameLive do
 
       if old_penalty["active"] != true or
            old_penalty["target_player_id"] != current_player_id do
-        # Find who played the '2' card (previous player)
+        # Find who played the penalty card (previous player)
         penalty_creator = find_penalty_creator(game_session)
+
+        # Calculate penalty count using penalty_count/1 helper
+        penalty_type = draw_penalty["penalty_type"]
+        count = CardGames.penalty_count(penalty_type)
+
+        # Determine card type for message (default to '2' for backward compatibility)
+        card_type = penalty_type || "2"
 
         message =
           if penalty_creator do
-            "You must draw #{draw_penalty["count"]} cards due to #{penalty_creator}'s '2' card"
+            "You must draw #{count} cards due to #{penalty_creator}'s '#{card_type}' card"
           else
-            "You must draw #{draw_penalty["count"]} cards due to a '2' card penalty"
+            "You must draw #{count} cards due to a '#{card_type}' card penalty"
           end
 
         # Cancel existing toast timer if any
