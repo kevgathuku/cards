@@ -17,13 +17,20 @@ echo "Running mix format on staged files..."
 # Run mix format on staged files (formats in place)
 echo "$STAGED_FILES" | xargs mix format
 
-# Check if formatting changed any files
-CHANGED_FILES=$(echo "$STAGED_FILES" | xargs git diff --name-only)
+# Check if formatting changed any files by comparing working tree to index
+CHANGED_FILES=""
+for file in $STAGED_FILES; do
+  if ! git diff --quiet -- "$file"; then
+    CHANGED_FILES="$CHANGED_FILES $file"
+  fi
+done
 
 if [ -n "$CHANGED_FILES" ]; then
   echo "✓ Files were formatted. Re-staging changes..."
   # Re-add the formatted files to staging
   echo "$CHANGED_FILES" | xargs git add
+  echo ""
+  echo "Note: Files were auto-formatted. Review changes with 'git diff --cached'"
 else
   echo "✓ All files already formatted correctly"
 fi

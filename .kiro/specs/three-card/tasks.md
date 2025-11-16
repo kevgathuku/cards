@@ -9,10 +9,10 @@ This implementation plan breaks down the 3 card feature into discrete, increment
 - [x] 1. Add penalty_count/1 helper function
   - Create public function in `CardGames` module that returns penalty count based on type
   - Handle "two" → 2, "three" → 3, nil/unknown → 0
-  - Add @doc documentation explaining nil handling for inactive penalties
+  - Add @doc documentation explaining nil handling for inacti8ve penalties
   - _Requirements: All (foundation for penalty system)_
 
-- [ ] 2. Create data migration script
+- [x] 2. Create data migration script
   - Create `priv/repo/migrate_penalty_data.exs` script
   - Query all game sessions with old `count` field in draw_penalty
   - Migrate active penalties: add penalty_type="two", remove count
