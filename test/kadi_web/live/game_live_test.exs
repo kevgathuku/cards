@@ -1038,14 +1038,16 @@ defmodule KadiWeb.GameLiveTest do
     setup do
       player1 = player_fixture()
       player2 = player_fixture(%{email: "player2@example.com"})
+      player3 = player_fixture(%{email: "player3@example.com"})
 
       {:ok, game_session} =
         CardGames.create_game_session(player1, %{short_code: "three-penalty-ui"})
 
       {:ok, _} = CardGames.join_game_session(player2, game_session.id)
+      {:ok, _} = CardGames.join_game_session(player3, game_session.id)
       {:ok, game_session} = CardGames.start_game(game_session)
 
-      %{player1: player1, player2: player2, game_session: game_session}
+      %{player1: player1, player2: player2, player3: player3, game_session: game_session}
     end
 
     test "displays 'Draw 3 Cards' button when penalty_type is 'three'", %{
@@ -1585,6 +1587,593 @@ defmodule KadiWeb.GameLiveTest do
       # Both the '3' (rank match) and the suit-matching card should be highlighted
       # The HTML should contain the green border class for valid cards
       assert html =~ "bg-green-100 border-green-500"
+    end
+  end
+
+  describe "3 Card End-to-End Tests" do
+    setup do
+      player1 = player_fixture()
+      player2 = player_fixture(%{email: "player2_e2e@example.com"})
+      player3 = player_fixture(%{email: "player3_e2e@example.com"})
+
+      {:ok, game_session} =
+        CardGames.create_game_session(player1, %{short_code: "three-e2e"})
+
+      {:ok, _} = CardGames.join_game_session(player2, game_session.id)
+      {:ok, _} = CardGames.join_game_session(player3, game_session.id)
+      {:ok, game_session} = CardGames.start_game(game_session, exclude_ranks: ["3"])
+
+      %{player1: player1, player2: player2, player3: player3, game_session: game_session}
+    end
+
+    test "complete 3 card penalty flow: play 3 → see button → draw 3 cards", %{
+      player1: player1,
+      player2: player2,
+      game_session: game_session
+    } do
+      # Setup: Give player1 a '3' card that matches the top card
+      game_session = Kadi.Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]])
+      top_card = game_session.top_card
+
+      three_card =
+        game_session.deck.deck_cards
+        |> Enum.find(&(&1.card.rank == "3" and &1.card.suit == top_card.suit))
+
+      assert three_card, "Expected to find a '3' card matching suit #{top_card.suit}"
+
+      {:ok, _} =
+        Kadi.Games.DeckCard.changeset(three_card, %{
+          location_type: "player_hand",
+          player_id: player1.id,
+          order_index: nil
+        })
+        |> Kadi.Repo.update()
+
+      # Set turn to player1
+      game_session =
+        game_session
+        |> Ecto.Changeset.change(%{current_turn_player_id: player1.id})
+        |> Kadi.Repo.update!()
+
+      # Connect both players
+      conn1 = log_in_player(build_conn(), player1)
+      conn2 = log_in_player(build_conn(), player2)
+
+      {:ok, view1, _html1} = live(conn1, ~p"/games/#{game_session.id}")
+      {:ok, view2, html2_before} = live(conn2, ~p"/games/#{game_session.id}")
+
+      # Player2 should NOT see penalty button yet
+      refute html2_before =~ "Draw 3 Cards"
+
+      # Get player2's initial hand size
+      initial_hand_size = CardGames.count_player_cards(game_session, player2.id)
+
+      # Player1 plays the '3' card
+      render_click(view1, "toggle_card", %{"card_id" => to_string(three_card.card_id)})
+      render_click(view1, "play_cards")
+      Process.sleep(100)
+
+      # Player2 should now see "Draw 3 Cards" button and penalty indicator
+      html2_after = render(view2)
+      assert html2_after =~ "Draw 3 Cards"
+      assert html2_after =~ "must draw 3 cards"
+
+      # Player1 should also see penalty indicator
+      html1_after = render(view1)
+      assert html1_after =~ "must draw 3 cards"
+
+      # Player2 clicks "Draw 3 Cards" button
+      render_click(view2, "accept_penalty")
+      Process.sleep(100)
+
+      # Verify player2 drew 3 cards
+      updated_game = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
+      final_hand_size = CardGames.count_player_cards(updated_game, player2.id)
+
+      assert final_hand_size == initial_hand_size + 3,
+             "Expected player2 to draw 3 cards (had #{initial_hand_size}, now has #{final_hand_size})"
+
+      # Verify penalty indicator disappears for both players
+      html1_final = render(view1)
+      html2_final = render(view2)
+
+      refute html1_final =~ "must draw 3 cards"
+      refute html2_final =~ "Draw 3 Cards"
+
+      # Verify turn advanced to player3
+      assert updated_game.current_turn_player_id != player1.id
+      assert updated_game.current_turn_player_id != player2.id
+    end
+
+    test "3 card blocking with another 3: A plays 3 → B plays 3 → C sees penalty", %{
+      player1: player1,
+      player2: player2,
+      player3: player3,
+      game_session: game_session
+    } do
+      # Setup: Give player1 a '3' card that matches the top card
+      game_session = Kadi.Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]])
+      top_card = game_session.top_card
+
+      three_card_p1 =
+        game_session.deck.deck_cards
+        |> Enum.find(&(&1.card.rank == "3" and &1.card.suit == top_card.suit))
+
+      assert three_card_p1, "Expected to find a '3' card for player1"
+
+      {:ok, _} =
+        Kadi.Games.DeckCard.changeset(three_card_p1, %{
+          location_type: "player_hand",
+          player_id: player1.id,
+          order_index: nil
+        })
+        |> Kadi.Repo.update()
+
+      # Set turn to player1
+      game_session =
+        game_session
+        |> Ecto.Changeset.change(%{current_turn_player_id: player1.id})
+        |> Kadi.Repo.update!()
+
+      # Reload game to get fresh state
+      game_session = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
+
+      # Player1 plays the '3' card using CardGames context
+      {:ok, updated_game} =
+        CardGames.play_cards(game_session, player1.id, [three_card_p1.card_id])
+
+      # Verify penalty is active for player2
+      assert updated_game.draw_penalty["active"] == true
+      assert updated_game.draw_penalty["penalty_type"] == "three"
+      assert updated_game.draw_penalty["target_player_id"] == player2.id
+
+      # Connect players to verify UI
+      conn2 = log_in_player(build_conn(), player2)
+      {:ok, _view2, html2} = live(conn2, ~p"/games/#{updated_game.id}")
+
+      # Player2 should see "Draw 3 Cards" button
+      assert html2 =~ "Draw 3 Cards"
+
+      # Give player2 another '3' card to block
+      updated_game = Kadi.Repo.preload(updated_game, [deck: [deck_cards: :card]], force: true)
+
+      three_card_p2 =
+        updated_game.deck.deck_cards
+        |> Enum.find(&(&1.card.rank == "3" and &1.location_type == "deck"))
+
+      assert three_card_p2, "Expected to find a '3' card for player2"
+
+      {:ok, _} =
+        Kadi.Games.DeckCard.changeset(three_card_p2, %{
+          location_type: "player_hand",
+          player_id: player2.id,
+          order_index: nil
+        })
+        |> Kadi.Repo.update()
+
+      # Reload game to get fresh state
+      updated_game = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
+
+      # Player2 plays the '3' to block and transfer using CardGames context
+      {:ok, final_game} = CardGames.play_cards(updated_game, player2.id, [three_card_p2.card_id])
+
+      # Verify penalty transferred to next player
+      assert final_game.draw_penalty["active"] == true
+      assert final_game.draw_penalty["penalty_type"] == "three"
+
+      # Get the next player after player2
+      players = CardGames.get_game_session_players(game_session.id)
+      player_order = Enum.sort_by(players, & &1.inserted_at)
+      player2_index = Enum.find_index(player_order, &(&1.id == player2.id))
+      next_player = Enum.at(player_order, rem(player2_index + 1, length(player_order)))
+
+      assert final_game.draw_penalty["target_player_id"] == next_player.id,
+             "Expected penalty to transfer to next player (#{next_player.id}), got #{final_game.draw_penalty["target_player_id"]}"
+
+      # Verify UI updates correctly
+      conn2_after = log_in_player(build_conn(), player2)
+      {:ok, _view2_after, html2_after} = live(conn2_after, ~p"/games/#{final_game.id}")
+
+      refute html2_after =~ "Draw 3 Cards", "Player2 should not see penalty button after blocking"
+    end
+
+    test "3 card blocking with Ace: play 3 → block with Ace → suit requirement", %{
+      player1: player1,
+      player2: player2,
+      player3: player3,
+      game_session: game_session
+    } do
+      # Setup: Give player1 a '3' card that matches the top card
+      game_session = Kadi.Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]])
+      top_card = game_session.top_card
+
+      three_card =
+        game_session.deck.deck_cards
+        |> Enum.find(&(&1.card.rank == "3" and &1.card.suit == top_card.suit))
+
+      assert three_card, "Expected to find a '3' card"
+
+      three_suit = three_card.card.suit
+
+      {:ok, _} =
+        Kadi.Games.DeckCard.changeset(three_card, %{
+          location_type: "player_hand",
+          player_id: player1.id,
+          order_index: nil
+        })
+        |> Kadi.Repo.update()
+
+      # Set turn to player1
+      game_session =
+        game_session
+        |> Ecto.Changeset.change(%{current_turn_player_id: player1.id})
+        |> Kadi.Repo.update!()
+
+      # Reload game to get fresh state
+      game_session = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
+
+      # Player1 plays the '3' card using CardGames context
+      {:ok, updated_game} = CardGames.play_cards(game_session, player1.id, [three_card.card_id])
+
+      # Verify penalty is active for player2
+      assert updated_game.draw_penalty["active"] == true
+      assert updated_game.draw_penalty["penalty_type"] == "three"
+
+      # Give player2 an Ace to block
+      updated_game = Kadi.Repo.preload(updated_game, [deck: [deck_cards: :card]], force: true)
+
+      ace_card =
+        updated_game.deck.deck_cards
+        |> Enum.find(&(&1.card.rank == "ace" and &1.location_type == "deck"))
+
+      assert ace_card, "Expected to find an Ace card"
+
+      {:ok, _} =
+        Kadi.Games.DeckCard.changeset(ace_card, %{
+          location_type: "player_hand",
+          player_id: player2.id,
+          order_index: nil
+        })
+        |> Kadi.Repo.update()
+
+      # Reload game to get fresh state with the Ace in player2's hand
+      updated_game = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
+
+      # Player2 plays the Ace to block using CardGames context
+      {:ok, final_game} = CardGames.play_cards(updated_game, player2.id, [ace_card.card_id])
+
+      # Verify penalty is cleared
+      assert final_game.draw_penalty["active"] == false
+      assert final_game.draw_penalty["penalty_type"] == nil
+
+      # Verify action_suit is set to the suit of the '3' that was blocked
+      assert final_game.action_suit == three_suit
+
+      # Connect player3 to verify UI
+      conn3 = log_in_player(build_conn(), player3)
+      {:ok, _view3, html3} = live(conn3, ~p"/games/#{final_game.id}")
+
+      # Player3 should see the suit requirement message
+      assert html3 =~ "Ace blocked penalty!"
+      assert html3 =~ "Active suit:"
+      assert html3 =~ String.capitalize(three_suit)
+
+      # Give player3 a card matching the required suit
+      final_game = Kadi.Repo.preload(final_game, [deck: [deck_cards: :card]], force: true)
+
+      matching_card =
+        final_game.deck.deck_cards
+        |> Enum.find(
+          &(&1.card.suit == three_suit and &1.location_type == "deck" and &1.card.rank != "ace")
+        )
+
+      if matching_card do
+        {:ok, _} =
+          Kadi.Games.DeckCard.changeset(matching_card, %{
+            location_type: "player_hand",
+            player_id: player3.id,
+            order_index: nil
+          })
+          |> Kadi.Repo.update()
+
+        # Reload game
+        final_game = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
+
+        # Player3 plays the matching card using CardGames context
+        {:ok, very_final_game} =
+          CardGames.play_cards(final_game, player3.id, [matching_card.card_id])
+
+        # Verify action_suit is cleared after matching play
+        assert very_final_game.action_suit == nil
+      end
+    end
+
+    test "cross-blocking prevention: 2 cannot block 3, 3 cannot block 2", %{
+      player1: player1,
+      player2: player2,
+      game_session: game_session
+    } do
+      # Test 1: Player plays 3 → next player tries to play 2 → rejected
+      game_session = Kadi.Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]])
+      top_card = game_session.top_card
+
+      # Give player1 a '3' card
+      three_card =
+        game_session.deck.deck_cards
+        |> Enum.find(&(&1.card.rank == "3" and &1.card.suit == top_card.suit))
+
+      assert three_card, "Expected to find a '3' card"
+
+      {:ok, _} =
+        Kadi.Games.DeckCard.changeset(three_card, %{
+          location_type: "player_hand",
+          player_id: player1.id,
+          order_index: nil
+        })
+        |> Kadi.Repo.update()
+
+      # Set turn to player1
+      game_session =
+        game_session
+        |> Ecto.Changeset.change(%{current_turn_player_id: player1.id})
+        |> Kadi.Repo.update!()
+
+      conn1 = log_in_player(build_conn(), player1)
+      conn2 = log_in_player(build_conn(), player2)
+
+      {:ok, view1, _html1} = live(conn1, ~p"/games/#{game_session.id}")
+      {:ok, view2, _html2} = live(conn2, ~p"/games/#{game_session.id}")
+
+      # Player1 plays the '3' card
+      render_click(view1, "toggle_card", %{"card_id" => to_string(three_card.card_id)})
+      render_click(view1, "play_cards")
+      Process.sleep(100)
+
+      # Give player2 a '2' card
+      updated_game = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
+      updated_game = Kadi.Repo.preload(updated_game, deck: [deck_cards: :card])
+
+      two_card =
+        updated_game.deck.deck_cards
+        |> Enum.find(&(&1.card.rank == "2" and &1.location_type == "deck"))
+
+      assert two_card, "Expected to find a '2' card"
+
+      {:ok, _} =
+        Kadi.Games.DeckCard.changeset(two_card, %{
+          location_type: "player_hand",
+          player_id: player2.id,
+          order_index: nil
+        })
+        |> Kadi.Repo.update()
+
+      # Player2 tries to play the '2' to block '3' penalty
+      render_click(view2, "toggle_card", %{"card_id" => to_string(two_card.card_id)})
+      html2_error = render_click(view2, "play_cards")
+
+      # Should show error message
+      assert html2_error =~ "Invalid play" or html2_error =~ "Penalty Active"
+
+      # Verify penalty is still active
+      still_penalized = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
+      assert still_penalized.draw_penalty["active"] == true
+      assert still_penalized.draw_penalty["penalty_type"] == "three"
+
+      # Test 2: Player plays 2 → next player tries to play 3 → rejected
+      # Reset game state - clear penalty and set up a '2' penalty instead
+      game_session2 = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
+
+      game_session2 =
+        game_session2
+        |> Ecto.Changeset.change(%{
+          draw_penalty: %{active: false, penalty_type: nil, target_player_id: nil},
+          current_turn_player_id: player1.id
+        })
+        |> Kadi.Repo.update!()
+
+      game_session2 = Kadi.Repo.preload(game_session2, [:top_card, deck: [deck_cards: :card]])
+      top_card2 = game_session2.top_card
+
+      # Give player1 a '2' card that matches
+      two_card_p1 =
+        game_session2.deck.deck_cards
+        |> Enum.find(
+          &(&1.card.rank == "2" and &1.card.suit == top_card2.suit and
+              &1.location_type == "deck")
+        )
+
+      if two_card_p1 do
+        {:ok, _} =
+          Kadi.Games.DeckCard.changeset(two_card_p1, %{
+            location_type: "player_hand",
+            player_id: player1.id,
+            order_index: nil
+          })
+          |> Kadi.Repo.update()
+
+        # Reload game to get fresh state
+        game_session2_fresh = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
+
+        # Player1 plays the '2' card using CardGames context
+        {:ok, with_two_penalty} =
+          CardGames.play_cards(game_session2_fresh, player1.id, [two_card_p1.card_id])
+
+        # Verify '2' penalty is active
+        assert with_two_penalty.draw_penalty["active"] == true
+        assert with_two_penalty.draw_penalty["penalty_type"] == "two"
+
+        # Give player2 a '3' card
+        with_two_penalty =
+          Kadi.Repo.preload(with_two_penalty, [deck: [deck_cards: :card]], force: true)
+
+        three_card_p2 =
+          with_two_penalty.deck.deck_cards
+          |> Enum.find(
+            &(&1.card.rank == "3" and &1.location_type == "deck" and &1.player_id == nil)
+          )
+
+        if three_card_p2 do
+          {:ok, _} =
+            Kadi.Games.DeckCard.changeset(three_card_p2, %{
+              location_type: "player_hand",
+              player_id: player2.id,
+              order_index: nil
+            })
+            |> Kadi.Repo.update()
+
+          # Reload game
+          with_two_penalty = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
+
+          # Player2 tries to play the '3' to block '2' penalty using CardGames context
+          result = CardGames.play_cards(with_two_penalty, player2.id, [three_card_p2.card_id])
+
+          # Should return error
+          assert {:error, :invalid_play} = result
+
+          # Verify penalty is still active with type "two"
+          still_two_penalty = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
+          assert still_two_penalty.draw_penalty["active"] == true
+          assert still_two_penalty.draw_penalty["penalty_type"] == "two"
+        end
+      end
+    end
+
+    test "edge cases: last card, deck recycling, multiple 3s, starting card", %{
+      player1: player1,
+      player2: player2,
+      game_session: game_session
+    } do
+      # Edge case 1: Play 3 as last card → player becomes cardless, penalty still applies
+      game_session = Kadi.Repo.preload(game_session, [:top_card, deck: [deck_cards: :card]])
+      top_card = game_session.top_card
+
+      # Find a '3' card
+      three_card =
+        game_session.deck.deck_cards
+        |> Enum.find(&(&1.card.rank == "3" and &1.card.suit == top_card.suit))
+
+      assert three_card, "Expected to find a '3' card"
+
+      # Empty player1's hand
+      game_session.deck.deck_cards
+      |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == player1.id))
+      |> Enum.each(fn dc ->
+        Kadi.Games.DeckCard.changeset(dc, %{
+          location_type: "deck",
+          player_id: nil,
+          order_index: 999 + dc.id
+        })
+        |> Kadi.Repo.update!()
+      end)
+
+      # Give player1 ONLY the '3' card
+      {:ok, _} =
+        Kadi.Games.DeckCard.changeset(three_card, %{
+          location_type: "player_hand",
+          player_id: player1.id,
+          order_index: nil
+        })
+        |> Kadi.Repo.update()
+
+      # Set turn to player1
+      game_session =
+        game_session
+        |> Ecto.Changeset.change(%{current_turn_player_id: player1.id})
+        |> Kadi.Repo.update!()
+
+      # Reload game to get fresh state with the '3' in player1's hand
+      game_session_fresh = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
+
+      # Player1 plays the '3' as last card
+      {:ok, after_last_card} =
+        CardGames.play_cards(game_session_fresh, player1.id, [three_card.card_id])
+
+      # Verify player1 is cardless
+      player1_hand = CardGames.get_player_hand(after_last_card, player1.id)
+      assert length(player1_hand) == 0
+
+      # Verify penalty is still active for player2
+      assert after_last_card.draw_penalty["active"] == true
+      assert after_last_card.draw_penalty["penalty_type"] == "three"
+      assert after_last_card.draw_penalty["target_player_id"] == player2.id
+
+      # Edge case 2: Draw 3 cards when deck has fewer than 3 → recycling works
+      # Move most cards to played_stack, leaving only 1 in deck
+      after_last_card = Kadi.Repo.preload(after_last_card, deck: [deck_cards: :card])
+
+      deck_cards_to_move =
+        after_last_card.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "deck"))
+        |> Enum.take(-40)
+
+      # Leave only 1 card in deck
+      Enum.each(Enum.take(deck_cards_to_move, length(deck_cards_to_move) - 1), fn dc ->
+        Kadi.Games.DeckCard.changeset(dc, %{
+          location_type: "played_stack",
+          order_index: 500 + dc.id,
+          player_id: nil
+        })
+        |> Kadi.Repo.update!()
+      end)
+
+      # Player2 accepts penalty (should trigger recycling)
+      after_last_card = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
+      initial_hand = CardGames.get_player_hand(after_last_card, player2.id)
+
+      {:ok, after_draw} = CardGames.process_draw_penalty(after_last_card, player2.id)
+
+      # Verify player2 drew 3 cards (recycling happened)
+      final_hand = CardGames.get_player_hand(after_draw, player2.id)
+      assert length(final_hand) == length(initial_hand) + 3
+
+      # Edge case 3: Multiple 3s played together → penalty is 3, not cumulative
+      # Reset and give player1 two '3' cards
+      game_session3 = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
+
+      game_session3 =
+        game_session3
+        |> Ecto.Changeset.change(%{
+          draw_penalty: %{active: false, penalty_type: nil, target_player_id: nil},
+          current_turn_player_id: player1.id
+        })
+        |> Kadi.Repo.update!()
+
+      game_session3 = Kadi.Repo.preload(game_session3, [:top_card, deck: [deck_cards: :card]])
+      top_card3 = game_session3.top_card
+
+      three_cards =
+        game_session3.deck.deck_cards
+        |> Enum.filter(&(&1.card.rank == "3" and &1.card.suit == top_card3.suit))
+        |> Enum.take(2)
+
+      if length(three_cards) >= 2 do
+        Enum.each(three_cards, fn dc ->
+          {:ok, _} =
+            Kadi.Games.DeckCard.changeset(dc, %{
+              location_type: "player_hand",
+              player_id: player1.id,
+              order_index: nil
+            })
+            |> Kadi.Repo.update()
+        end)
+
+        game_session3 = Kadi.Repo.get!(Kadi.Games.GameSession, game_session.id)
+        card_ids = Enum.map(three_cards, & &1.card_id)
+
+        {:ok, after_combo} = CardGames.play_cards(game_session3, player1.id, card_ids)
+
+        # Verify penalty is 3, not 6
+        assert after_combo.draw_penalty["active"] == true
+        assert after_combo.draw_penalty["penalty_type"] == "three"
+
+        # Verify by drawing - should draw exactly 3 cards
+        initial_p2_hand = CardGames.get_player_hand(after_combo, player2.id)
+
+        {:ok, after_combo_draw} = CardGames.process_draw_penalty(after_combo, player2.id)
+
+        final_p2_hand = CardGames.get_player_hand(after_combo_draw, player2.id)
+        assert length(final_p2_hand) == length(initial_p2_hand) + 3
+      end
     end
   end
 end

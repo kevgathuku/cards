@@ -155,33 +155,33 @@ This implementation plan breaks down the 3 card feature into discrete, increment
   - Test penalty indicator disappears after accepting penalty
   - _Requirements: All UI requirements_
 
-- [ ] 6. End-to-end testing and verification
-- [ ] 6.1 Test complete 3 card penalty flow
+- [x] 6. End-to-end testing and verification
+- [x] 6.1 Test complete 3 card penalty flow
   - Player plays 3 → next player sees "Draw 3 Cards" button
   - Next player clicks button → draws 3 cards, turn advances
   - Verify penalty indicator appears and disappears correctly
   - _Requirements: 1.1, 1.4, 7.1, 7.2_
 
-- [ ] 6.2 Test 3 card blocking with another 3
+- [x] 6.2 Test 3 card blocking with another 3
   - Player A plays 3 → Player B plays 3 → Player C sees penalty
   - Verify penalty transfers correctly
   - Verify penalty_type remains "three"
   - _Requirements: 3.1, 3.2, 3.3_
 
-- [ ] 6.3 Test 3 card blocking with Ace
+- [x] 6.3 Test 3 card blocking with Ace
   - Player plays 3 → next player plays Ace
   - Verify penalty clears
   - Verify action_suit set to 3's suit
   - Verify next player must match suit
   - _Requirements: 2.1, 2.2, 2.3, 2.4_
 
-- [ ] 6.4 Test cross-blocking prevention
+- [x] 6.4 Test cross-blocking prevention
   - Player plays 2 → next player tries to play 3 → rejected
   - Player plays 3 → next player tries to play 2 → rejected
   - Verify error messages display correctly
   - _Requirements: 8.1, 8.2, 8.3, 8.4_
 
-- [ ] 6.5 Test edge cases
+- [x] 6.5 Test edge cases
   - Play 3 as last card → player becomes cardless, penalty still applies
   - Draw 3 cards when deck has fewer than 3 → recycling works
   - Multiple 3s played together → penalty is 3, not cumulative
