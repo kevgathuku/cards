@@ -1,7 +1,7 @@
 #!/bin/sh
 #
-# Pre-commit hook to run mix format on staged Elixir and Phoenix files
-# Formats files in place and re-stages them
+# Pre-commit hook to check if staged Elixir and Phoenix files are formatted
+# Does NOT auto-format or stage changes - only reports conflicts
 #
 
 # Get all staged .ex, .exs, and .heex files
@@ -12,27 +12,23 @@ if [ -z "$STAGED_FILES" ]; then
   exit 0
 fi
 
-echo "Running mix format on staged files..."
+echo "Checking format on staged files..."
 
-# Run mix format on staged files (formats in place)
-echo "$STAGED_FILES" | xargs mix format
-
-# Check if formatting changed any files by comparing working tree to index
-CHANGED_FILES=""
-for file in $STAGED_FILES; do
-  if ! git diff --quiet -- "$file"; then
-    CHANGED_FILES="$CHANGED_FILES $file"
-  fi
-done
-
-if [ -n "$CHANGED_FILES" ]; then
-  echo "✓ Files were formatted. Re-staging changes..."
-  # Re-add the formatted files to staging
-  echo "$CHANGED_FILES" | xargs git add
-  echo ""
-  echo "Note: Files were auto-formatted. Review changes with 'git diff --cached'"
+# Run mix format --check-formatted on staged files
+# This checks without modifying files
+if echo "$STAGED_FILES" | xargs mix format --check-formatted 2>&1; then
+  echo "✓ All files are properly formatted"
+  exit 0
 else
-  echo "✓ All files already formatted correctly"
+  echo ""
+  echo "❌ Formatting conflicts detected!"
+  echo ""
+  echo "The following files need formatting:"
+  echo "$STAGED_FILES" | xargs mix format --check-formatted 2>&1 | grep "\.ex"
+  echo ""
+  echo "To fix, run:"
+  echo "  mix format"
+  echo ""
+  echo "Then stage and commit your changes again."
+  exit 1
 fi
-
-exit 0
