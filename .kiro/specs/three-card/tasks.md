@@ -66,7 +66,7 @@ This implementation plan breaks down the 3 card feature into discrete, increment
   - Test regular card when penalty_type="three" (reject)
   - _Requirements: All validation requirements_
 
-- [ ] 4. Update CardGames context for 3 card penalty
+- [x] 4. Update CardGames context for 3 card penalty
 - [x] 4.1 Update play_cards/3 to create 3 card penalty
   - Detect when cards contain rank "3"
   - Create draw_penalty map with penalty_type="three"
@@ -108,7 +108,7 @@ This implementation plan breaks down the 3 card feature into discrete, increment
   - Handle edge case where all cards are 2s or 3s (use fallback)
   - _Requirements: 9.1, 9.2_
 
-- [ ] 4.7 Write unit tests for CardGames 3 card logic
+- [x] 4.7 Write unit tests for CardGames 3 card logic
   - Test penalty_count/1 with "two", "three", nil, unknown
   - Test play_cards/3 creates 3 penalty with correct penalty_type
   - Test play_cards/3 transfers 3 penalty when blocked by 3
