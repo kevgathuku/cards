@@ -6,6 +6,15 @@ This file provides guidance to AI agents (including Gemini, GitHub Copilot, and 
 
 Kadi is a multiplayer online card game platform built with Elixir and Phoenix LiveView, focused on implementing "Poker" (a card game popular in Kenya, also known as "Kadi"). The architecture is designed to support multiple card games.
 
+## Documentation
+
+All feature documentation is located in the `docs/` directory:
+- **Foundation Features**: deal-start-card.md, randomize-player-cards.md, pick-card-from-deck.md, recycle-played-stack.md, basic-gameplay.md
+- **Special Card Features**: king-card-feature.md, jack-card-feature.md, ace-card-feature.md, two-card-feature.md, three-card-feature.md
+- **Technical Docs**: database-relationships.md, query-functions.md, kadi_flowchart.md
+
+Historical specifications are archived in `archive/specs-historical/` for reference only.
+
 ## Development Commands
 
 ### Setup
