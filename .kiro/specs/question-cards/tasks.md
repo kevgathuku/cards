@@ -8,42 +8,42 @@ This implementation plan breaks down the question card feature into discrete, ma
 
 ## Task List
 
-- [ ] 1. Update PlayValidator for question card detection
+- [x] 1. Update PlayValidator for question card detection
   - Add helper functions to detect Q and 8 cards
   - Add function to split question cards from answer cards in a combo
   - Add validation for question card sequences (matching by suit or rank)
   - Add validation for answer cards matching last question card
   - _Requirements: 1.1, 1.2, 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 4.2, 4.3_
 
-- [ ] 1.1 Add question card detection helpers
+- [x] 1.1 Add question card detection helpers
   - Implement `all_queens?/1` to check if all cards are Q
   - Implement `all_eights?/1` to check if all cards are 8
   - Implement `all_question_cards?/1` to check if all cards are Q or 8
   - Implement `is_question_card?/1` to check if a single card is Q or 8
   - _Requirements: 1.1, 1.2_
 
-- [ ] 1.2 Add combo splitting logic
+- [x] 1.2 Add combo splitting logic
   - Implement `split_question_and_answer/1` to separate question cards from answer cards
   - Function should iterate through cards and split at first non-question card
   - Return tuple `{question_cards, answer_cards}`
   - Handle edge case where all cards are questions (empty answer list)
   - _Requirements: 1.1, 1.2, 3.5, 4.5_
 
-- [ ] 1.3 Add question sequence validation
+- [x] 1.3 Add question sequence validation
   - Implement `valid_question_sequence?/1` to validate question cards match each other
   - Check that each subsequent question card matches previous by suit or rank
   - Allow mixed Q and 8 cards (e.g., 8H QH QD 8D)
   - Return true if sequence is valid, false otherwise
   - _Requirements: 4.1, 4.3_
 
-- [ ] 1.4 Add answer validation logic
+- [x] 1.4 Add answer validation logic
   - Implement `valid_answer_for_question?/2` to validate answer cards
   - Check first answer card matches last question card by suit or rank
   - If multiple answer cards, validate they form a valid combo (same rank)
   - Return true if answer is valid, false otherwise
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 6.2, 6.3, 6.4_
 
-- [ ] 1.5 Integrate question validation into valid_play?/3
+- [x] 1.5 Integrate question validation into valid_play?/3
   - Detect if play contains question cards at the start
   - If yes, use question card validation logic
   - Return appropriate validation result

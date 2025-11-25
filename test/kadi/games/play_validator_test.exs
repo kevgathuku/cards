@@ -88,17 +88,37 @@ defmodule Kadi.Games.PlayValidatorTest do
       end
     end
 
-    test "rejects unsupported special cards (8,Queen) even when they match" do
-      # King is supported in Feature 006, Jack in Feature 007, Ace in Feature 008, '2' in Feature 009, '3' in Feature 010
-      special_ranks = ["8", "queen"]
+    test "accepts question cards (8, Queen) when they match suit or rank" do
+      # Question cards (8 and Queen) are now supported as of question-cards feature
+      # They should be accepted when they match the top card by suit or rank
 
-      for rank <- special_ranks do
-        top_card = %Card{suit: "hearts", rank: rank}
-        card = %Card{suit: "hearts", rank: rank}
+      # 8 matching suit
+      top_card = %Card{suit: "hearts", rank: "5"}
+      eight = %Card{suit: "hearts", rank: "8"}
 
-        refute PlayValidator.valid_play?([card], top_card, []),
-               "Special card #{rank} should be rejected in Phase 1"
-      end
+      assert PlayValidator.valid_play?([eight], top_card, []),
+             "8 matching suit should be accepted"
+
+      # 8 matching rank
+      top_card = %Card{suit: "diamonds", rank: "8"}
+      eight = %Card{suit: "hearts", rank: "8"}
+
+      assert PlayValidator.valid_play?([eight], top_card, []),
+             "8 matching rank should be accepted"
+
+      # Queen matching suit
+      top_card = %Card{suit: "hearts", rank: "5"}
+      queen = %Card{suit: "hearts", rank: "queen"}
+
+      assert PlayValidator.valid_play?([queen], top_card, []),
+             "Queen matching suit should be accepted"
+
+      # Queen matching rank
+      top_card = %Card{suit: "diamonds", rank: "queen"}
+      queen = %Card{suit: "hearts", rank: "queen"}
+
+      assert PlayValidator.valid_play?([queen], top_card, []),
+             "Queen matching rank should be accepted"
     end
 
     test "accepts King when it matches suit or rank (Phase 2 - 006-king-card)" do
@@ -556,6 +576,367 @@ defmodule Kadi.Games.PlayValidatorTest do
 
       # 3 of clubs matches the action_suit requirement
       assert PlayValidator.valid_play?([three], top_card, action_suit: action_suit)
+    end
+  end
+
+  describe "valid_question_sequence?/1 - question card sequence validation" do
+    test "accepts single question card (always valid)" do
+      card = %Card{rank: "8", suit: "hearts"}
+
+      assert PlayValidator.valid_question_sequence?([card])
+    end
+
+    test "accepts two 8s matching by rank" do
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "8", suit: "diamonds"}
+      ]
+
+      assert PlayValidator.valid_question_sequence?(cards)
+    end
+
+    test "accepts 8 and Q matching by suit" do
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "queen", suit: "hearts"}
+      ]
+
+      assert PlayValidator.valid_question_sequence?(cards)
+    end
+
+    test "accepts mixed Q and 8 cards (8H QH QD 8D)" do
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "queen", suit: "hearts"},
+        %Card{rank: "queen", suit: "diamonds"},
+        %Card{rank: "8", suit: "diamonds"}
+      ]
+
+      assert PlayValidator.valid_question_sequence?(cards)
+    end
+
+    test "rejects 8 and Q not matching by suit or rank" do
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "queen", suit: "diamonds"}
+      ]
+
+      refute PlayValidator.valid_question_sequence?(cards)
+    end
+
+    test "rejects sequence where middle card doesn't match" do
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "queen", suit: "diamonds"},
+        %Card{rank: "queen", suit: "clubs"}
+      ]
+
+      refute PlayValidator.valid_question_sequence?(cards)
+    end
+
+    test "rejects empty card list" do
+      refute PlayValidator.valid_question_sequence?([])
+    end
+
+    test "rejects non-question card (regular card)" do
+      cards = [
+        %Card{rank: "5", suit: "hearts"}
+      ]
+
+      refute PlayValidator.valid_question_sequence?(cards)
+    end
+
+    test "rejects sequence with non-question card mixed in" do
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "5", suit: "hearts"}
+      ]
+
+      refute PlayValidator.valid_question_sequence?(cards)
+    end
+
+    test "rejects sequence with ace card" do
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "ace", suit: "hearts"}
+      ]
+
+      refute PlayValidator.valid_question_sequence?(cards)
+    end
+  end
+
+  describe "valid_answer_for_question?/2 - answer card validation" do
+    test "accepts single answer matching suit" do
+      answer_cards = [%Card{rank: "2", suit: "diamonds"}]
+      last_question = %Card{rank: "8", suit: "diamonds"}
+
+      assert PlayValidator.valid_answer_for_question?(answer_cards, last_question)
+    end
+
+    test "accepts single answer matching by suit (not rank, since that would require Q or 8)" do
+      # Note: Answer cards cannot be question cards (Q or 8)
+      # Since last_question is Q or 8, matching by rank would require answer to also be Q or 8
+      # So we test matching by suit instead
+      answer_cards = [%Card{rank: "2", suit: "diamonds"}]
+      last_question = %Card{rank: "queen", suit: "diamonds"}
+
+      assert PlayValidator.valid_answer_for_question?(answer_cards, last_question)
+    end
+
+    test "accepts answer combo matching suit (4D 4H after 8D)" do
+      answer_cards = [
+        %Card{rank: "4", suit: "diamonds"},
+        %Card{rank: "4", suit: "hearts"}
+      ]
+
+      last_question = %Card{rank: "8", suit: "diamonds"}
+
+      assert PlayValidator.valid_answer_for_question?(answer_cards, last_question)
+    end
+
+    test "rejects single answer not matching suit or rank" do
+      answer_cards = [%Card{rank: "2", suit: "hearts"}]
+      last_question = %Card{rank: "8", suit: "diamonds"}
+
+      refute PlayValidator.valid_answer_for_question?(answer_cards, last_question)
+    end
+
+    test "rejects answer combo with different ranks" do
+      answer_cards = [
+        %Card{rank: "4", suit: "diamonds"},
+        %Card{rank: "5", suit: "diamonds"}
+      ]
+
+      last_question = %Card{rank: "8", suit: "diamonds"}
+
+      refute PlayValidator.valid_answer_for_question?(answer_cards, last_question)
+    end
+
+    test "rejects answer combo where first doesn't match" do
+      answer_cards = [
+        %Card{rank: "4", suit: "hearts"},
+        %Card{rank: "4", suit: "clubs"}
+      ]
+
+      last_question = %Card{rank: "8", suit: "diamonds"}
+
+      refute PlayValidator.valid_answer_for_question?(answer_cards, last_question)
+    end
+
+    test "rejects empty answer list" do
+      refute PlayValidator.valid_answer_for_question?([], %Card{rank: "8", suit: "diamonds"})
+    end
+
+    test "rejects when last_question_card is nil" do
+      answer_cards = [%Card{rank: "2", suit: "diamonds"}]
+
+      refute PlayValidator.valid_answer_for_question?(answer_cards, nil)
+    end
+
+    test "rejects answer cards containing question cards (Q)" do
+      answer_cards = [%Card{rank: "queen", suit: "diamonds"}]
+      last_question = %Card{rank: "8", suit: "diamonds"}
+
+      refute PlayValidator.valid_answer_for_question?(answer_cards, last_question)
+    end
+
+    test "rejects answer cards containing question cards (8)" do
+      answer_cards = [%Card{rank: "8", suit: "diamonds"}]
+      last_question = %Card{rank: "8", suit: "hearts"}
+
+      refute PlayValidator.valid_answer_for_question?(answer_cards, last_question)
+    end
+
+    test "accepts special cards as answers (Ace)" do
+      answer_cards = [%Card{rank: "ace", suit: "diamonds"}]
+      last_question = %Card{rank: "8", suit: "diamonds"}
+
+      assert PlayValidator.valid_answer_for_question?(answer_cards, last_question)
+    end
+
+    test "accepts special cards as answers (Jack)" do
+      answer_cards = [%Card{rank: "jack", suit: "diamonds"}]
+      last_question = %Card{rank: "8", suit: "diamonds"}
+
+      assert PlayValidator.valid_answer_for_question?(answer_cards, last_question)
+    end
+
+    test "accepts special cards as answers (King)" do
+      answer_cards = [%Card{rank: "king", suit: "diamonds"}]
+      last_question = %Card{rank: "8", suit: "diamonds"}
+
+      assert PlayValidator.valid_answer_for_question?(answer_cards, last_question)
+    end
+
+    test "accepts penalty cards as answers (2)" do
+      answer_cards = [%Card{rank: "2", suit: "diamonds"}]
+      last_question = %Card{rank: "8", suit: "diamonds"}
+
+      assert PlayValidator.valid_answer_for_question?(answer_cards, last_question)
+    end
+
+    test "accepts penalty cards as answers (3)" do
+      answer_cards = [%Card{rank: "3", suit: "diamonds"}]
+      last_question = %Card{rank: "8", suit: "diamonds"}
+
+      assert PlayValidator.valid_answer_for_question?(answer_cards, last_question)
+    end
+
+    test "accepts regular cards as answers" do
+      answer_cards = [%Card{rank: "5", suit: "diamonds"}]
+      last_question = %Card{rank: "8", suit: "diamonds"}
+
+      assert PlayValidator.valid_answer_for_question?(answer_cards, last_question)
+    end
+  end
+
+  describe "valid_play?/3 - question card integration" do
+    test "accepts single question card matching top card by suit" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+      eight = %Card{suit: "hearts", rank: "8"}
+
+      assert PlayValidator.valid_play?([eight], top_card, [])
+    end
+
+    test "accepts single question card matching top card by rank" do
+      top_card = %Card{suit: "diamonds", rank: "8"}
+      eight = %Card{suit: "hearts", rank: "8"}
+
+      assert PlayValidator.valid_play?([eight], top_card, [])
+    end
+
+    test "rejects single question card not matching top card" do
+      top_card = %Card{suit: "diamonds", rank: "5"}
+      eight = %Card{suit: "hearts", rank: "8"}
+
+      refute PlayValidator.valid_play?([eight], top_card, [])
+    end
+
+    test "accepts question combo with answer (8H 8D 2D)" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "8", suit: "diamonds"},
+        %Card{rank: "2", suit: "diamonds"}
+      ]
+
+      assert PlayValidator.valid_play?(cards, top_card, [])
+    end
+
+    test "accepts question combo without answer (8H 8D)" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "8", suit: "diamonds"}
+      ]
+
+      assert PlayValidator.valid_play?(cards, top_card, [])
+    end
+
+    test "accepts mixed Q and 8 combo with answer (8H QH 2H)" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "queen", suit: "hearts"},
+        %Card{rank: "2", suit: "hearts"}
+      ]
+
+      assert PlayValidator.valid_play?(cards, top_card, [])
+    end
+
+    test "accepts question combo with answer combo (8H 8D 4D 4H)" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "8", suit: "diamonds"},
+        %Card{rank: "4", suit: "diamonds"},
+        %Card{rank: "4", suit: "hearts"}
+      ]
+
+      assert PlayValidator.valid_play?(cards, top_card, [])
+    end
+
+    test "rejects question combo where first card doesn't match top card" do
+      top_card = %Card{suit: "diamonds", rank: "5"}
+
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "8", suit: "clubs"}
+      ]
+
+      refute PlayValidator.valid_play?(cards, top_card, [])
+    end
+
+    test "rejects question combo where questions don't match each other" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "queen", suit: "diamonds"}
+      ]
+
+      refute PlayValidator.valid_play?(cards, top_card, [])
+    end
+
+    test "rejects question combo where answer doesn't match last question" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "8", suit: "diamonds"},
+        %Card{rank: "2", suit: "hearts"}
+      ]
+
+      refute PlayValidator.valid_play?(cards, top_card, [])
+    end
+
+    test "accepts question combo ending with Q/8 (all questions)" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "8", suit: "diamonds"},
+        %Card{rank: "queen", suit: "diamonds"}
+      ]
+
+      assert PlayValidator.valid_play?(cards, top_card, [])
+    end
+
+    test "accepts question with special card answer (Ace)" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "ace", suit: "hearts"}
+      ]
+
+      assert PlayValidator.valid_play?(cards, top_card, [])
+    end
+
+    test "accepts question with special card answer (Jack)" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "jack", suit: "hearts"}
+      ]
+
+      assert PlayValidator.valid_play?(cards, top_card, [])
+    end
+
+    test "accepts question with special card answer (King)" do
+      top_card = %Card{suit: "hearts", rank: "5"}
+
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "king", suit: "hearts"}
+      ]
+
+      assert PlayValidator.valid_play?(cards, top_card, [])
     end
   end
 end
