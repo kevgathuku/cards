@@ -806,6 +806,13 @@ defmodule Kadi.CardGames do
     )
 
     case result do
+      {:ok, :needs_draw, updated_game} ->
+        Logger.info(
+          "play_cards success (needs_draw): game_session_id=#{updated_game.id}, player_id=#{player_id}, duration_us=#{System.convert_time_unit(duration, :native, :microsecond)}"
+        )
+
+        result
+
       {:ok, updated_game} ->
         Logger.info(
           "play_cards success: game_session_id=#{updated_game.id}, player_id=#{player_id}, duration_us=#{System.convert_time_unit(duration, :native, :microsecond)}"
@@ -1055,6 +1062,10 @@ defmodule Kadi.CardGames do
     # Get current max order_index in played_stack
     max_order = get_max_played_stack_order(game_session)
 
+    # Check for question card combo (Q or 8)
+    {question_cards, answer_cards} = PlayValidator.split_question_and_answer(cards_to_play)
+    is_incomplete_question = length(question_cards) > 0 && length(answer_cards) == 0
+
     # Detect special card plays
     ace_played? = Enum.any?(cards_to_play, &(&1.rank == "ace"))
     king_played? = Enum.any?(cards_to_play, &(&1.rank == "king"))
@@ -1083,6 +1094,10 @@ defmodule Kadi.CardGames do
     # Determine next player and action type
     {next_player, action_type} =
       cond do
+        # If incomplete question (no answer), don't advance turn - player must draw
+        is_incomplete_question ->
+          {game_session.current_turn_player, nil}
+
         # If Ace is played to block a penalty, turn advances
         ace_played? && game_session.draw_penalty["active"] ->
           next_player =
@@ -1281,7 +1296,18 @@ defmodule Kadi.CardGames do
 
         # Return a fully preloaded game session for immediate use
         # Use fresh DB query to ensure we get the latest committed data
-        get_game_session_preloaded(updated_game.id)
+        case get_game_session_preloaded(updated_game.id) do
+          {:ok, reloaded_game} ->
+            # If incomplete question, return special status indicating draw is needed
+            if is_incomplete_question do
+              {:ok, :needs_draw, reloaded_game}
+            else
+              {:ok, reloaded_game}
+            end
+
+          error ->
+            error
+        end
 
       {:error, _failed_op, failed_value, _changes} ->
         {:error, failed_value}

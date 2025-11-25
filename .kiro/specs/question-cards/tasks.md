@@ -112,7 +112,7 @@ This implementation plan breaks down the question card feature into discrete, ma
   - Handle deck exhaustion (recycle played pile)
   - _Requirements: 1.1, 1.2, 1.4, 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [ ] 4.1 Modify play_cards/3 for question detection
+- [x] 4.1 Modify play_cards/3 for question detection
   - After validation, check if play is incomplete question combo
   - Use `split_question_and_answer/1` to detect
   - If answer list is empty, return `{:ok, :needs_draw, updated_game}`
