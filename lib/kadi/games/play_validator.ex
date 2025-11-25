@@ -363,14 +363,6 @@ defmodule Kadi.Games.PlayValidator do
     Enum.all?(cards, &(&1.rank == "3"))
   end
 
-  defp all_queens?(cards) do
-    Enum.all?(cards, &(&1.rank == "queen"))
-  end
-
-  defp all_eights?(cards) do
-    Enum.all?(cards, &(&1.rank == "8"))
-  end
-
   defp all_question_cards?(cards) do
     Enum.all?(cards, &is_question_card?/1)
   end

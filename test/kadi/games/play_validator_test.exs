@@ -579,6 +579,96 @@ defmodule Kadi.Games.PlayValidatorTest do
     end
   end
 
+  describe "split_question_and_answer/1 - combo splitting logic" do
+    test "splits [8H, 8D, 2D] → {[8H, 8D], [2D]}" do
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "8", suit: "diamonds"},
+        %Card{rank: "2", suit: "diamonds"}
+      ]
+
+      assert {
+               [
+                 %Card{rank: "8", suit: "hearts"},
+                 %Card{rank: "8", suit: "diamonds"}
+               ],
+               [
+                 %Card{rank: "2", suit: "diamonds"}
+               ]
+             } = PlayValidator.split_question_and_answer(cards)
+    end
+
+    test "splits [8H, 8D] → {[8H, 8D], []}" do
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "8", suit: "diamonds"}
+      ]
+
+      assert {
+               [
+                 %Card{rank: "8", suit: "hearts"},
+                 %Card{rank: "8", suit: "diamonds"}
+               ],
+               []
+             } = PlayValidator.split_question_and_answer(cards)
+    end
+
+    test "splits [8H, 8D, 4D, 4H] → {[8H, 8D], [4D, 4H]}" do
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "8", suit: "diamonds"},
+        %Card{rank: "4", suit: "diamonds"},
+        %Card{rank: "4", suit: "hearts"}
+      ]
+
+      assert {
+               [
+                 %Card{rank: "8", suit: "hearts"},
+                 %Card{rank: "8", suit: "diamonds"}
+               ],
+               [
+                 %Card{rank: "4", suit: "diamonds"},
+                 %Card{rank: "4", suit: "hearts"}
+               ]
+             } = PlayValidator.split_question_and_answer(cards)
+    end
+
+    test "splits [8H, QH, 2D] → {[8H, QH], [2D]}" do
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "queen", suit: "hearts"},
+        %Card{rank: "2", suit: "diamonds"}
+      ]
+
+      assert {
+               [
+                 %Card{rank: "8", suit: "hearts"},
+                 %Card{rank: "queen", suit: "hearts"}
+               ],
+               [
+                 %Card{rank: "2", suit: "diamonds"}
+               ]
+             } = PlayValidator.split_question_and_answer(cards)
+    end
+
+    test "splits [8H, 8D, QD] → {[8H, 8D, QD], []} (Q at end is question)" do
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "8", suit: "diamonds"},
+        %Card{rank: "queen", suit: "diamonds"}
+      ]
+
+      assert {
+               [
+                 %Card{rank: "8", suit: "hearts"},
+                 %Card{rank: "8", suit: "diamonds"},
+                 %Card{rank: "queen", suit: "diamonds"}
+               ],
+               []
+             } = PlayValidator.split_question_and_answer(cards)
+    end
+  end
+
   describe "valid_question_sequence?/1 - question card sequence validation" do
     test "accepts single question card (always valid)" do
       card = %Card{rank: "8", suit: "hearts"}
@@ -671,6 +761,15 @@ defmodule Kadi.Games.PlayValidatorTest do
       last_question = %Card{rank: "8", suit: "diamonds"}
 
       assert PlayValidator.valid_answer_for_question?(answer_cards, last_question)
+    end
+
+    test "rejects single answer matching rank when answer is question card (8H after 8D)" do
+      # 8 is a question card, so it cannot be used as an answer
+      # Even though it matches by rank, it should be rejected
+      answer_cards = [%Card{rank: "8", suit: "hearts"}]
+      last_question = %Card{rank: "8", suit: "diamonds"}
+
+      refute PlayValidator.valid_answer_for_question?(answer_cards, last_question)
     end
 
     test "accepts single answer matching by suit (not rank, since that would require Q or 8)" do
@@ -884,6 +983,18 @@ defmodule Kadi.Games.PlayValidatorTest do
 
     test "rejects question combo where answer doesn't match last question" do
       top_card = %Card{suit: "hearts", rank: "5"}
+
+      cards = [
+        %Card{rank: "8", suit: "hearts"},
+        %Card{rank: "8", suit: "diamonds"},
+        %Card{rank: "2", suit: "hearts"}
+      ]
+
+      refute PlayValidator.valid_play?(cards, top_card, [])
+    end
+
+    test "rejects question combo with answer when first question doesn't match top card" do
+      top_card = %Card{suit: "diamonds", rank: "5"}
 
       cards = [
         %Card{rank: "8", suit: "hearts"},

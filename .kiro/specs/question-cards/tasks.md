@@ -50,7 +50,7 @@ This implementation plan breaks down the question card feature into discrete, ma
   - Ensure first question card matches top card by suit or rank
   - _Requirements: 1.1, 1.2, 10.2_
 
-- [ ] 2. Add unit tests for PlayValidator question card logic
+- [x] 2. Add unit tests for PlayValidator question card logic
   - Test question card detection helpers
   - Test combo splitting with various scenarios
   - Test question sequence validation
@@ -58,14 +58,13 @@ This implementation plan breaks down the question card feature into discrete, ma
   - Test integration with valid_play?/3
   - _Requirements: All validation requirements_
 
-- [ ] 2.1 Test question card detection
-  - Test `all_queens?/1` with all Q cards, mixed cards, empty list
-  - Test `all_eights?/1` with all 8 cards, mixed cards, empty list
-  - Test `all_question_cards?/1` with Q only, 8 only, mixed Q/8, non-questions
-  - Test `is_question_card?/1` with Q, 8, and non-question cards
+- [x] 2.1 Test question card detection
+  - Test `all_question_cards?/1` with Q only, 8 only, mixed Q/8, non-questions (tested through `valid_question_sequence?/1`)
+  - Test `is_question_card?/1` with Q, 8, and non-question cards (tested through `valid_question_sequence?/1`)
+  - Note: `all_queens?/1` and `all_eights?/1` were removed as unused dead code
   - _Requirements: 1.1, 1.2_
 
-- [ ] 2.2 Test combo splitting
+- [x] 2.2 Test combo splitting
   - Test splitting `[8H, 8D, 2D]` → `{[8H, 8D], [2D]}`
   - Test splitting `[8H, 8D]` → `{[8H, 8D], []}`
   - Test splitting `[8H, 8D, 4D, 4H]` → `{[8H, 8D], [4D, 4H]}`
@@ -73,7 +72,7 @@ This implementation plan breaks down the question card feature into discrete, ma
   - Test splitting `[8H, 8D, QD]` → `{[8H, 8D, QD], []}` (Q at end is question)
   - _Requirements: 1.2, 3.5, 4.5, 10.5_
 
-- [ ] 2.3 Test question sequence validation
+- [x] 2.3 Test question sequence validation
   - Test valid sequence: `[8H, 8D]` (match by rank)
   - Test valid sequence: `[8H, QH]` (match by suit)
   - Test valid sequence: `[8H, QH, QD, 8D]` (mixed, all match)
@@ -81,7 +80,7 @@ This implementation plan breaks down the question card feature into discrete, ma
   - Test single question card: `[8H]` (always valid)
   - _Requirements: 4.1, 4.3_
 
-- [ ] 2.4 Test answer validation
+- [x] 2.4 Test answer validation
   - Test single answer matching suit: `[2D]` after `[8D]`
   - Test single answer matching rank: `[8H]` after `[8D]` (but 8 is question, so invalid)
   - Test answer combo: `[4D, 4H]` after `[8D]` (first matches suit, same rank)
@@ -89,7 +88,7 @@ This implementation plan breaks down the question card feature into discrete, ma
   - Test invalid answer combo: `[4D, 5D]` after `[8D]` (different ranks)
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 6.2, 6.3, 6.4_
 
-- [ ] 2.5 Test valid_play?/3 with question cards
+- [x] 2.5 Test valid_play?/3 with question cards
   - Test complete play: `[8H, 8D, 2D]` on top card `5H` (8H matches suit)
   - Test incomplete play: `[8H, 8D]` on top card `5H` (8H matches suit)
   - Test invalid play: `[8H, 8D, 2H]` on top card `5D` (8H doesn't match)
