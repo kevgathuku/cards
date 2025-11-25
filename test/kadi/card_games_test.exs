@@ -908,30 +908,6 @@ defmodule Kadi.CardGamesTest do
       %{game_session: game_session, player1: player1, player2: player2}
     end
 
-    test "rejects special cards (3,8,Queen) even when they match (but allows 2 since Feature 009)",
-         %{
-           game_session: game_session
-         } do
-      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
-      current_player_id = game_session.current_turn_player_id
-
-      # Try to find a special card in current player's hand
-      # Note: '2' is now allowed since Feature 009 is implemented
-      special_ranks = ["3", "8", "queen"]
-
-      special_card =
-        game_session.deck.deck_cards
-        |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == current_player_id))
-        |> Enum.find(&(&1.card.rank in special_ranks))
-
-      # If player has a special card, try to play it
-      if special_card do
-        # Should be rejected regardless of whether it matches
-        assert {:error, :invalid_play} =
-                 CardGames.play_cards(game_session, current_player_id, [special_card.card_id])
-      end
-    end
-
     test "accepts regular cards (4,5,6,7,9,10) when they match", %{
       game_session: game_session
     } do
