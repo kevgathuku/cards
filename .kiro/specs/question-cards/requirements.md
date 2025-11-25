@@ -101,15 +101,17 @@ This feature introduces question card mechanics for Q (Queen) and 8 cards in the
 4. WHEN a player plays a combo with an answer, THE System SHALL validate the answer matches the suit of the last question card
 5. WHEN a player plays only question cards without an answer, THE System SHALL activate question_active state
 
-### Requirement 8: Starting Card Exclusion
+### Requirement 8: Starting Card Behavior
 
-**User Story:** As a player starting a new game, I expect Q and 8 cards to be excluded from starting card selection, so that the game begins with a simple card.
+**User Story:** As a player starting a new game, I expect Q and 8 cards to be allowed as starting cards and behave like regular cards, so that the game can begin with any card.
 
 #### Acceptance Criteria
 
-1. WHEN the System selects a starting card for a new game, THE System SHALL exclude Q cards from selection
-2. WHEN the System selects a starting card for a new game, THE System SHALL exclude 8 cards from selection
-3. WHEN the System selects a starting card, THE System SHALL only choose from regular cards (4, 5, 6, 7, 9, 10)
+1. WHEN the System selects a starting card for a new game, THE System SHALL allow Q cards to be selected
+2. WHEN the System selects a starting card for a new game, THE System SHALL allow 8 cards to be selected
+3. WHEN a Q or 8 is the starting card (top card on played pile), THE System SHALL treat it as a regular card for matching purposes
+4. WHEN a player plays a card on top of a Q or 8 starting card, THE System SHALL validate by suit or rank matching only
+5. WHEN a Q or 8 is the top card from the starting card or recycled pile, THE System SHALL NOT trigger any question card effects
 
 ### Requirement 9: Last Card Handling
 

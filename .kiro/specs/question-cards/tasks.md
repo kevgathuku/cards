@@ -96,12 +96,13 @@ This implementation plan breaks down the question card feature into discrete, ma
   - Test question ending with Q/8: `[8H, 8D, QD]` (all questions)
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 10.1, 10.2, 10.5_
 
-- [ ] 3. Update starting card selection to exclude Q and 8
-  - Modify `select_starting_card/1` in CardGames context
-  - Filter out Q and 8 cards from selection
-  - Ensure only regular cards (4, 5, 6, 7, 9, 10) can be starting cards
-  - Add test to verify Q and 8 are never selected as starting cards
-  - _Requirements: 8.1, 8.2, 8.3_
+- [x] 3. Update starting card selection to allow Q and 8
+  - Modify `select_start_card/1` in CardGames context (line 1370)
+  - Remove "8" and "queen" from the special_ranks exclusion list
+  - Keep "2", "3", and "jack" in the exclusion list
+  - Add test to verify Q and 8 can be selected as starting cards
+  - Verify that when Q or 8 is the starting card, it behaves like a regular card (no question effect)
+  - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
 - [ ] 4. Add question draw prompt logic to CardGames context
   - Modify `play_cards/3` to detect incomplete question plays
@@ -360,11 +361,12 @@ This implementation plan breaks down the question card feature into discrete, ma
   - _Requirements: 12.1, 12.2, 12.3, 12.4_
 
 - [ ] 8.5 E2E: Edge cases
-  - Test Q and 8 excluded from starting card (run multiple games)
+  - Test Q or 8 as starting card (allowed, behaves like regular card)
+  - Test playing regular card on top of Q/8 starting card (matches by suit/rank)
   - Test last card as question without answer (draw required)
   - Test deck exhaustion during question draw (recycle works)
   - Test question with answer combo `[8H, 8D, 4D, 4H]`
-  - _Requirements: 8.1, 8.2, 8.3, 9.1, 9.2, 9.5, 13.5, 6.2, 6.3, 6.4_
+  - _Requirements: 9.1, 9.2, 9.5, 13.5, 6.2, 6.3, 6.4_
 
 - [ ] 9. Update documentation
   - Create feature documentation file
