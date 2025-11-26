@@ -104,7 +104,7 @@ This implementation plan breaks down the question card feature into discrete, ma
   - Verify that when Q or 8 is the starting card, it behaves like a regular card (no question effect)
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 4. Add question draw prompt logic to CardGames context
+- [x] 4. Add question draw prompt logic to CardGames context
   - Modify `play_cards/3` to detect incomplete question plays
   - Return special result indicating draw is needed
   - Add `answer_question_by_drawing/2` function to draw one card
@@ -120,7 +120,7 @@ This implementation plan breaks down the question card feature into discrete, ma
   - Move cards to played pile in both cases
   - _Requirements: 1.1, 1.2, 1.4, 1.5_
 
-- [ ] 4.2 Implement answer_question_by_drawing/2
+- [x] 4.2 Implement answer_question_by_drawing/2
   - Create new function `answer_question_by_drawing(game_session, player_id)`
   - Validate it's the player's turn
   - Draw one card from deck to player's hand
@@ -129,7 +129,7 @@ This implementation plan breaks down the question card feature into discrete, ma
   - Broadcast game update
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 13.5_
 
-- [ ] 4.3 Handle deck exhaustion during question draw
+- [x] 4.3 Handle deck exhaustion during question draw
   - In `answer_question_by_drawing/2`, check if deck is empty
   - If empty, call `recycle_played_stack/1` before drawing
   - Ensure at least one card remains in played pile (the question card)

@@ -1625,6 +1625,156 @@ defmodule Kadi.CardGames do
   end
 
   @doc """
+  Draws a card as an answer to a question card (Q or 8).
+
+  When a player plays question cards without an answer, they must draw one card
+  from the deck. This function handles that draw and advances the turn.
+
+  ## Parameters
+  - game_session: The current game session
+  - player_id: The ID of the player who needs to draw
+
+  ## Returns
+  - `{:ok, updated_game_session}` with card drawn and turn advanced
+  - `{:error, reason}` if operation fails
+
+  ## Examples
+
+      iex> answer_question_by_drawing(game_session, player.id)
+      {:ok, %GameSession{}}
+
+      iex> answer_question_by_drawing(game_session, wrong_player.id)
+      {:error, :not_your_turn}
+  """
+  def answer_question_by_drawing(game_session, player_id) do
+    # 1. Validate it's the player's turn
+    with :ok <- validate_current_turn(game_session, player_id) do
+      # 2. Preload associations
+      game_session = Repo.preload(game_session, [:created_by, deck: [deck_cards: :card]])
+
+      # 3. Get deck cards
+      deck_cards =
+        game_session.deck.deck_cards
+        |> Enum.filter(&(&1.location_type == "deck"))
+        |> Enum.sort_by(& &1.order_index)
+
+      case deck_cards do
+        [] ->
+          # 4. If deck is empty, recycle played pile first
+          case recycle_played_stack(game_session) do
+            {:ok, recycled_game} ->
+              # Retry drawing from recycled deck
+              recycled_game =
+                Repo.preload(recycled_game, [deck: [deck_cards: :card]], force: true)
+
+              recycled_deck_cards =
+                recycled_game.deck.deck_cards
+                |> Enum.filter(&(&1.location_type == "deck"))
+                |> Enum.sort_by(& &1.order_index)
+
+              case recycled_deck_cards do
+                [] ->
+                  # Anomaly: No cards after recycle - skip player
+                  handle_draw_anomaly(recycled_game, player_id)
+
+                [card_to_draw | _] ->
+                  # Draw the card and advance turn
+                  do_answer_question_draw(recycled_game, player_id, card_to_draw)
+              end
+
+            {:error, :insufficient_cards_to_recycle} ->
+              # Anomaly: Cannot recycle - skip player
+              handle_draw_anomaly(game_session, player_id)
+
+            {:error, reason} ->
+              {:error, reason}
+          end
+
+        [card_to_draw | _] ->
+          # 5. Draw the card and advance turn
+          do_answer_question_draw(game_session, player_id, card_to_draw)
+      end
+    end
+  end
+
+  # Helper function to draw a card and advance turn for question answer
+  defp do_answer_question_draw(game_session, player_id, card_to_draw) do
+    # Get players and calculate next player
+    players = get_game_session_players(game_session.id)
+    next_player = get_next_player(players, player_id)
+
+    # Build transaction to move card and advance turn
+    multi =
+      Ecto.Multi.new()
+      |> Ecto.Multi.update(
+        :deck_card,
+        DeckCard.changeset(card_to_draw, %{
+          location_type: "player_hand",
+          player_id: player_id,
+          order_index: nil
+        })
+      )
+      |> Ecto.Multi.update(
+        :game_session,
+        GameSession.changeset(game_session, %{
+          current_turn_player_id: next_player.id
+        })
+      )
+
+    # Execute transaction
+    case Repo.transaction(multi) do
+      {:ok, %{game_session: updated_game_session}} ->
+        # Reload with all associations
+        reloaded_game_session =
+          GameSession
+          |> Repo.get!(updated_game_session.id)
+          |> Repo.preload(:created_by)
+
+        # Broadcast update
+        broadcast_game_update(reloaded_game_session)
+
+        {:ok, reloaded_game_session}
+
+      {:error, _failed_op, failed_value, _changes} ->
+        {:error, failed_value}
+    end
+  end
+
+  # Helper function to handle anomaly when no cards available for question draw
+  defp handle_draw_anomaly(game_session, player_id) do
+    players = get_game_session_players(game_session.id)
+    next_player = get_next_player(players, player_id)
+
+    # Emit anomaly event
+    emit_anomaly_skip_event(
+      game_session.id,
+      player_id,
+      "no_cards_for_question_draw"
+    )
+
+    # Update game session with next player
+    updated_game =
+      GameSession.changeset(game_session, %{
+        current_turn_player_id: next_player.id
+      })
+      |> Repo.update!()
+
+    # Get player name for banner message
+    player = Repo.get!(Kadi.Accounts.Player, player_id)
+
+    # Broadcast anomaly banner
+    broadcast_anomaly_banner(
+      updated_game,
+      "Deck exhausted. Skipping #{player.email} this turn."
+    )
+
+    # Broadcast game update
+    broadcast_game_update(updated_game)
+
+    {:ok, updated_game}
+  end
+
+  @doc """
   Allows the current player to select a suit after playing an Ace.
 
   Validates that the game is in the "select_suit" state and the player is the
