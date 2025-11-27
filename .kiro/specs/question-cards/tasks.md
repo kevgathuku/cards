@@ -136,7 +136,10 @@ This implementation plan breaks down the question card feature into discrete, ma
   - If recycling fails, handle gracefully (skip player with notification)
   - _Requirements: 2.5, 13.5_
 
-- [ ] 5. Add integration tests for question card plays
+- [ ] 5. Write failing integration tests for question card plays (TDD)
+  - **Write tests FIRST before any implementation**
+  - Tests should fail initially (no implementation yet)
+  - Verify tests fail with expected errors
   - Test complete question play (with answer)
   - Test incomplete question play (without answer)
   - Test drawing as answer to question
@@ -144,236 +147,205 @@ This implementation plan breaks down the question card feature into discrete, ma
   - Test last card scenarios
   - _Requirements: All requirements_
 
-- [ ] 5.1 Test complete question play
+- [ ] 5.1 Write failing test: complete question play
+  - **Write test FIRST - it should fail**
   - Setup: Player has `[8H, 8D, 2D]`, top card is `5H`
-  - Play all three cards
-  - Verify cards moved to played pile
-  - Verify turn advanced to next player
-  - Verify no draw prompt
+  - Test should verify: cards moved to played pile, turn advanced, no draw prompt
+  - Run test and verify it fails (implementation doesn't exist yet)
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
-- [ ] 5.2 Test incomplete question play
+- [ ] 5.2 Write failing test: incomplete question play
+  - **Write test FIRST - it should fail**
   - Setup: Player has `[8H, 8D]`, top card is `5H`
-  - Play both cards
-  - Verify cards moved to played pile
-  - Verify turn did NOT advance
-  - Verify draw prompt is needed
+  - Test should verify: cards moved to played pile, turn did NOT advance, draw prompt needed
+  - Run test and verify it fails (implementation doesn't exist yet)
   - _Requirements: 1.1, 1.2, 2.1_
 
-- [ ] 5.3 Test drawing as answer
+- [ ] 5.3 Write failing test: drawing as answer
+  - **Write test FIRST - it should fail**
   - Setup: Player played incomplete question, needs to draw
-  - Call `answer_question_by_drawing/2`
-  - Verify one card drawn to player's hand
-  - Verify turn advanced to next player
+  - Test should call `answer_question_by_drawing/2` and verify: one card drawn, turn advanced
+  - Run test and verify it fails (function doesn't exist yet)
   - _Requirements: 2.1, 2.2, 2.3, 2.4_
 
-- [ ] 5.4 Test question with Ace answer
+- [ ] 5.4 Write failing test: question with Ace answer
+  - **Write test FIRST - it should fail**
   - Setup: Player has `[8H, 8D, AH]`, top card is `5H`
-  - Play all three cards
-  - Verify cards moved to played pile
-  - Verify suit selection is triggered (action_type: "select_suit")
-  - Verify turn did NOT advance (waiting for suit selection)
+  - Test should verify: cards moved, suit selection triggered, turn did NOT advance
+  - Run test and verify it fails (implementation doesn't exist yet)
   - _Requirements: 5.1, 13.3_
 
-- [ ] 5.5 Test question with penalty answer (2 or 3)
+- [ ] 5.5 Write failing test: question with penalty answer (2 or 3)
+  - **Write test FIRST - it should fail**
   - Setup: Player has `[8H, 8D, 2D]`, top card is `5H`
-  - Play all three cards
-  - Verify cards moved to played pile
-  - Verify penalty activated for next player
-  - Verify turn advanced to next player
+  - Test should verify: cards moved, penalty activated, turn advanced
+  - Run test and verify it fails (implementation doesn't exist yet)
   - _Requirements: 5.2, 5.3, 13.4_
 
-- [ ] 5.6 Test question with Jack answer
+- [ ] 5.6 Write failing test: question with Jack answer
+  - **Write test FIRST - it should fail**
   - Setup: Player has `[8H, 8D, JD]`, top card is `5H`
-  - Play all three cards
-  - Verify cards moved to played pile
-  - Verify next player is skipped
-  - Verify turn advanced to player after next
+  - Test should verify: cards moved, next player skipped, turn advanced to player after next
+  - Run test and verify it fails (implementation doesn't exist yet)
   - _Requirements: 5.4, 13.1_
 
-- [ ] 5.7 Test question with King answer
+- [ ] 5.7 Write failing test: question with King answer
+  - **Write test FIRST - it should fail**
   - Setup: Player has `[8H, 8D, KD]`, top card is `5H`
-  - Play all three cards
-  - Verify cards moved to played pile
-  - Verify direction is reversed
-  - Verify turn advanced in new direction
+  - Test should verify: cards moved, direction reversed, turn advanced in new direction
+  - Run test and verify it fails (implementation doesn't exist yet)
   - _Requirements: 5.5, 13.2_
 
-- [ ] 5.8 Test last card as question without answer
+- [ ] 5.8 Write failing test: last card as question without answer
+  - **Write test FIRST - it should fail**
   - Setup: Player has only `[8H]`, top card is `5H`
-  - Play the card
-  - Verify card moved to played pile
-  - Verify player status is NOT "cardless"
-  - Verify draw prompt is needed
-  - Player draws card
-  - Verify player has 1 card again
+  - Test should verify: card moved, player NOT cardless, draw prompt needed, after draw player has 1 card
+  - Run test and verify it fails (implementation doesn't exist yet)
   - _Requirements: 9.1, 9.2, 9.5_
 
-- [ ] 5.9 Test last cards as question with answer
+- [ ] 5.9 Write failing test: last cards as question with answer
+  - **Write test FIRST - it should fail**
   - Setup: Player has only `[8H, 2H]`, top card is `5H`
-  - Play both cards
-  - Verify cards moved to played pile
-  - Verify player status is "cardless"
-  - Verify turn advanced to next player
+  - Test should verify: cards moved, player is cardless, turn advanced
+  - Run test and verify it fails (implementation doesn't exist yet)
   - _Requirements: 9.3, 9.4_
 
-- [ ] 5.10 Test deck exhaustion during question draw
+- [ ] 5.10 Write failing test: deck exhaustion during question draw
+  - **Write test FIRST - it should fail**
   - Setup: Player needs to draw for question, deck is empty
-  - Call `answer_question_by_drawing/2`
-  - Verify played pile is recycled
-  - Verify one card drawn to player's hand
-  - Verify turn advanced
+  - Test should verify: played pile recycled, one card drawn, turn advanced
+  - Run test and verify it fails (implementation doesn't exist yet)
   - _Requirements: 2.5, 13.5_
 
-- [ ] 6. Add LiveView integration for question draw prompt
-  - Add `pending_question_draw` socket assign
-  - Handle `:needs_draw` result from `play_cards/3`
-  - Add "answer_question_draw" event handler
-  - Update UI to show draw button when needed
-  - Add question banner to indicate active question
+- [ ] 5.11 Implement code to make integration tests pass
+  - **Only after all tests are written and failing**
+  - Implement the question card logic in CardGames context
+  - Run tests after each change to see progress
+  - All tests in task 5 should pass when complete
+  - _Requirements: All requirements from tasks 5.1-5.10_
+
+- [ ] 6. Write failing LiveView tests for question draw prompt (TDD)
+  - **Write tests FIRST before any LiveView implementation**
+  - Tests should fail initially (no implementation yet)
+  - Verify tests fail with expected errors
+  - Test socket assigns, event handlers, UI elements
   - _Requirements: 2.1, 11.1, 11.2, 11.3, 11.4, 11.5_
 
-- [ ] 6.1 Add socket assign for question state
-  - In `mount/3`, initialize `pending_question_draw: false`
-  - In `assign_game_state/2`, reset `pending_question_draw: false`
-  - Add helper to check if current player needs to draw
+- [ ] 6.1 Write failing test: socket assign for question state
+  - **Write test FIRST - it should fail**
+  - Test should verify `pending_question_draw` is initialized to false in mount
+  - Test should verify it resets to false in assign_game_state
+  - Run test and verify it fails (implementation doesn't exist yet)
   - _Requirements: 2.1, 11.1_
 
-- [ ] 6.2 Handle needs_draw result in play_cards event
-  - In `handle_event("play_cards", ...)`, check result
-  - If `{:ok, :needs_draw, game}`, set `pending_question_draw: true`
-  - Broadcast game update as usual
-  - Don't advance turn (already handled in context)
+- [ ] 6.2 Write failing test: handle needs_draw result in play_cards event
+  - **Write test FIRST - it should fail**
+  - Test should verify when play_cards returns `:needs_draw`, socket sets `pending_question_draw: true`
+  - Run test and verify it fails (implementation doesn't exist yet)
   - _Requirements: 1.4, 2.1_
 
-- [ ] 6.3 Implement answer_question_draw event handler
-  - Add `handle_event("answer_question_draw", _params, socket)`
-  - Call `CardGames.answer_question_by_drawing/2`
-  - On success, clear `pending_question_draw` flag
-  - Broadcast game update
-  - Handle errors gracefully
+- [ ] 6.3 Write failing test: answer_question_draw event handler
+  - **Write test FIRST - it should fail**
+  - Test should verify clicking answer_question_draw calls CardGames function and clears flag
+  - Run test and verify it fails (implementation doesn't exist yet)
   - _Requirements: 2.2, 2.3, 2.4_
 
-- [ ] 6.4 Add draw button to UI template
-  - In `game_live.html.heex`, add conditional button
-  - Show when `@pending_question_draw` and it's player's turn
-  - Button text: "Draw Card (Answer Question)"
-  - Style with blue background and pulse animation
-  - Wire to "answer_question_draw" event
+- [ ] 6.4 Write failing test: draw button in UI template
+  - **Write test FIRST - it should fail**
+  - Test should verify button appears when pending_question_draw is true
+  - Test should verify button has correct text and event binding
+  - Run test and verify it fails (UI doesn't exist yet)
   - _Requirements: 11.1, 11.3_
 
-- [ ] 6.5 Add question banner to UI
-  - Add banner above game board when `@pending_question_draw`
-  - Show message: "Question Active: Draw a card or play a matching card"
-  - Style with blue background and info icon
-  - Hide when question is not active
+- [ ] 6.5 Write failing test: question banner in UI
+  - **Write test FIRST - it should fail**
+  - Test should verify banner appears with correct message when pending_question_draw is true
+  - Run test and verify it fails (UI doesn't exist yet)
   - _Requirements: 11.1, 11.2, 11.5_
 
-- [ ] 6.6 Prevent playing cards when draw is pending
-  - In `handle_event("play_cards", ...)`, check `@pending_question_draw`
-  - If true, reject play with error message
-  - Show flash: "You must draw a card to answer the question"
-  - Don't execute play
+- [ ] 6.6 Write failing test: prevent playing cards when draw is pending
+  - **Write test FIRST - it should fail**
+  - Test should verify playing cards when pending_question_draw is true shows error
+  - Run test and verify it fails (implementation doesn't exist yet)
   - _Requirements: 10.3, 10.4_
 
-- [ ] 7. Add LiveView tests for question card UI
-  - Test draw button appears when question pending
-  - Test draw button hidden when no question
-  - Test clicking draw button draws card
-  - Test playing cards when draw pending is rejected
-  - Test question banner displays correctly
+- [ ] 6.7 Implement LiveView code to make tests pass
+  - **Only after all tests are written and failing**
+  - Add socket assigns, event handlers, UI elements
+  - Run tests after each change to see progress
+  - All tests in task 6 should pass when complete
+  - _Requirements: All requirements from tasks 6.1-6.6_
+
+- [ ] 7. Write failing LiveView integration tests (TDD)
+  - **Write tests FIRST before implementation**
+  - Tests should fail initially
+  - Test full user interactions with LiveView
   - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5_
 
-- [ ] 7.1 Test draw button visibility
-  - Render LiveView with `pending_question_draw: true`
-  - Assert draw button is visible
-  - Render with `pending_question_draw: false`
-  - Assert draw button is not visible
+- [ ] 7.1 Write failing test: draw button visibility
+  - **Write test FIRST - it should fail**
+  - Test should render LiveView and check button visibility based on pending_question_draw
+  - Run test and verify it fails
   - _Requirements: 11.3, 11.4_
 
-- [ ] 7.2 Test draw button functionality
-  - Setup: Player needs to draw for question
-  - Click draw button
-  - Verify `answer_question_by_drawing/2` was called
-  - Verify player has one more card
-  - Verify turn advanced
+- [ ] 7.2 Write failing test: draw button functionality
+  - **Write test FIRST - it should fail**
+  - Test should simulate clicking button and verify card drawn, turn advanced
+  - Run test and verify it fails
   - _Requirements: 2.2, 2.3, 2.4, 11.3_
 
-- [ ] 7.3 Test playing cards when draw pending
-  - Setup: Player needs to draw for question
-  - Attempt to play cards
-  - Verify play is rejected
-  - Verify error message is shown
-  - Verify `pending_question_draw` still true
+- [ ] 7.3 Write failing test: playing cards when draw pending
+  - **Write test FIRST - it should fail**
+  - Test should attempt to play cards and verify rejection with error message
+  - Run test and verify it fails
   - _Requirements: 10.3, 10.4_
 
-- [ ] 7.4 Test question banner
-  - Render LiveView with `pending_question_draw: true`
-  - Assert banner is visible with correct message
-  - Render with `pending_question_draw: false`
-  - Assert banner is not visible
+- [ ] 7.4 Write failing test: question banner
+  - **Write test FIRST - it should fail**
+  - Test should render LiveView and check banner visibility and message
+  - Run test and verify it fails
   - _Requirements: 11.1, 11.2, 11.5_
 
-- [ ] 8. Add end-to-end tests for question card scenarios
-  - Test complete question card flow (play → no draw)
-  - Test incomplete question card flow (play → draw)
-  - Test question with special card answers
-  - Test next player plays normally after question
-  - Test edge cases (last card, deck exhaustion)
+- [ ] 8. Write failing end-to-end tests (TDD)
+  - **Write tests FIRST before implementation**
+  - Tests should fail initially
+  - Test complete user flows from start to finish
   - _Requirements: All requirements_
 
-- [ ] 8.1 E2E: Complete question play
-  - Create game with 2 players
-  - Give player 1: `[8H, 8D, 2D]`, top card: `5H`
-  - Player 1 plays all three cards
-  - Verify cards on played pile
-  - Verify turn is now player 2
-  - Verify no draw button shown
+- [ ] 8.1 Write failing E2E test: Complete question play
+  - **Write test FIRST - it should fail**
+  - Test full flow: create game, play question+answer combo, verify results
+  - Run test and verify it fails
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
-- [ ] 8.2 E2E: Incomplete question play with draw
-  - Create game with 2 players
-  - Give player 1: `[8H, 8D]`, top card: `5H`
-  - Player 1 plays both cards
-  - Verify draw button appears
-  - Player 1 clicks draw button
-  - Verify player 1 has 1 card
-  - Verify turn is now player 2
+- [ ] 8.2 Write failing E2E test: Incomplete question play with draw
+  - **Write test FIRST - it should fail**
+  - Test full flow: play questions only, draw button appears, click to draw
+  - Run test and verify it fails
   - _Requirements: 1.1, 1.2, 2.1, 2.2, 2.3, 2.4_
 
-- [ ] 8.3 E2E: Question with Ace answer
-  - Create game with 2 players
-  - Give player 1: `[8H, 8D, AH]`, top card: `5H`
-  - Player 1 plays all three cards
-  - Verify suit selection buttons appear
-  - Player 1 selects suit
-  - Verify turn is now player 2
-  - Verify action_suit is set
+- [ ] 8.3 Write failing E2E test: Question with Ace answer
+  - **Write test FIRST - it should fail**
+  - Test full flow: play question+Ace, suit selection triggered
+  - Run test and verify it fails
   - _Requirements: 5.1, 13.3_
 
-- [ ] 8.4 E2E: Next player plays normally
-  - Create game with 2 players
-  - Player 1 plays question and draws
-  - Top card is now `8D`
-  - Give player 2: `[4D, 5H]`
-  - Player 2 can play `4D` (matches suit)
-  - Verify play succeeds
+- [ ] 8.4 Write failing E2E test: Next player plays normally
+  - **Write test FIRST - it should fail**
+  - Test that after question is resolved, next player plays with normal rules
+  - Run test and verify it fails
   - _Requirements: 12.1, 12.2, 12.3, 12.4_
 
-- [ ] 8.5 E2E: Edge cases
-  - Test Q or 8 as starting card (allowed, behaves like regular card)
-  - Test playing regular card on top of Q/8 starting card (matches by suit/rank)
-  - Test last card as question without answer (draw required)
-  - Test deck exhaustion during question draw (recycle works)
-  - Test question with answer combo `[8H, 8D, 4D, 4H]`
+- [ ] 8.5 Write failing E2E test: Edge cases
+  - **Write test FIRST - it should fail**
+  - Test multiple edge cases: starting card, last card, deck exhaustion, answer combos
+  - Run test and verify it fails
   - _Requirements: 9.1, 9.2, 9.5, 13.5, 6.2, 6.3, 6.4_
 
-- [ ] 9. Update documentation
-  - Create feature documentation file
-  - Document question card mechanics
-  - Document validation rules
-  - Document UI elements
-  - Document integration with other features
+- [ ] 9. Update documentation (after all tests pass)
+  - **Only after all implementation is complete and tests pass**
+  - Create comprehensive feature documentation
+  - Document all mechanics, rules, and edge cases
   - _Requirements: All requirements_
 
 - [ ] 9.1 Create docs/question-card-feature.md
