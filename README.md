@@ -1,319 +1,199 @@
 # Kadi
 
-A multiplayer online card game platform built with Elixir and Phoenix LiveView, focused on implementing "Poker" (a card game popular in Kenya, also known as "Kadi").
+A multiplayer online card game built with Clojure, implementing "Poker" (a card game popular in Kenya, also known as "Kadi").
+
+> **Note**: This is a rewrite from a previous Elixir/Phoenix implementation. The complete game specification and lessons learned are documented in [`docs/CLOJURE_BOOTSTRAP_BRIEF.md`](docs/CLOJURE_BOOTSTRAP_BRIEF.md).
 
 ## Quick Start
 
-### Installation
+### Prerequisites
 
-- [Install Elixir](https://elixir-lang.org/install.html) (version 1.17+)
-- Clone the repo: `git clone https://github.com/yourusername/kadi.git`
-- Run `mix setup` to install and setup dependencies
-- Run `.githooks/install.sh` to install git hooks (optional but recommended)
-- Run `mix test` for a basic sanity check
+- [Clojure CLI](https://clojure.org/guides/install_clojure) (version 1.11+)
+- Java 17+ (for running Clojure)
+
+### Setup
+
+```bash
+# Clone the repo
+git clone https://github.com/yourusername/kadi.git
+cd kadi
+
+# Download dependencies
+clj -P
+
+# Run tests
+clj -M:test
+```
 
 ### Running the Application
 
-Start the Phoenix server:
 ```bash
-mix phx.server
-# Or with IEx console for debugging:
-iex -S mix phx.server
+# Start the server
+clj -M:run
 ```
 
-Visit [`localhost:4000`](http://localhost:4000) in your browser.
+Visit [`localhost:3000`](http://localhost:3000) in your browser.
 
----
+### REPL Development
 
-## For New Contributors
-
-### Understanding the Game Flow
-
-Kadi uses a **database-driven architecture** where all game state is persisted in PostgreSQL. Here's how a typical game works:
-
-1. **Player Registration** - Players create accounts
-2. **Create Game Session** - A player creates a new game (status: "lobby")
-3. **Players Join** - Other players join the game session
-4. **Start Game** - Host starts the game, cards are dealt (status: "live")
-5. **Gameplay** - Players take turns drawing or playing cards
-6. **Game End** - Game concludes when a player plays their last card
-
-### Interactive Console Examples
-
-Run these commands in an IEx session (`iex -S mix`):
-
-#### Example 1: Complete Game Flow
-
-```elixir
-# Import required modules
-alias Kadi.{Accounts, CardGames, Repo}
-
-# 1. Register players (in production, this happens via web UI)
-{:ok, player1} = Accounts.register_player(%{
-  email: "alice@example.com",
-  password: "securepassword123"
-})
-
-{:ok, player2} = Accounts.register_player(%{
-  email: "bob@example.com", 
-  password: "securepassword123"
-})
-
-{:ok, player3} = Accounts.register_player(%{
-  email: "charlie@example.com",
-  password: "securepassword123"
-})
-
-# 2. Create a game session
-{:ok, game_session} = CardGames.create_game_session(player1, %{
-  short_code: "GAME123"
-})
-
-IO.inspect(game_session.status)  # => "lobby"
-
-# 3. Other players join the game
-{:ok, _} = CardGames.join_game_session(player2, game_session.id)
-{:ok, _} = CardGames.join_game_session(player3, game_session.id)
-
-# 4. Start the game (must have at least 2 players)
-{:ok, started_game} = CardGames.start_game(game_session)
-
-IO.inspect(started_game.status)  # => "live"
-IO.inspect(started_game.current_turn_player_id)  # => Random player ID
-
-# 5. Verify the game state is correct
-started_game = Repo.preload(started_game, [deck: [deck_cards: :card]])
-
-# Check each player has 4 cards
-player1_cards = 
-  started_game.deck.deck_cards
-  |> Enum.filter(&(&1.location_type == "player_hand" && &1.player_id == player1.id))
-
-IO.inspect(length(player1_cards))  # => 4
-
-player2_cards = 
-  started_game.deck.deck_cards
-  |> Enum.filter(&(&1.location_type == "player_hand" && &1.player_id == player2.id))
-
-IO.inspect(length(player2_cards))  # => 4
-
-player3_cards = 
-  started_game.deck.deck_cards
-  |> Enum.filter(&(&1.location_type == "player_hand" && &1.player_id == player3.id))
-
-IO.inspect(length(player3_cards))  # => 4
-
-# Check there's a start card on the played pile
-played_cards = 
-  started_game.deck.deck_cards
-  |> Enum.filter(&(&1.location_type == "played_stack"))
-
-IO.inspect(length(played_cards))  # => 1 (the start card)
-
-# Check remaining deck has cards
-deck_cards = 
-  started_game.deck.deck_cards
-  |> Enum.filter(&(&1.location_type == "deck"))
-
-IO.inspect(length(deck_cards))  # => 39 (52 - 12 dealt - 1 start card)
-
-# Verify the start card is NOT a special card (2, 3, J, Q, K, A)
-start_card = List.first(played_cards)
-start_card = Repo.preload(start_card, :card)
-IO.inspect(start_card.card.rank)  # => "4", "5", "6", "7", "8", "9", or "10"
+```bash
+# Start REPL with nREPL for editor connection
+clj -M:repl
 ```
 
-#### Example 2: Querying Game State
+```clojure
+;; In REPL
+(require '[kadi.game :as game])
+(require '[kadi.db :as db])
 
-```elixir
-alias Kadi.{CardGames, Repo}
+;; Initialize database
+(db/init!)
 
-# Get a game session by ID
-{:ok, game} = CardGames.get_game_session(1)
+;; Create and manipulate game state (pure functions)
+(def g (game/new-game {:id 1 :short-code "TEST" :created-by 1}))
+(def g (game/add-player g {:id 1 :name "Alice"}))
+(def g (game/add-player g {:id 2 :name "Bob"}))
+(def g (game/start-game g {}))
 
-# List all games a player is in
-games = CardGames.list_user_games(player1.id)
-IO.inspect(length(games))  # Number of games player1 is in
-
-# Check game details
-game = Repo.preload(game, [:created_by, :current_turn_player])
-IO.puts("Created by: #{game.created_by.email}")
-IO.puts("Status: #{game.status}")
-
-if game.current_turn_player do
-  IO.puts("Current turn: #{game.current_turn_player.email}")
-end
-```
-
-#### Example 3: Inspecting Card Distribution
-
-```elixir
-alias Kadi.{Repo}
-alias Kadi.Games.{GameSession, DeckCard}
-
-# Load a game with all associations
-game = Repo.get!(GameSession, 1)
-game = Repo.preload(game, [
-  :created_by,
-  :current_turn_player,
-  game_session_players: :player,
-  deck: [deck_cards: :card]
-])
-
-# Group cards by location
-cards_by_location = Enum.group_by(game.deck.deck_cards, & &1.location_type)
-
-IO.puts("Deck: #{length(cards_by_location["deck"] || [])} cards")
-IO.puts("Played: #{length(cards_by_location["played_stack"] || [])} cards")
-IO.puts("In hands: #{length(cards_by_location["player_hand"] || [])} cards")
-
-# Show each player's hand count
-game.game_session_players
-|> Enum.each(fn gsp ->
-  hand_size = 
-    game.deck.deck_cards
-    |> Enum.count(&(&1.location_type == "player_hand" && &1.player_id == gsp.player_id))
-  
-  IO.puts("#{gsp.player.email}: #{hand_size} cards")
-end)
+;; Play cards
+(game/apply-action g {:type :play-cards :player-id 1 :cards [...]})
 ```
 
 ---
 
-## Architecture Overview
+## Architecture
 
-### Database Schema
+### Core Philosophy
 
-- **`players`** - User accounts with authentication
-- **`game_sessions`** - Game instances (lobby, live, finished)
-- **`game_session_players`** - Join table for players in games
-- **`decks`** - One deck per game session
-- **`cards`** - 52 shared cards (suits × ranks)
-- **`deck_cards`** - Tracks card locations (deck, player_hand, played_stack)
+```
+Game state is a pure value (immutable map).
+State transitions are pure functions: (state, action) -> state
+Side effects (persistence, broadcasting) happen at the edges.
+```
 
-### Key Concepts
+### Project Structure
 
-1. **Database-Driven State** - All game state is in PostgreSQL, not in-memory
-2. **Turn Order** - Players ordered by join time (`inserted_at`), wraps around
-3. **Card Locations** - Cards move between: `deck` → `player_hand` → `played_stack`
-4. **Real-time Updates** - Phoenix PubSub broadcasts game state changes
-5. **Atomic Transactions** - Ecto.Multi ensures state consistency
+```
+src/kadi/
+├── core.clj        # Application entry point
+├── game.clj        # Pure game state & transitions
+├── cards.clj       # Card representation & utilities
+├── validation.clj  # Play validation (pure)
+├── db.clj          # SQLite persistence
+├── server.clj      # HTTP server
+├── routes.clj      # API routes
+└── handlers.clj    # Request handlers
 
-### Running Tests
+test/kadi/
+└── game_test.clj   # Pure function tests (no DB needed)
+
+docs/
+└── CLOJURE_BOOTSTRAP_BRIEF.md  # Complete game specification
+```
+
+### Database
+
+SQLite with INTEGER primary keys. Single file: `kadi.db`
+
+```bash
+sqlite3 kadi.db ".tables"
+sqlite3 kadi.db "SELECT * FROM games"
+```
+
+---
+
+## Game Rules
+
+### Card Types
+
+| Rank | Match Rule | Combo | Effect | Can Start |
+|------|------------|-------|--------|-----------|
+| 2 | Suit/Rank | Yes | Draw 2 penalty | No |
+| 3 | Suit/Rank | Yes | Draw 3 penalty | No |
+| 4-7,9,10 | Suit/Rank | Yes | None | Yes |
+| 8 | Suit/Rank | Q,8 | Question | Yes |
+| J | Suit/Rank | J only | Skip N players | No |
+| Q | Suit/Rank | Q,8 | Question | Yes |
+| K | Suit/Rank | No | Reverse direction | Yes |
+| A | Always | A only | Suit selection | Yes |
+
+### Key Rules
+
+- **Matching**: Play cards matching top card by suit OR rank
+- **Combos**: Multiple cards of same rank (except King)
+- **Aces**: Can always be played, trigger suit selection
+- **Penalties**: 2/3 cards force next player to draw (can be blocked)
+- **Questions**: Q/8 require an "answer" card or draw
+- **Cardless**: Playing K/J/2/3 as last card triggers cardless state (not a win)
+
+See [`docs/CLOJURE_BOOTSTRAP_BRIEF.md`](docs/CLOJURE_BOOTSTRAP_BRIEF.md) for complete rules.
+
+---
+
+## API
+
+### Games
+
+```bash
+# List games in lobby
+GET /api/games
+
+# Create game
+POST /api/games
+{"player-id": 1}
+
+# Get game state
+GET /api/games/:id
+
+# Join game
+POST /api/games/:id/join
+{"player-id": 2, "player-name": "Bob"}
+
+# Start game
+POST /api/games/:id/start
+
+# Game action
+POST /api/games/:id/action
+{"type": "play-cards", "player-id": 1, "cards": [...]}
+```
+
+---
+
+## Testing
 
 ```bash
 # Run all tests
-mix test
+clj -M:test
 
-# Run specific test file
-mix test test/kadi/card_games_test.exs
-
-# Run with warnings as errors
-mix test --warnings-as-errors
-
-# Run specific test at line number
-mix test test/kadi/card_games_test.exs:42
+# Tests are pure - no database setup required
 ```
 
-### Git Hooks
+---
 
-The project includes a pre-commit hook that automatically runs `mix format` on staged Elixir and Phoenix files.
+## Previous Implementation
 
-**Installation**:
+The Elixir/Phoenix implementation is preserved:
+
 ```bash
-.githooks/install.sh
+# View via tag
+git show v1.0-elixir:lib/kadi/games/play_validator.ex
+
+# Or checkout the archive branch
+git checkout archive/elixir-implementation
 ```
-
-This ensures code is properly formatted before commits. The hook will:
-- Run `mix format` on staged `.ex`, `.exs`, and `.heex` files
-- Prevent commit if formatting changes are needed
-- Show which files need to be re-staged after formatting
-
----
-
-## Game Rules (Poker/Kadi)
-
-- **Players**: 2-6 players
-- **Initial Deal**: 4 cards per player
-- **Start Card**: Cannot be 2, 3, J, Q, K, or A
-- **Turn Order**: Sequential, wraps around (affected by King and Jack)
-- **Actions**: Draw a card OR play a card (not both)
-- **Objective**: First to play all cards wins
-- **Penalty Cards**: Playing 2 or 3 forces next player to draw cards (unless blocked)
-- **Blocking**: Penalties can be blocked with Ace or matching penalty card
-
-### Special Cards
-
-**Implemented**:
-- **King**: Reverses turn order (clockwise ⟷ counter-clockwise). See [King Card Feature Documentation](docs/king-card-feature.md) for details.
-- **Jack**: Skips `N` players based on the number of Jacks played and integrates with the cardless state. See [Jack Card Feature Documentation](docs/jack-card-feature.md) for details.
-- **Ace**: Suit selection mechanic, suit enforcement, and penalty blocking. See [Ace Card Feature Documentation](docs/ace-card-feature.md) for details.
-- **2**: Draw penalty (2 cards) with blocking and transfer mechanics. See [Two Card Feature Documentation](docs/two-card-feature.md) for details.
-- **3**: Draw penalty (3 cards) with blocking and transfer mechanics. See [Three Card Feature Documentation](docs/three-card-feature.md) for details.
-
-**Coming Soon**:
-- **Queen / 8**: Question cards -> Need to be played in combination with an "answer" This could be:
-  - another card
-  - A combination of compatible cards (same suit as the question)
-  - Drawing a card if the player has no compatible card
-
----
-
-## Current State Machine
-
-```mermaid
-graph TD;
-  lobby --> |start_game| live;
-  live --> |draw_card| live;
-  live --> |play_card| live;
-  live --> |finish_game| complete;
-```
-
----
-
-## Features
-
-### Implemented Features
-- **Basic Gameplay**: Draw cards, play matching cards, turn-based mechanics
-- **Real-time Updates**: Phoenix LiveView with PubSub for live game state
-- **Player Authentication**: Registration, login, session management
-- **King Card (Feature 006)**: Direction reversal, cardless state, auto-draw mechanics - [Full Documentation](docs/king-card-feature.md)
-- **Jack Card (Feature 007)**: Skip mechanics, combo support, King interaction, telemetry - [Full Documentation](docs/jack-card-feature.md)
-- **Ace Card (Feature 008)**: Suit selection, suit enforcement with persistence, override mechanics - [Full Documentation](docs/ace-card-feature.md)
-- **Two Card (Feature 009)**: Draw penalty (2 cards), blocking, transfer, cross-blocking prevention - [Full Documentation](docs/two-card-feature.md)
-- **Three Card (Feature 010)**: Draw penalty (3 cards), blocking, transfer, cross-blocking prevention - [Full Documentation](docs/three-card-feature.md)
-
-### Coming Soon
-- Additional special cards (Queen, 8)
-- Game completion and winner detection
-- Player statistics and leaderboards
 
 ---
 
 ## Contributing
 
-1. Check out a feature branch
-2. Write tests first (TDD approach)
-3. Implement the feature
-4. Run `mix test` to ensure all tests pass
-5. **Document the feature**:
-   - Create comprehensive documentation in `/docs/[feature-name].md`
-   - Include: overview, mechanics, API reference, testing, edge cases
-   - Update README.md to reference the new documentation
-   - Keep README concise - detailed docs belong in `/docs/`
-6. Submit a pull request
-
-See `/specs/` directory for feature specifications and planning documents.
-
-**Documentation Example**: See [King Card Feature](docs/king-card-feature.md) for a complete feature documentation template.
+1. Game logic changes go in `kadi.game` or `kadi.validation`
+2. Keep side effects in `kadi.db` and `kadi.handlers`
+3. All state transitions must go through `apply-action`
+4. Write tests first - they're pure functions, easy to test
+5. Run `clj -M:test` before submitting
 
 ---
 
-## Resources
+## License
 
-- **Phoenix LiveView**: https://hexdocs.pm/phoenix_live_view
-- **Ecto**: https://hexdocs.pm/ecto
-- **Elixir**: https://elixir-lang.org/docs.html
-
-**Prior Art**:
-- [Level10](https://level10.games/) - https://github.com/dnsbty/level10
+MIT License - see [LICENSE](LICENSE)

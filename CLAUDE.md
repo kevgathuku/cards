@@ -4,229 +4,162 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Kadi is a multiplayer online card game platform built with Elixir and Phoenix LiveView, focused on implementing "Poker" (a card game popular in Kenya, also known as "Kadi"). The architecture is designed to support multiple card games.
+Kadi is a multiplayer online card game built with Clojure, focused on implementing "Poker" (a card game popular in Kenya, also known as "Kadi"). This is a rewrite from a previous Elixir/Phoenix implementation - see `docs/CLOJURE_BOOTSTRAP_BRIEF.md` for the complete game specification and lessons learned.
+
+### Core Architecture
+
+```
+Game state is a pure value (immutable map).
+State transitions are pure functions: (state, action) -> state
+Side effects (persistence, broadcasting) happen at the edges.
+```
 
 ## Development Commands
 
 ### Setup
 
 ```bash
-mix setup    # Full setup: deps, database, assets
+clj -P                    # Download dependencies
+clj -M:dev -m kadi.db     # Initialize database (creates kadi.db)
 ```
 
 ### Running the Application
 
 ```bash
-mix phx.server          # Start server at localhost:4000
-iex -S mix phx.server   # Start with IEx console for debugging
+clj -M:run                # Start server at localhost:3000
+clj -M:repl               # Start REPL with nREPL for editor connection
 ```
 
 ### Testing
 
 ```bash
-mix test                      # Run all tests
-mix test test/path/to/test.exs:42  # Run specific test at line 42
+clj -M:test               # Run all tests with Kaocha
+clj -M:test --focus :unit # Run specific test suite
 ```
 
-### Database
+### REPL Development
 
-```bash
-mix ecto.reset   # Drop, recreate, migrate, and seed database
+```clojure
+;; In REPL
+(require '[kadi.core :as core])
+(require '[kadi.game :as game])
+(require '[kadi.db :as db])
+
+;; Initialize DB
+(db/init!)
+
+;; Create and manipulate game state (pure functions)
+(def g (game/new-game {:id 1 :short-code "TEST" :created-by 1}))
+(def g (game/add-player g {:id 1 :name "Alice"}))
+(def g (game/add-player g {:id 2 :name "Bob"}))
+(def g (game/start-game g {}))
+
+;; Apply actions
+(game/apply-action g {:type :play-cards :player-id 1 :cards [...]})
 ```
-
-**⚠️ WARNING: Avoid running destructive database commands during development**
-
-- **DO NOT** run `mix ecto.reset` when working on tasks or making verifications
-- **DO NOT** run `mix ecto.drop` or similar destructive commands
-- The local database may contain important development data
-- Use test database for destructive operations: `MIX_ENV=test mix ecto.reset`
-- For verifying features, use test suite or create temporary data programmatically
 
 ## Architecture
 
-### Database-Driven Game State
+### Pure Game Logic (No Side Effects)
 
-The application uses a persistent database approach for managing game state:
+**`kadi.game`** - Core game state and transitions:
+- `new-game`, `add-player`, `start-game`
+- `apply-action` multimethod for all state transitions
+- All functions are pure: `(state, action) -> state`
 
-**`Kadi.CardGames`** context (lib/kadi/card_games.ex):
+**`kadi.cards`** - Card representation and utilities:
+- Card predicates: `ace?`, `king?`, `jack?`, `question-card?`, `penalty-card?`
+- Matching: `matches-suit?`, `matches-rank?`, `matches?`
+- Deck creation and shuffling
 
-- PostgreSQL database via Ecto
-- Manages GameSessions, Players, Decks, and Cards
-- Handles player joins, card dealing, session management
-- Game status transitions: "lobby" → "live"
+**`kadi.validation`** - Play validation (pure):
+- `validate-play` returns `{:valid? bool :reason string}`
+- All game rules encoded here
 
-**Database Schema:**
+### Side Effects (At The Edges)
 
-- `game_sessions`: Core game session records with status field
-- `game_session_players`: Join table for players in games
-- `decks`: One deck per game session
-- `cards`: 52 unique cards shared across all games
-- `deck_cards`: Tracks card locations (deck/played_stack/player_hand)
+**`kadi.db`** - SQLite persistence:
+- Game CRUD operations
+- Event sourcing with `append-event!` and `get-events`
+- Player management
 
-### Key Modules
+**`kadi.server`** / **`kadi.handlers`** - HTTP API:
+- Ring + Reitit for routing
+- JSON API for game actions
 
-- **`Kadi.CardGames`**: Database context for persistent game sessions
-- **`Kadi.Utils`**: Game logic utilities (deck creation, hand validation with complex Q/A combination rules)
-- **`Kadi.Accounts`**: Player authentication and registration
-- **`KadiWeb.GameLive`**: LiveView for game UI (lib/kadi_web/live/game_live.ex)
-- **`KadiWeb.LobbyLive`**: LiveView for game session list
+## Database
 
-## Testing
+SQLite with INTEGER primary keys (not UUIDs). Database file: `kadi.db`
 
-Tests use Ecto Sandbox (`:manual` mode) for database isolation. Most tests are async-capable where appropriate.
+```bash
+# View database
+sqlite3 kadi.db ".tables"
+sqlite3 kadi.db "SELECT * FROM games"
+```
+
+## Key Design Decisions
+
+### From Elixir Lessons Learned
+
+1. **Pure state transitions** - Unlike Elixir version where state changes were scattered across Ecto changesets, all transitions go through `apply-action`
+
+2. **Event sourcing built-in** - `game_events` table stores all actions for replay/audit
+
+3. **SQLite for simplicity** - Single file, embedded, zero config
+
+4. **INTEGER IDs** - Simpler than UUIDs, SQLite INTEGER is already 64-bit
+
+### Game Rules Quick Reference
+
+| Rank | Match Rule | Combo | Effect | Can Start |
+|------|------------|-------|--------|-----------|
+| 2 | Suit/Rank | Yes | Draw 2 penalty | No |
+| 3 | Suit/Rank | Yes | Draw 3 penalty | No |
+| 4-7,9,10 | Suit/Rank | Yes | None | Yes |
+| 8 | Suit/Rank | Q,8 | Question | Yes |
+| J | Suit/Rank | J | Skip N | No |
+| Q | Suit/Rank | Q,8 | Question | Yes |
+| K | Suit/Rank | No | Reverse | Yes |
+| A | Always | A | Suit select | Yes |
+
+See `docs/CLOJURE_BOOTSTRAP_BRIEF.md` for complete rules.
+
+## Testing Strategy
+
+Tests are pure - no database setup required:
+
+```clojure
+(deftest play-king-reverses-direction
+  (let [game (make-test-game)
+        result (game/apply-action game {:type :play-cards
+                                        :player-id 1
+                                        :cards [king]})]
+    (is (= :counter-clockwise (:direction result)))))
+```
 
 ## Development Guidelines
 
-### DRY Principle - Avoid Duplication
-
-**CRITICAL: Always check for existing functionality before implementing new features or tests.**
-
-#### Before Writing New Code:
-
-1. **Search for existing functions**:
-   ```bash
-   # Search for similar function names
-   grep -rn "def function_name" lib/
-
-   # Search for related functionality
-   grep -rn "keyword" lib/
-   ```
-
-2. **Check module documentation**:
-   - Read module @doc and function @doc comments
-   - Look for related functions in the same module
-   - Check if the functionality exists in a different form
-
-3. **Ask yourself**:
-   - Does this functionality already exist?
-   - Can I reuse an existing function instead of creating a wrapper?
-   - Is this a 1:1 wrapper with no added value?
-
-#### Before Writing New Tests:
-
-1. **Search for existing tests**:
-   ```bash
-   # Find all describe blocks for a function
-   grep -n "describe \"function_name" test/
-
-   # Search for similar test scenarios
-   grep -rn "test \"scenario" test/
-   ```
-
-2. **Check test coverage**:
-   - Read existing test suites for the module
-   - Look for tests in related features
-   - Identify integration tests vs unit tests
-
-3. **Avoid duplicate test scenarios**:
-   - **Unit tests** should test the direct function once
-   - **Integration tests** should test unique interactions
-   - Don't test the same behavior through different paths
-   - If existing tests cover the scenario, reference them instead
-
-#### Example: Feature 005 (Basic Gameplay)
-
-**Original Plan**: Create `draw_card/2` wrapper + 5 new tests
-
-**After DRY Analysis**:
-- ❌ Removed `draw_card/2` - Was 1:1 wrapper of existing `draw_card_from_deck/2`
-- ❌ Removed 4 duplicate tests - Already tested in features 003 & 004
-- ✅ Kept 1 unique gameplay-specific test
-- **Result**: No code duplication, 6 fewer tests, same coverage
-
-#### Test Organization Strategy:
-
-- **Feature tests** (e.g., feature 003): Test the direct function thoroughly
-- **Integration tests** (e.g., feature 004): Test interaction between features
-- **User story tests**: Only test unique gameplay-specific behaviors
-- **Don't test**: Same scenario through different call paths
-
-### Database Safety
-
-- **Never reset or drop the development database** when working on tasks
-- Development database may contain important user data
-- For testing destructive operations:
-  - Use the test suite: `mix test`
-  - Use test environment: `MIX_ENV=test mix ecto.reset`
-  - Create temporary data programmatically in scripts
-- Verification should be done through:
-  - Running existing tests
-  - Adding new test cases
-  - Creating temporary test data in isolated transactions
-
 ### Code Changes
 
-- Make minimal, surgical changes to accomplish the task
-- **Check for existing implementations before creating new functions**
-- **Search for existing tests before writing new test cases**
-- Run tests after changes: `mix test`
-- Use git pre-commit hooks to ensure formatting
-- Follow existing patterns in the codebase
+- Game logic changes go in `kadi.game` or `kadi.validation`
+- Keep side effects in `kadi.db` and `kadi.handlers`
+- Run tests after changes: `clj -M:test`
+- All state transitions must go through `apply-action`
 
-## Phoenix LiveView Integration
+### Adding New Card Effects
 
-- Server-side rendering with WebSocket updates
-- Authentication via `on_mount` hooks in router live_sessions
-- Three live_session scopes: public (redirect_if_authenticated), authenticated (require_authenticated), and confirm_email
-- No REST API for game actions - all interactions through LiveView events
+1. Add predicate to `kadi.cards` if needed
+2. Add validation rule to `kadi.validation`
+3. Add effect handling to `apply-card-effects` in `kadi.game`
+4. Add tests in `test/kadi/game_test.clj`
 
-## Card Representation
+## Previous Implementation
 
-Cards are stored in the database using the `Kadi.Games.Card` schema:
+The Elixir/Phoenix implementation is preserved at:
+- Tag: `v1.0-elixir`
+- Branch: `archive/elixir-implementation`
 
-```elixir
-%Kadi.Games.Card{suit: "hearts", rank: "5"}
+```bash
+# View old implementation
+git show v1.0-elixir:lib/kadi/games/play_validator.ex
 ```
-
-Card locations are tracked through the `deck_cards` join table with a `location_type` field.
-
-## Active Technologies
-
-- Elixir 1.17+ (OTP 25+) + Phoenix 1.7, Phoenix LiveView, Ecto 3.x
-- PostgreSQL (via Ecto) - `deck_cards` table with `order_index` and `location_type` columns
-
-## Player Actions & Turn Management
-
-The game implements turn-based gameplay where players can:
-- **Draw a card from deck**: Players can draw one card during their turn, which automatically advances the turn to the next player
-- **Play cards from hand**: Play valid card combinations onto the played pile
-- Turn order is determined by join time (`game_session_players.inserted_at`), wrapping around from last to first player
-
-## Key Implementation Patterns
-
-### Broadcast-Only Updates
-LiveView handlers often do NOT update socket state directly. Instead:
-1. Handler calls context function (e.g., `CardGames.draw_card_from_deck/2`)
-2. Context function performs database transaction
-3. Context broadcasts `game_updated` event via PubSub
-4. LiveView `handle_info` receives broadcast and updates socket
-5. This ensures all connected players receive updates simultaneously
-
-Example:
-```elixir
-def handle_event("draw_card", _params, socket) do
-  case CardGames.draw_card_from_deck(game_session, player_id) do
-    {:ok, _updated} -> {:noreply, socket}  # Don't update - wait for broadcast
-    {:error, reason} -> {:noreply, put_flash(socket, :error, reason)}
-  end
-end
-
-def handle_info({:game_updated, game_session}, socket) do
-  {:noreply, assign_game_state(socket, game_session)}  # Update from broadcast
-end
-```
-
-### Atomic Transactions
-Game state changes use `Ecto.Multi` for atomicity:
-```elixir
-Ecto.Multi.new()
-|> Ecto.Multi.update(:card, card_changeset)
-|> Ecto.Multi.update(:game_session, session_changeset)
-|> Repo.transaction()
-```
-
-### Turn Order Calculation
-- Players ordered by `game_session_players.inserted_at ASC`
-- Helper function `get_next_player/2` wraps around using `rem/2`
-- Turn stored in `game_sessions.current_turn_player_id`
-
