@@ -199,8 +199,9 @@ defmodule Kadi.CardGamesTest do
         )
 
       # As of feature 006-king-card, Kings are now allowed as start cards
-      # Special cards that are still excluded: 2, 3, Jack, Queen
-      special_ranks = ["2", "3", "jack", "queen"]
+      # As of question-cards feature, Queens and 8s are now allowed as start cards
+      # Special cards that are still excluded: 2, 3, Jack
+      special_ranks = ["2", "3", "jack"]
       refute played_deck_card.card.rank in special_ranks
     end
 
@@ -250,6 +251,55 @@ defmodule Kadi.CardGamesTest do
       end)
 
       IO.puts("✓ 2 and 3 cards excluded from starting card selection")
+    end
+
+    test "Q and 8 cards are allowed as starting cards" do
+      # Run multiple attempts to verify Qs and 8s can be selected as starting cards
+      # This is a probabilistic test - we expect to see at least one Q or 8 in multiple attempts
+      max_attempts = 50
+
+      found_queen_or_eight =
+        Enum.reduce_while(1..max_attempts, false, fn attempt, _acc ->
+          player1 = player_fixture(%{email: "q8-start-p#{attempt}@example.com"})
+          player2 = player_fixture(%{email: "q8-start-q#{attempt}@example.com"})
+
+          {:ok, game_session} =
+            CardGames.create_game_session(player1, %{short_code: "q8-start-#{attempt}"})
+
+          CardGames.join_game_session(player2, game_session.id)
+
+          {:ok, started_game_session} = CardGames.start_game(game_session)
+
+          {:ok, started_game_session} =
+            CardGames.get_game_session_preloaded(started_game_session.id)
+
+          # Check if starting card is Q or 8
+          if started_game_session.top_card.rank in ["queen", "8"] do
+            # Log which attempt found the Q or 8
+            IO.puts(
+              "Found #{started_game_session.top_card.rank} as starting card on attempt #{attempt}"
+            )
+
+            # Verify that when Q or 8 is the starting card, it behaves like a regular card
+            # (no question effect - action_type should be nil)
+            assert started_game_session.action_type == nil,
+                   "Q or 8 as starting card should not set action_type"
+
+            assert started_game_session.action_suit == nil,
+                   "Q or 8 as starting card should not set action_suit"
+
+            {:halt, true}
+          else
+            {:cont, false}
+          end
+        end)
+
+      # With 8 Q cards and 4 8 cards out of ~44 eligible cards (52 - 8 dealt - excluded cards),
+      # probability is ~27% per attempt, so we should find at least one in 50 attempts
+      assert found_queen_or_eight,
+             "No Q or 8 found as starting card in #{max_attempts} attempts - they may still be excluded"
+
+      IO.puts("✓ Q and 8 cards allowed as starting cards (no question effect)")
     end
 
     test "sets the order_index for the starting card", %{player: player} do
@@ -856,30 +906,6 @@ defmodule Kadi.CardGamesTest do
       {:ok, game_session} = CardGames.start_game(game_session)
 
       %{game_session: game_session, player1: player1, player2: player2}
-    end
-
-    test "rejects special cards (3,8,Queen) even when they match (but allows 2 since Feature 009)",
-         %{
-           game_session: game_session
-         } do
-      {:ok, game_session} = CardGames.get_game_session_preloaded(game_session.id)
-      current_player_id = game_session.current_turn_player_id
-
-      # Try to find a special card in current player's hand
-      # Note: '2' is now allowed since Feature 009 is implemented
-      special_ranks = ["3", "8", "queen"]
-
-      special_card =
-        game_session.deck.deck_cards
-        |> Enum.filter(&(&1.location_type == "player_hand" and &1.player_id == current_player_id))
-        |> Enum.find(&(&1.card.rank in special_ranks))
-
-      # If player has a special card, try to play it
-      if special_card do
-        # Should be rejected regardless of whether it matches
-        assert {:error, :invalid_play} =
-                 CardGames.play_cards(game_session, current_player_id, [special_card.card_id])
-      end
     end
 
     test "accepts regular cards (4,5,6,7,9,10) when they match", %{

@@ -90,44 +90,51 @@ defmodule Kadi.Games.PlayValidator do
           false
       end
     else
-      # Regular validation when no penalty is active
-      {valid?, _type} =
-        cond do
-          single_card.rank == "ace" ->
-            {valid_ace_play?([single_card], top_card, required_suit), :ace}
+      # Check if this is a question card (Q or 8)
+      if is_question_card?(single_card) do
+        # Single question card without answer - must match top card
+        # This will prompt the player to draw
+        matches_suit_or_rank?(single_card, top_card)
+      else
+        # Regular validation when no penalty is active
+        {valid?, _type} =
+          cond do
+            single_card.rank == "ace" ->
+              {valid_ace_play?([single_card], top_card, required_suit), :ace}
 
-          single_card.rank == "king" ->
-            {valid_king_play?([single_card], top_card, action_suit), :king}
+            single_card.rank == "king" ->
+              {valid_king_play?([single_card], top_card, action_suit), :king}
 
-          single_card.rank == "jack" ->
-            {valid_jack_play?([single_card], top_card, action_suit), :jack}
+            single_card.rank == "jack" ->
+              {valid_jack_play?([single_card], top_card, action_suit), :jack}
 
-          # Handle '2' card - can initiate penalty or be played normally
-          single_card.rank == "2" ->
-            {validate_regular_or_penalty_card(
-               single_card,
-               top_card,
-               action_suit,
-               penalty_blocked_suit
-             ), :two}
+            # Handle '2' card - can initiate penalty or be played normally
+            single_card.rank == "2" ->
+              {validate_regular_or_penalty_card(
+                 single_card,
+                 top_card,
+                 action_suit,
+                 penalty_blocked_suit
+               ), :two}
 
-          # Handle '3' card - can initiate penalty or be played normally
-          single_card.rank == "3" ->
-            {validate_regular_or_penalty_card(
-               single_card,
-               top_card,
-               action_suit,
-               penalty_blocked_suit
-             ), :three}
+            # Handle '3' card - can initiate penalty or be played normally
+            single_card.rank == "3" ->
+              {validate_regular_or_penalty_card(
+                 single_card,
+                 top_card,
+                 action_suit,
+                 penalty_blocked_suit
+               ), :three}
 
-          valid_regular_card?(single_card) ->
-            {validate_single_card(single_card, top_card, action_suit), :regular}
+            valid_regular_card?(single_card) ->
+              {validate_single_card(single_card, top_card, action_suit), :regular}
 
-          true ->
-            {false, :unknown}
-        end
+            true ->
+              {false, :unknown}
+          end
 
-      valid?
+        valid?
+      end
     end
   end
 
@@ -160,47 +167,56 @@ defmodule Kadi.Games.PlayValidator do
           false
       end
     else
-      {valid?, _type} =
-        cond do
-          all_aces?(cards) ->
-            {valid_ace_play?(cards, top_card, required_suit), :ace}
+      # Check if play starts with question cards (Q or 8)
+      [first_card | _] = cards
 
-          Enum.any?(cards, &(&1.rank == "king")) ->
-            {valid_king_play?(cards, top_card, action_suit), :king}
+      if is_question_card?(first_card) do
+        # This is a question card combo - validate using question card logic
+        validate_question_combo(cards, top_card)
+      else
+        # Regular validation when no penalty is active
+        {valid?, _type} =
+          cond do
+            all_aces?(cards) ->
+              {valid_ace_play?(cards, top_card, required_suit), :ace}
 
-          Enum.any?(cards, &(&1.rank == "jack")) ->
-            {valid_jack_play?(cards, top_card, action_suit), :jack}
+            Enum.any?(cards, &(&1.rank == "king")) ->
+              {valid_king_play?(cards, top_card, action_suit), :king}
 
-          # Handle combo '2's - can initiate penalty or be played normally
-          # Note: Multiple '2' cards are allowed in a combo, but the penalty effect
-          # is NOT additive (handled in CardGames.play_cards/3 where penalty count is fixed at 2)
-          all_twos?(cards) ->
-            {validate_combo_with_penalty_bypass(
-               cards,
-               top_card,
-               action_suit,
-               penalty_blocked_suit
-             ), :two}
+            Enum.any?(cards, &(&1.rank == "jack")) ->
+              {valid_jack_play?(cards, top_card, action_suit), :jack}
 
-          # Handle combo '3's - can initiate penalty or be played normally
-          # Note: Multiple '3' cards are allowed in a combo, but the penalty effect
-          # is NOT additive (handled in CardGames.play_cards/3 where penalty count is fixed at 3)
-          all_threes?(cards) ->
-            {validate_combo_with_penalty_bypass(
-               cards,
-               top_card,
-               action_suit,
-               penalty_blocked_suit
-             ), :three}
+            # Handle combo '2's - can initiate penalty or be played normally
+            # Note: Multiple '2' cards are allowed in a combo, but the penalty effect
+            # is NOT additive (handled in CardGames.play_cards/3 where penalty count is fixed at 2)
+            all_twos?(cards) ->
+              {validate_combo_with_penalty_bypass(
+                 cards,
+                 top_card,
+                 action_suit,
+                 penalty_blocked_suit
+               ), :two}
 
-          all_regular_cards?(cards) ->
-            {validate_combo(cards, top_card, action_suit), :regular}
+            # Handle combo '3's - can initiate penalty or be played normally
+            # Note: Multiple '3' cards are allowed in a combo, but the penalty effect
+            # is NOT additive (handled in CardGames.play_cards/3 where penalty count is fixed at 3)
+            all_threes?(cards) ->
+              {validate_combo_with_penalty_bypass(
+                 cards,
+                 top_card,
+                 action_suit,
+                 penalty_blocked_suit
+               ), :three}
 
-          true ->
-            {false, :unknown}
-        end
+            all_regular_cards?(cards) ->
+              {validate_combo(cards, top_card, action_suit), :regular}
 
-      valid?
+            true ->
+              {false, :unknown}
+          end
+
+        valid?
+      end
     end
   end
 
@@ -347,12 +363,273 @@ defmodule Kadi.Games.PlayValidator do
     Enum.all?(cards, &(&1.rank == "3"))
   end
 
+  defp all_question_cards?(cards) do
+    Enum.all?(cards, &is_question_card?/1)
+  end
+
+  defp is_question_card?(%{rank: rank}) do
+    rank == "queen" or rank == "8"
+  end
+
   defp valid_regular_card?(%{rank: rank}) do
     rank in @regular_ranks
   end
 
   defp all_regular_cards?(cards) do
     Enum.all?(cards, &valid_regular_card?/1)
+  end
+
+  # ============================================================================
+  # Question Card Combo Validation
+  # ============================================================================
+
+  @doc """
+  Validates a question card combo with optional answer cards.
+
+  This function handles the complete validation of question card plays:
+  1. Splits cards into question cards and answer cards
+  2. Validates the question sequence (cards match each other)
+  3. Validates the first question card matches the top card
+  4. If answer cards exist, validates them against the last question card
+  5. Returns true if valid, false otherwise
+
+  ## Parameters
+  - cards: List of Card structs starting with question cards (Q or 8)
+  - top_card: The current top card on the played stack
+
+  ## Returns
+  - `true` if the question combo is valid
+  - `false` if the question combo is invalid
+
+  ## Examples
+
+      iex> cards = [
+      ...>   %Card{rank: "8", suit: "hearts"},
+      ...>   %Card{rank: "8", suit: "diamonds"},
+      ...>   %Card{rank: "2", suit: "diamonds"}
+      ...> ]
+      iex> top_card = %Card{rank: "5", suit: "hearts"}
+      iex> validate_question_combo(cards, top_card)
+      true
+
+      iex> cards = [
+      ...>   %Card{rank: "8", suit: "hearts"},
+      ...>   %Card{rank: "8", suit: "diamonds"}
+      ...> ]
+      iex> top_card = %Card{rank: "5", suit: "hearts"}
+      iex> validate_question_combo(cards, top_card)
+      true
+  """
+  def validate_question_combo(cards, top_card) do
+    # Split into question cards and answer cards
+    {question_cards, answer_cards} = split_question_and_answer(cards)
+
+    # Validate question sequence
+    valid_sequence = valid_question_sequence?(question_cards)
+
+    # Validate first question card matches top card
+    [first_question | _] = question_cards
+    first_matches = matches_suit_or_rank?(first_question, top_card)
+
+    # If there are answer cards, validate them
+    valid_answer =
+      case answer_cards do
+        [] ->
+          # No answer cards - this is valid (will prompt draw)
+          true
+
+        _ ->
+          # Validate answer cards against last question card
+          last_question = List.last(question_cards)
+          valid_answer_for_question?(answer_cards, last_question)
+      end
+
+    valid_sequence and first_matches and valid_answer
+  end
+
+  # ============================================================================
+  # Question Card Combo Splitting
+  # ============================================================================
+
+  @doc """
+  Splits a list of cards into question cards and answer cards.
+
+  Question cards (Q and 8) at the beginning of the list are separated from
+  non-question cards that follow. If all cards are question cards, the answer
+  list will be empty.
+
+  ## Parameters
+  - cards: List of Card structs
+
+  ## Returns
+  - Tuple of {question_cards, answer_cards}
+
+  ## Examples
+
+      iex> cards = [
+      ...>   %Card{rank: "8", suit: "hearts"},
+      ...>   %Card{rank: "8", suit: "diamonds"},
+      ...>   %Card{rank: "2", suit: "diamonds"}
+      ...> ]
+      iex> split_question_and_answer(cards)
+      {[%Card{rank: "8", suit: "hearts"}, %Card{rank: "8", suit: "diamonds"}],
+       [%Card{rank: "2", suit: "diamonds"}]}
+
+      iex> cards = [
+      ...>   %Card{rank: "8", suit: "hearts"},
+      ...>   %Card{rank: "8", suit: "diamonds"}
+      ...> ]
+      iex> split_question_and_answer(cards)
+      {[%Card{rank: "8", suit: "hearts"}, %Card{rank: "8", suit: "diamonds"}], []}
+  """
+  def split_question_and_answer(cards) do
+    split_at_index =
+      cards
+      |> Enum.find_index(fn card -> not is_question_card?(card) end)
+
+    case split_at_index do
+      nil ->
+        # All cards are question cards
+        {cards, []}
+
+      index ->
+        # Split at the first non-question card
+        {Enum.take(cards, index), Enum.drop(cards, index)}
+    end
+  end
+
+  # ============================================================================
+  # Answer Card Validation
+  # ============================================================================
+
+  @doc """
+  Validates that answer cards form a valid combo and match the last question card.
+
+  The first answer card must match the last question card by suit or rank.
+  If multiple answer cards are provided, they must all have the same rank (forming a valid combo).
+  Answer cards cannot be question cards (Q or 8).
+
+  ## Parameters
+  - answer_cards: List of Card structs (non-question cards)
+  - last_question_card: The last question card in the sequence
+
+  ## Returns
+  - `true` if the answer is valid
+  - `false` if the answer is invalid
+
+  ## Examples
+
+      iex> answer_cards = [%Card{rank: "2", suit: "diamonds"}]
+      iex> last_question = %Card{rank: "8", suit: "diamonds"}
+      iex> valid_answer_for_question?(answer_cards, last_question)
+      true
+
+      iex> answer_cards = [%Card{rank: "4", suit: "diamonds"}, %Card{rank: "4", suit: "hearts"}]
+      iex> last_question = %Card{rank: "8", suit: "diamonds"}
+      iex> valid_answer_for_question?(answer_cards, last_question)
+      true
+
+      iex> answer_cards = [%Card{rank: "2", suit: "hearts"}]
+      iex> last_question = %Card{rank: "8", suit: "diamonds"}
+      iex> valid_answer_for_question?(answer_cards, last_question)
+      false
+
+      iex> answer_cards = [%Card{rank: "4", suit: "diamonds"}, %Card{rank: "5", suit: "diamonds"}]
+      iex> last_question = %Card{rank: "8", suit: "diamonds"}
+      iex> valid_answer_for_question?(answer_cards, last_question)
+      false
+  """
+  def valid_answer_for_question?([], _last_question_card), do: false
+  def valid_answer_for_question?(_answer_cards, nil), do: false
+
+  def valid_answer_for_question?(answer_cards, last_question_card) when is_list(answer_cards) do
+    # Verify no answer cards are question cards
+    no_question_cards = not Enum.any?(answer_cards, &is_question_card?/1)
+
+    # Check if first answer card matches last question card
+    [first_answer | _rest] = answer_cards
+    first_matches = matches_suit_or_rank?(first_answer, last_question_card)
+
+    # If multiple answer cards, they must all have the same rank
+    valid_combo = same_rank?(answer_cards)
+
+    no_question_cards and first_matches and valid_combo
+  end
+
+  # ============================================================================
+  # Question Card Sequence Validation
+  # ============================================================================
+
+  @doc """
+  Validates that question cards in a combo match each other by suit or rank.
+
+  Each subsequent question card must match the previous card by either suit or rank.
+  Mixed Q and 8 cards are allowed (e.g., 8H QH QD 8D).
+  All cards must be question cards (Q or 8).
+
+  ## Parameters
+  - question_cards: List of Card structs (all must be Q or 8)
+
+  ## Returns
+  - `true` if the sequence is valid
+  - `false` if the sequence is invalid (includes non-question cards or non-matching sequence)
+
+  ## Examples
+
+      iex> cards = [
+      ...>   %Card{rank: "8", suit: "hearts"},
+      ...>   %Card{rank: "8", suit: "diamonds"}
+      ...> ]
+      iex> valid_question_sequence?(cards)
+      true
+
+      iex> cards = [
+      ...>   %Card{rank: "8", suit: "hearts"},
+      ...>   %Card{rank: "queen", suit: "hearts"}
+      ...> ]
+      iex> valid_question_sequence?(cards)
+      true
+
+      iex> cards = [
+      ...>   %Card{rank: "8", suit: "hearts"},
+      ...>   %Card{rank: "queen", suit: "diamonds"}
+      ...> ]
+      iex> valid_question_sequence?(cards)
+      false
+
+      iex> cards = [%Card{rank: "8", suit: "hearts"}]
+      iex> valid_question_sequence?(cards)
+      true
+
+      iex> cards = [
+      ...>   %Card{rank: "8", suit: "hearts"},
+      ...>   %Card{rank: "5", suit: "hearts"}
+      ...> ]
+      iex> valid_question_sequence?(cards)
+      false
+  """
+  def valid_question_sequence?([]), do: false
+
+  def valid_question_sequence?(cards) when is_list(cards) do
+    # First, verify all cards are question cards
+    all_question_cards?(cards) and validate_question_matching(cards)
+  end
+
+  defp validate_question_matching([_single_card]), do: true
+
+  defp validate_question_matching([first | rest]) do
+    rest
+    |> Enum.reduce_while(first, fn current_card, previous_card ->
+      if matches_suit_or_rank?(current_card, previous_card) do
+        {:cont, current_card}
+      else
+        {:halt, :invalid}
+      end
+    end)
+    |> case do
+      :invalid -> false
+      _ -> true
+    end
   end
 
   # ============================================================================
