@@ -42,16 +42,12 @@
   (let [games (db/list-games :lobby)]
     (json-response 200 {:games (map #(select-keys % [:id :short_code :status :created_at]) games)})))
 
-(defn create-game [request]
-  (let [body (parse-body request)
-        player-id (:player-id body)
-        short-code (generate-short-code)
-        game-state (game/new-game {:id nil
-                                   :short-code short-code
-                                   :created-by player-id})
+(defn create-game [_request]
+  (let [short-code (generate-short-code)
+        game-state (game/new-game {:id nil :short-code short-code})
         result (db/create-game! game-state)
         game-id (:id result)]
-    (db/append-event! game-id :game-created {:player-id player-id})
+    (db/append-event! game-id :game-created {})
     (json-response 201 {:id game-id :short-code short-code})))
 
 (defn get-game [request]

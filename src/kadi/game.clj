@@ -14,11 +14,10 @@
 
 (defn new-game
   "Create a new game in lobby state."
-  [{:keys [id short-code created-by]}]
+  [{:keys [id short-code]}]
   {:id id
    :short-code short-code
    :status :lobby
-   :created-by created-by
 
    ;; Players (ordered by join time for turn order)
    :players []

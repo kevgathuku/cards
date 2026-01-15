@@ -207,8 +207,8 @@ When deck is empty and player needs to draw:
 ```clojure
 (def initial-game-state
   {:id 1                ; INTEGER primary key (auto-increment)
-   :status :lobby       ; :lobby | :live
    :short-code "ABC123"
+   :status :lobby       ; :lobby | :live
 
    ;; Players (ordered by join time for turn order)
    :players [{:id 1              ; INTEGER primary key
