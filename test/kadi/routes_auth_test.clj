@@ -23,7 +23,7 @@
                  :path-params {:code code}}
           resp ((handlers/require-auth handlers/get-game) req)]
       (is (= 302 (:status resp)))
-  (is (= "/auth/signin" (get-in resp [:headers "Location"])))))
+      (is (= "/auth/signin" (get-in resp [:headers "Location"])))))
 
   (testing "authenticated access returns 200"
     (let [code "XYZ789"
