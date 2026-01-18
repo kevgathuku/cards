@@ -207,7 +207,7 @@
         player-id (get-in action [:player :id])
         action-with-code (assoc action :short-code short-code)]
     ;; Transaction: persist event and authorization
-    (let [{:keys [game-id seq]}
+    (let [{:keys [game-id]}
           (jdbc/with-transaction [tx (datasource)]
             (let [game-result (jdbc/execute-one! tx
                                                  ["INSERT INTO games (short_code, state, state_sequence) VALUES (?, ?, 0)"
@@ -224,11 +224,9 @@
               (jdbc/execute-one! tx
                                  ["INSERT OR IGNORE INTO game_players (game_id, player_id) VALUES (?, ?)"
                                   new-game-id player-id])
-              {:game-id new-game-id :seq next-seq}))
-          ;; State will be computed lazily on read
-          state (rebuild-state-from-events game-id)
-          normalized-state (schema/normalize-game state)]
-      {:id game-id :short-code short-code :state normalized-state :state_sequence seq})))
+              {:game-id new-game-id}))]
+      ;; State will be computed lazily on read via get-game-by-code
+      {:id game-id :short-code short-code})))
 
 (defn apply-and-persist!
   "Append event to the event log. State will be computed on demand when game is read. Returns the sequence number."

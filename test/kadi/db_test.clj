@@ -46,13 +46,7 @@
           (is (= :lobby (:status state)) "Game should be in lobby status")
           (is (= 1 (count (:players state))) "Should have 1 player")
           (is (= "Alice" (-> state :players first :name)) "Player name should be Alice")
-          (is (some? (:short-code state)) "Should have a short-code")))
-      
-      (testing "should match the state returned by create-game! (excluding timestamps)"
-        (let [rebuilt-state (db/rebuild-state-from-events game-id)
-              created-state (:state result)]
-          (is (= (dissoc rebuilt-state :meta) (dissoc created-state :meta))
-              "Rebuilt state should match initially created state (excluding meta)"))))))
+          (is (some? (:short-code state)) "Should have a short-code"))))))
 
   (testing "Rebuilding state with multiple events"
     (let [action {:player {:id 1 :name "Alice"}}
@@ -165,9 +159,7 @@
           result (db/create-game! action)]
       (is (some? (:id result)) "Should have game ID")
       (is (some? (:short-code result)) "Should have generated short-code")
-      (is (= 6 (count (:short-code result))) "Short-code should be 6 characters")
-      (is (some? (:state result)) "Should have state")
-      (is (= 1 (:state_sequence result)) "Should have sequence 1")))
+      (is (= 6 (count (:short-code result))) "Short-code should be 6 characters")))
   
   (testing "Creating a game with custom short-code"
     (let [action {:player {:id 1 :name "Alice"} :short-code "CUSTOM1"}
