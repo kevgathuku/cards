@@ -91,10 +91,17 @@ clj -M:test --focus :unit # Run specific test suite
 
 SQLite with INTEGER primary keys (not UUIDs). Database file: `kadi.db`
 
+**Tables:**
+- `games` - state (JSON), state_sequence (links to last event)
+- `players` - authentication
+- `game_players` - authorization (who can access which game)
+- `game_events` - event sourcing (sequence_number, event_type, event_data)
+
 ```bash
 # View database
 sqlite3 kadi.db ".tables"
-sqlite3 kadi.db "SELECT * FROM games"
+sqlite3 kadi.db "SELECT id, short_code, state_sequence FROM games"
+sqlite3 kadi.db "SELECT json_extract(state, '$.status') FROM games"
 ```
 
 ## Key Design Decisions
@@ -103,11 +110,13 @@ sqlite3 kadi.db "SELECT * FROM games"
 
 1. **Pure state transitions** - Unlike Elixir version where state changes were scattered across Ecto changesets, all transitions go through `apply-action`
 
-2. **Event sourcing built-in** - `game_events` table stores all actions for replay/audit
+2. **Event sourcing built-in** - `game_events` table stores all actions; `state_sequence` tracks which event the current state was derived from
 
-3. **SQLite for simplicity** - Single file, embedded, zero config
+3. **Single source of truth** - No duplicate columns; status lives only in state JSON, queried via `json_extract()`
 
-4. **INTEGER IDs** - Simpler than UUIDs, SQLite INTEGER is already 64-bit
+4. **SQLite for simplicity** - Single file, embedded, zero config
+
+5. **INTEGER IDs** - Simpler than UUIDs, SQLite INTEGER is already 64-bit
 
 ### Game Rules Quick Reference
 

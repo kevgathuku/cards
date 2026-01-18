@@ -529,18 +529,21 @@ For a turn-based card game with modest write throughput, SQLite is ideal.
 ```sql
 -- Enable WAL mode for better concurrency
 PRAGMA journal_mode=WAL;
+PRAGMA foreign_keys=ON;
 
 -- Games
+-- state is the single source of truth (status derived via json_extract)
+-- state_sequence links to game_events.sequence_number for consistency
 CREATE TABLE games (
-  id INTEGER PRIMARY KEY,  -- Auto-increments in SQLite
+  id INTEGER PRIMARY KEY,
   short_code TEXT UNIQUE NOT NULL,
-  status TEXT NOT NULL DEFAULT 'lobby',
-  state TEXT NOT NULL,  -- JSON string (use json() for validation)
+  state TEXT NOT NULL,          -- JSON: {status, players, deck, etc.}
+  state_sequence INTEGER NOT NULL DEFAULT 0,  -- last applied event
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- Players
+-- Players (for authentication)
 CREATE TABLE players (
   id INTEGER PRIMARY KEY,
   name TEXT NOT NULL,
@@ -549,13 +552,12 @@ CREATE TABLE players (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- Game Players (join table)
+-- Game Players (for authorization - who can access which game)
 CREATE TABLE game_players (
   id INTEGER PRIMARY KEY,
   game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
   player_id INTEGER NOT NULL REFERENCES players(id),
   joined_at TEXT NOT NULL DEFAULT (datetime('now')),
-  status TEXT NOT NULL DEFAULT 'normal',  -- 'normal' | 'cardless'
   UNIQUE(game_id, player_id)
 );
 
@@ -572,6 +574,7 @@ CREATE TABLE game_events (
 
 -- Indexes
 CREATE INDEX idx_games_short_code ON games(short_code);
+CREATE INDEX idx_games_status ON games(json_extract(state, '$.status'));
 CREATE INDEX idx_game_events_game_id ON game_events(game_id);
 CREATE INDEX idx_game_players_game_id ON game_players(game_id);
 ```
@@ -587,17 +590,21 @@ CREATE INDEX idx_game_players_game_id ON game_players(game_id);
 ### 8.4 Event Sourcing Approach (Recommended)
 
 ```clojure
-;; Store events, derive state
-(defn game-state [game-id]  ; game-id is INTEGER
-  (let [events (db/get-events game-id)]
-    (reduce apply-action initial-game-state events)))
+;; Apply action and persist atomically
+(defn apply-and-persist! [game-id new-state event-type event-data]
+  (let [event (append-event! game-id event-type event-data)]
+    (update-game! game-id new-state (:sequence_number event))
+    (:sequence_number event)))
 
-;; Or cache computed state for performance
-(defn game-state-cached [game-id]
-  (or (cache/get game-id)
-      (let [state (game-state game-id)]
-        (cache/put game-id state)
-        state)))
+;; Rebuild state from events (for recovery or debugging)
+(defn rebuild-state [game-id]
+  (let [events (db/get-events game-id)]
+    (reduce game/apply-action (game/new-game {}) events)))
+
+;; Partial replay from snapshot
+(defn rebuild-from-snapshot [game]
+  (let [events (db/get-events-after (:id game) (:state_sequence game))]
+    (reduce game/apply-action (:state game) events)))
 ```
 
 ---

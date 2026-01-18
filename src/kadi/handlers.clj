@@ -40,7 +40,11 @@
 
 (defn list-games [_request]
   (let [games (db/list-games :lobby)]
-    (json-response 200 {:games (map #(select-keys % [:id :short_code :status :created_at]) games)})))
+    (json-response 200 {:games (map #(hash-map :id (:id %)
+                                               :short_code (:short_code %)
+                                               :status (get-in % [:state :status])
+                                               :created_at (:created_at %))
+                                    games)})))
 
 (defn create-game [_request]
   (let [short-code (generate-short-code)
@@ -62,27 +66,25 @@
         player-id (:player-id body)
         player-name (:player-name body)]
     (if-let [game (db/get-game game-id)]
-      (let [new-state (game/apply-action (:state game)
-                                         {:type :join-game
-                                          :player-id player-id
-                                          :player-name player-name})]
+      (let [action {:type :join-game :player-id player-id :player-name player-name}
+            new-state (game/apply-action (:state game) action)]
         (if (:error new-state)
           (json-response 400 {:error (:error new-state)})
           (do
-            (db/update-game! game-id new-state)
-            (db/append-event! game-id :player-joined {:player-id player-id :player-name player-name})
+            (db/apply-and-persist! game-id new-state :player-joined action)
+            (db/add-player-to-game! game-id player-id)
             (json-response 200 {:status "joined"}))))
       (json-response 404 {:error "Game not found"}))))
 
 (defn start-game [request]
   (let [game-id (parse-long (get-in request [:path-params :id]))]
     (if-let [game (db/get-game game-id)]
-      (let [new-state (game/apply-action (:state game) {:type :start-game})]
+      (let [action {:type :start-game}
+            new-state (game/apply-action (:state game) action)]
         (if (:error new-state)
           (json-response 400 {:error (:error new-state)})
           (do
-            (db/update-game! game-id new-state)
-            (db/append-event! game-id :game-started {})
+            (db/apply-and-persist! game-id new-state :game-started action)
             (json-response 200 {:status "started"}))))
       (json-response 404 {:error "Game not found"}))))
 
@@ -94,8 +96,7 @@
         (if (:error new-state)
           (json-response 400 {:error (:error new-state)})
           (do
-            (db/update-game! game-id new-state)
-            (db/append-event! game-id (keyword (:type action)) action)
+            (db/apply-and-persist! game-id new-state (keyword (:type action)) action)
             (json-response 200 {:status "ok" :state new-state}))))
       (json-response 404 {:error "Game not found"}))))
 
