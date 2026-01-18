@@ -186,21 +186,22 @@
 ;; Player Operations
 ;; =============================================================================
 
-(defn create-player!
-  "Create a new player."
-  [{:keys [name email]}]
-  (jdbc/execute-one! (datasource)
-                     ["INSERT INTO players (name, email) VALUES (?, ?)"
-                      name email]
-                     {:return-keys true
-                      :builder-fn rs/as-unqualified-lower-maps}))
-
 (defn get-player
   "Get a player by ID."
   [player-id]
   (jdbc/execute-one! (datasource)
                      ["SELECT * FROM players WHERE id = ?" player-id]
                      {:builder-fn rs/as-unqualified-lower-maps}))
+(defn create-player!
+  "Create a new player and return the full record."
+  [{:keys [name email]}]
+  (let [result (jdbc/execute-one! (datasource)
+                                  ["INSERT INTO players (name, email) VALUES (?, ?)"
+                                   name email]
+                                  {:return-keys true
+                                   :builder-fn rs/as-unqualified-lower-maps})
+        player-id (or (:id result) (:last_insert_rowid result))]
+    (get-player player-id)))
 
 (defn get-player-by-email
   "Get a player by email."

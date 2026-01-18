@@ -64,10 +64,14 @@
 (defn verify-signin [request]
   (let [token (get-in request [:path-params :token])]
     (if-let [player (auth/verify-token! token)]
-      (-> (redirect "/")
-          (with-session {:player-id (:id player)}))
-      (html-response
-       (views/auth-error-page {:message "This sign-in link is invalid or has expired."})))))
+      (do
+        (println "Auth success - player:" player)
+        (-> (redirect "/")
+            (with-session {:player-id (:id player)})))
+      (do
+        (println "Auth failed - token:" token)
+        (html-response
+         (views/auth-error-page {:message "This sign-in link is invalid or has expired."}))))))
 
 (defn signout [request]
   (-> (redirect "/")
@@ -95,13 +99,6 @@
         games (db/list-games :lobby)]
     (html-response
      (views/games-list-page {:player player :games games}))))
-
-(defn new-game-page [request]
-  (let [player (auth/current-player request)]
-    (if player
-      (html-response
-       (views/new-game-page {:player player}))
-      (redirect "/auth/signin" {:type :error :message "Please sign in to create a game"}))))
 
 (defn create-game [request]
   (if-let [player (auth/current-player request)]

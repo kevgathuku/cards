@@ -120,9 +120,10 @@
           [:div.card
            [:h2 "Welcome to Kadi!"]
            [:p "A multiplayer card game."]
-           [:div {:style "display: flex; gap: 1rem;"}
-            [:a.btn.btn-primary {:href "/games/new"} "Create Game"]
-            [:a.btn.btn-secondary {:href "/games"} "Join Game"]]]
+           [:div {:style "display: flex; gap: 1rem; align-items: center;"}
+            [:form {:method "post" :action "/games"}
+             [:button.btn.btn-primary {:type "submit"} "Create Game"]]
+            [:a.btn.btn-secondary {:href "/games"} "Browse Games"]]]
           (when (seq games)
             [:div.card
              [:h3 "Your Active Games"]
@@ -165,8 +166,8 @@
   (layout {:title "Games" :player player}
           [:div.card
            [:h2 "Available Games"]
-           [:a.btn.btn-primary {:href "/games/new" :style "margin-bottom: 1rem; display: inline-block;"}
-            "Create New Game"]
+           [:form {:method "post" :action "/games" :style "margin-bottom: 1rem;"}
+            [:button.btn.btn-primary {:type "submit"} "Create New Game"]]
            (if (seq games)
              [:ul.game-list
               (for [game games]
@@ -175,15 +176,6 @@
                              " (" (count (get-in game [:state :players])) " players)")]
                  [:a.btn.btn-secondary {:href (str "/games/" (:id game) "/join")} "Join"]])]
              [:p "No games available. Create one!"])]))
-
-(defn new-game-page
-  "Create new game form."
-  [{:keys [player]}]
-  (layout {:title "New Game" :player player}
-          [:div.card
-           [:h2 "Create New Game"]
-           [:form {:method "post" :action "/games"}
-            [:button.btn.btn-primary {:type "submit"} "Create Game"]]]))
 
 (defn game-lobby-page
   "Game lobby - waiting for players."

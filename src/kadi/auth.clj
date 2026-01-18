@@ -46,13 +46,17 @@
 (defn- token-expired?
   "Check if a token has expired."
   [token-record]
-  (let [exp (Instant/parse (:expires_at token-record))]
-    (.isBefore exp (Instant/now))))
+  (let [exp (Instant/parse (:expires_at token-record))
+        result (.isBefore exp (Instant/now))]
+    (println "DEBUG: token-expired? - expires_at=" (:expires_at token-record) "now=" (Instant/now) "result=" result)
+    result))
 
 (defn- token-used?
   "Check if a token has been used."
   [token-record]
-  (= 1 (:used token-record)))
+  (let [result (= 1 (:used token-record))]
+    (println "DEBUG: token-used? - (:used token-record)=" (:used token-record) "type=" (type (:used token-record)) "result=" result)
+    result))
 
 (defn valid-token?
   "Check if a token record is valid (not expired, not used)."
@@ -67,6 +71,9 @@
    Returns nil if token is invalid."
   [token]
   (when-let [record (db/get-auth-token token)]
+    (println "DEBUG: Token record=" record)
+    (println "DEBUG: Token record keys=" (keys record))
+    (println "DEBUG: valid-token? result=" (valid-token? record))
     (when (valid-token? record)
       (db/mark-token-used! token)
       (let [email (:email record)]

@@ -17,7 +17,6 @@
    ["/games"
     ["" {:get h/list-games
          :post h/create-game}]
-    ["/new" {:get h/new-game-page}]
     ["/:id" {:get h/get-game}]
     ["/:id/join" {:post h/join-game}]
     ["/:id/start" {:post h/start-game}]
