@@ -117,8 +117,8 @@
   Starts with nil since the first event (:game-created) creates the initial state."
   [game-id]
   (let [events (get-events game-id)]
-    (reduce (fn [state {:keys [event-type event-data]}]
-              (game/apply-action state (merge event-data {:type event-type})))
+    (reduce (fn [state {:keys [event_type event_data]}]
+              (game/apply-action state (merge event_data {:type (keyword event_type)})))
             nil
             events)))
 
@@ -333,3 +333,6 @@
                       {:builder-fn rs/as-unqualified-lower-maps})
        (map #(update % :state <-json))
        (map ensure-fresh-state)))
+
+(comment
+  (rebuild-state-from-events 5))
