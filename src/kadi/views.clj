@@ -174,7 +174,7 @@
            [:h2 "Welcome to Kadi!"]
            [:p "Kadi is a multiplayer card game popular in Kenya."]
            [:p "Sign in to create or join games."]
-           [:a.btn.btn-primary {:href "/auth/signin"} "Sign in to play"]]))
+           [:a.btn.btn-primary {:href "/auth/signin"} "Sign in"]]))
 
 ;; =============================================================================
 ;; Fragments (for HTMX partial updates)

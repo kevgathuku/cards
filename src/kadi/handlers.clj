@@ -105,10 +105,11 @@
 ;; =============================================================================
 
 (defn list-games [request]
-  (let [player (auth/current-player request)
-        games (db/list-games :lobby)]
-    (html-response
-     (views/games-list-page {:player player :games games}))))
+  (if-let [player (auth/current-player request)]
+    (let [games (db/list-games :lobby)]
+      (html-response
+       (views/games-list-page {:player player :games games})))
+    (redirect "/auth/signin")))
 
 (defn create-game [request]
   (if-let [player (auth/current-player request)]
