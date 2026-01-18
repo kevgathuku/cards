@@ -1,7 +1,8 @@
 (ns kadi.views
   "HTML views using Hiccup."
   (:require [hiccup2.core :as h]
-            [hiccup.util :refer [raw-string]]))
+            [hiccup.util :refer [raw-string]]
+            [kadi.game :as game]))
 
 ;; =============================================================================
 ;; Layout
@@ -219,16 +220,18 @@
   "Live game page."
   [{:keys [player game]}]
   (let [state (:state game)
-        current-player-idx (:current-player-index state)
+        current-player-idx (get-in state [:turn :current-player-index])
         players (:players state)
         current-player (get players current-player-idx)
         my-player (first (filter #(= (:id player) (:id %)) players))
+        my-hand (when player (game/get-hand state (:id player)))
         is-my-turn? (= (:id player) (:id current-player))
-        top-card (last (:played-stack state))]
+        top-card (last (get-in state [:zones :played-stack]))
+        deck-count (count (get-in state [:zones :deck]))]
     (layout {:title (str "Game " (:short_code game)) :player player}
             [:div.card
              [:h2 (str "Game: " (:short_code game))]
-             [:p (str "Direction: " (name (:direction state)))]
+             [:p (str "Direction: " (name (get-in state [:turn :direction])))]
              [:div {:style "display: flex; gap: 2rem;"}
               [:div
                [:h3 "Top Card"]
@@ -237,14 +240,14 @@
                   (card-display top-card)])]
               [:div
                [:h3 "Deck"]
-               [:p (str (count (:deck state)) " cards")]]]]
+               [:p (str deck-count " cards")]]]]
 
             [:div.card
              [:h3 "Players"]
              [:ul.game-list
               (for [[idx p] (map-indexed vector players)]
                 [:li {:style (when (= idx current-player-idx) "font-weight: bold; background: #fef3c7;")}
-                 (str (:name p) " - " (count (:hand p)) " cards"
+                 (str (:name p) " - " (count (game/get-hand state (:id p))) " cards"
                       (when (= idx current-player-idx) " (current turn)"))])]]
 
             (when my-player
@@ -252,7 +255,7 @@
                [:h3 (if is-my-turn? "Your Turn!" "Your Hand")]
                [:form {:method "post" :action (str "/games/" (:short_code game) "/play")}
                 [:div.hand
-                 (for [[idx card] (map-indexed vector (:hand my-player))]
+                 (for [[idx card] (map-indexed vector my-hand)]
                    [:label
                     [:input {:type "checkbox" :name "cards[]" :value idx
                              :style "display: none"

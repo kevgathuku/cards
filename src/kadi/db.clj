@@ -2,7 +2,8 @@
   "SQLite database operations."
   (:require [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
-            [jsonista.core :as json]))
+            [jsonista.core :as json]
+            [kadi.game :as game]))
 
 (def db-spec {:dbtype "sqlite" :dbname "kadi.db"})
 
@@ -69,8 +70,9 @@
      UNIQUE(game_id, sequence_number)
    );
 
-   CREATE INDEX IF NOT EXISTS idx_games_short_code ON games(short_code);
-   CREATE INDEX IF NOT EXISTS idx_games_status ON games(json_extract(state, '$.status'));
+  CREATE INDEX IF NOT EXISTS idx_games_short_code ON games(short_code);
+  CREATE INDEX IF NOT EXISTS idx_games_status ON games(json_extract(state, '$.status'));
+  CREATE INDEX IF NOT EXISTS idx_games_status_meta ON games(json_extract(state, '$.meta.status'));
    CREATE INDEX IF NOT EXISTS idx_game_events_game_id ON game_events(game_id);
    CREATE INDEX IF NOT EXISTS idx_game_players_game_id ON game_players(game_id);
    CREATE INDEX IF NOT EXISTS idx_auth_tokens_token ON auth_tokens(token);
@@ -138,7 +140,7 @@
   ([] (list-games nil))
   ([status]
    (let [query (if status
-                 ["SELECT * FROM games WHERE json_extract(state, '$.status') = ? ORDER BY created_at DESC"
+                 ["SELECT * FROM games WHERE COALESCE(json_extract(state, '$.status'), json_extract(state, '$.meta.status')) = ? ORDER BY created_at DESC"
                   (name status)]
                  ["SELECT * FROM games ORDER BY created_at DESC"])]
      (->> (jdbc/execute! (datasource) query {:builder-fn rs/as-unqualified-lower-maps})
@@ -190,9 +192,9 @@
   This allows verification of state correctness and recovery from corruption."
   [game-id]
   (let [events (get-events game-id)
-        initial-state (kadi.game/new-game {})]
+        initial-state (game/new-game nil)]
     (reduce (fn [state {:keys [event-type event-data]}]
-              (kadi.game/apply-action state (merge event-data {:type event-type})))
+              (game/apply-action state (merge event-data {:type event-type})))
             initial-state
             events)))
 
