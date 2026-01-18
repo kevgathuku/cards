@@ -13,13 +13,16 @@
     ["/verify/:token" {:get h/verify-signin}]
     ["/signout" {:post h/signout}]]
 
+   ;; Join game (separate to avoid conflict with /:code)
+   ["/join" {:get (h/require-auth h/join-page)
+             :post (h/require-auth h/join-game-by-code)}]
+
    ;; Games
    ["/games"
     ["" {:get h/list-games
          :post h/create-game}]
-      ["/:code" {:get (h/require-auth h/get-game)}]
-      ["/:code/join" {:post (h/require-auth h/join-game)}]
-      ["/:code/start" {:post (h/require-auth h/start-game)}]
-      ["/:code/play" {:post (h/require-auth h/play-cards)}]
-      ["/:code/draw" {:post (h/require-auth h/draw-card)}]
-      ["/:code/players" {:get (h/require-auth h/get-players-fragment)}]]])
+    ["/:code" {:get (h/require-auth h/get-game)}]
+    ["/:code/start" {:post (h/require-auth h/start-game)}]
+    ["/:code/play" {:post (h/require-auth h/play-cards)}]
+    ["/:code/draw" {:post (h/require-auth h/draw-card)}]
+    ["/:code/players" {:get (h/require-auth h/get-players-fragment)}]]])

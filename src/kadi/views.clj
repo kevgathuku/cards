@@ -61,7 +61,12 @@
         .loading { opacity: 0.5; }"]]
      [:body
       [:nav
-       [:a {:href "/"} [:strong "Kadi"]]
+       [:div {:style "display: flex; gap: 1rem; align-items: center;"}
+        [:a {:href "/"} [:strong "Kadi"]]
+        (when player
+          (list
+           [:a {:href "/games"} "Games"]
+           [:a {:href "/join"} "Join Game"]))]
        (if player
          [:div
           [:span (str "Hi, " (:name player) " ")]
@@ -100,6 +105,30 @@
            [:p (str "We sent a sign-in link to " [:strong email] ".")]
            [:p "Click the link in the email to sign in. The link expires in 30 minutes."]
            [:p [:a {:href "/auth/signin"} "Didn't receive it? Try again"]]]))
+
+;; =============================================================================
+;; Game Pages
+;; =============================================================================
+
+(defn join-page
+  "Join game page with code input form."
+  [{:keys [player flash]}]
+  (layout {:title "Join Game" :player player :flash flash}
+          [:div.card
+           [:h2 "Join a Game"]
+           [:p "Enter the 6-character game code to join."]
+           [:form {:method "post" :action "/join"}
+            [:div.form-group
+             [:label {:for "code"} "Game Code"]
+             [:input {:type "text" :id "code" :name "code"
+                      :placeholder "e.g., ABC123"
+                      :required true
+                      :autofocus true
+                      :maxlength "6"
+                      :style "text-transform: uppercase;"}]]
+            [:button.btn.btn-primary {:type "submit"} "Join Game"]]
+           [:p {:style "margin-top: 1.5rem;"}
+            [:a {:href "/games"} "← Browse available games instead"]]]))
 
 (defn auth-error-page
   "Auth error page."
@@ -168,8 +197,10 @@
   "List of available games in lobby."
   [{:keys [player games]}]
   (layout {:title "Games" :player player}
+          [:div {:style "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;"}
+           [:h2 {:style "margin: 0;"} "Available Games"]
+           [:a.btn.btn-primary {:href "/join"} "Join with Code"]]
           [:div.card
-           [:h2 "Available Games"]
            [:form {:method "post" :action "/games" :style "margin-bottom: 1rem;"}
             [:button.btn.btn-primary {:type "submit"} "Create New Game"]]
            (if (seq games)
@@ -189,12 +220,22 @@
         is-player? (some #(= (:id player) (:id %)) players)]
     (layout {:title (str "Game " (:short_code game)) :player player}
             [:div.card
-             [:h2 (str "Game: " (:short_code game))]
-             [:p "Share this code with friends to let them join."]
-             [:div {:id "player-list"
-                    :hx-get (str "/games/" (:short_code game) "/players")
-                    :hx-trigger "every 3s"}
-              (players-list-fragment {:players players})]]
+             [:h2 "Game Lobby"]
+             [:p "Share this code with friends to let them join:"]
+             [:div {:style "background: #f3f4f6; padding: 1rem; border-radius: 4px; text-align: center; margin: 1rem 0;"}
+              [:code {:style "font-size: 2rem; font-weight: bold; letter-spacing: 0.2em;"}
+               (:short_code game)]]
+             [:div {:style "display: flex; justify-content: space-between; align-items: center;"}
+              [:h3 "Players in this game"]
+              [:button.btn.btn-secondary
+               {:hx-get (str "/games/" (:short_code game) "/players")
+                :hx-target "#player-list"
+                :hx-swap "innerHTML"}
+               "Refresh"]]
+             [:div {:id "player-list"}
+              [:ul.game-list
+               (for [p players]
+                 [:li (:name p)])]]]
             [:div.card
              (if is-player?
                (if can-start?

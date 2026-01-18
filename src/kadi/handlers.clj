@@ -141,14 +141,48 @@
     (let [short-code (get-in request [:path-params :code])
           game (db/get-game-by-code short-code)]
       (if game
-        (let [result (game/join-player (:state game) player)]
+        (let [already-joined? (game/get-player (:state game) (:id player))
+              result (if already-joined?
+                       {:ok (:state game)} ; Silent success if already joined
+                       (game/join-player (:state game) player))]
           (if (:error result)
             (redirect (str "/games/" short-code) {:type :error :message (:error result)})
-            (let [action {:player (select-keys player [:id :name])}]
-              (db/apply-and-persist! (:id game) (:ok result) :join-game action)
-              (db/add-player-to-game! (:id game) (:id player))
+            (do
+              (when-not already-joined?
+                (let [action {:player (select-keys player [:id :name])}]
+                  (db/apply-and-persist! (:id game) (:ok result) :join-game action)
+                  (db/add-player-to-game! (:id game) (:id player))))
               (redirect (str "/games/" short-code)))))
         (redirect "/games" {:type :error :message "Game not found"})))
+    (redirect "/auth/signin")))
+
+(defn join-page [request]
+  "Display the join game page with code input."
+  (let [player (auth/current-player request)
+        flash (get-in request [:session :flash])]
+    (html-response (views/join-page {:player player :flash flash}))))
+
+(defn join-game-by-code [request]
+  "Join a game by short code from the join form."
+  (if-let [player (auth/current-player request)]
+    (let [short-code (clojure.string/upper-case (clojure.string/trim (get-in request [:params :code] "")))
+          game (when (seq short-code) (db/get-game-by-code short-code))]
+      (if game
+        (let [already-joined? (game/get-player (:state game) (:id player))
+              result (if already-joined?
+                       {:ok (:state game)}
+                       (game/join-player (:state game) player))]
+          (if (:error result)
+            (redirect "/games/join" {:type :error :message (:error result)})
+            (do
+              (when-not already-joined?
+                (let [action {:player (select-keys player [:id :name])}]
+                  (db/apply-and-persist! (:id game) (:ok result) :join-game action)
+                  (db/add-player-to-game! (:id game) (:id player))))
+              (redirect (str "/games/" short-code)))))
+        (redirect "/games/join" {:type :error :message (if (seq short-code)
+                                                          "Game not found"
+                                                          "Please enter a game code")})))
     (redirect "/auth/signin")))
 
 (defn start-game [request]
