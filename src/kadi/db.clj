@@ -178,14 +178,6 @@
         ;; State is fresh
         game))))
 
-(defn get-game
-  "Get a game by ID with fresh state."
-  [game-id]
-  (when-let [row (jdbc/execute-one! (datasource)
-                                    ["SELECT * FROM games WHERE id = ?" game-id]
-                                    {:builder-fn rs/as-unqualified-lower-maps})]
-    (ensure-fresh-state (update row :state <-json))))
-
 (defn get-game-by-code
   "Get a game by short code with fresh state."
   [short-code]
@@ -331,9 +323,13 @@
                             {:builder-fn rs/as-unqualified-lower-maps})))
 
 (defn get-player-games
-  "Get all game IDs a player is in."
+  "Get all games a player is in, with fresh state."
   [player-id]
   (->> (jdbc/execute! (datasource)
-                      ["SELECT game_id FROM game_players WHERE player_id = ?" player-id]
+                      ["SELECT g.* FROM games g
+                        JOIN game_players gp ON g.id = gp.game_id
+                        WHERE gp.player_id = ?
+                        ORDER BY g.updated_at DESC" player-id]
                       {:builder-fn rs/as-unqualified-lower-maps})
-       (map :game_id)))
+       (map #(update % :state <-json))
+       (map ensure-fresh-state)))

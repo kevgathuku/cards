@@ -94,8 +94,7 @@
 
 (defn index [request]
   (if-let [player (auth/current-player request)]
-    (let [game-ids (db/get-player-games (:id player))
-          games (map db/get-game game-ids)]
+    (let [games (db/get-player-games (:id player))]
       (html-response
        (views/home-page {:player player :games games})))
     (html-response
