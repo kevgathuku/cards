@@ -89,6 +89,14 @@
       (is (= 1 (count (get-in game [:zones :played-stack]))))
       (is (pos? (count (get-in game [:zones :deck]))))))
 
+  (testing "each player has 4 cards after start"
+    (let [game (make-test-game)
+          players (:players game)]
+      (doseq [player players]
+        (let [hand (game/get-hand game (:id player))]
+          (is (= 4 (count hand))
+              (str "Player " (:name player) " should have 4 cards"))))))
+
   (testing "cannot start with less than 2 players"
     (let [game (-> (game/new-game "TEST")
                    (game/add-player {:id 1 :name "Alice"})

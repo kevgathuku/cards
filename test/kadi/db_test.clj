@@ -2,6 +2,7 @@
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [kadi.db :as db]
             [kadi.game :as game]
+            [kadi.schema :as schema]
             [next.jdbc :as jdbc]))
 
 ;; Use a test database file that gets cleaned up
@@ -77,8 +78,16 @@
         (is (seq (get-in state [:zones :deck])) "Deck should have cards")
         (is (seq (get-in state [:zones :played-stack])) "Played stack should have starting card")
         (is (= 4 (count (game/get-hand state 1))) "Player 1 should have 4 cards")
-        (is (= 4 (count (game/get-hand state 2))) "Player 2 should have 4 cards"))))
-
+        (is (= 4 (count (game/get-hand state 2))) "Player 2 should have 4 cards")
+        ;; Validate actual cards in hands
+        (let [p1-hand (game/get-hand state 1)
+              p2-hand (game/get-hand state 2)]
+          (is (every? map? p1-hand) "Player 1 hand should contain card maps")
+          (is (every? #(and (:suit %) (:rank %)) p1-hand) "Player 1 cards should have suit and rank")
+          (is (every? map? p2-hand) "Player 2 hand should contain card maps")
+          (is (every? #(and (:suit %) (:rank %)) p2-hand) "Player 2 cards should have suit and rank")
+          (is (= 4 (count p1-hand)) "Player 1 should have exactly 4 cards")
+          (is (= 4 (count p2-hand)) "Player 2 should have exactly 4 cards")))))
 
 (deftest ensure-fresh-state-test
   (testing "When state is stale (state_sequence < latest event)"
@@ -223,3 +232,82 @@
       (is (= code1 (:short-code result1)) "First game should have first code")
       (is (= code2 (:short-code result2)) "Second game should have second code")
       (is (not= (:id result1) (:id result2)) "Games should have different IDs"))))
+
+(deftest schema-normalization-preserves-hands-test
+  (testing "Schema normalization preserves hands with string ranks after start-game"
+    (let [action {:player {:id 1 :name "Alice"}}
+          result (db/create-game! action)
+          game-id (:id result)
+          short-code (:short-code result)]
+      
+      ;; Add second player
+      (db/append-event! game-id
+                        (str (java.util.UUID/randomUUID))
+                        :join-game
+                        (java.time.Instant/now)
+                        {:player {:id 2 :name "Bob"}
+                         :timestamp (java.time.Instant/now)})
+      
+      ;; Start the game (which deals cards)
+      (db/append-event! game-id
+                        (str (java.util.UUID/randomUUID))
+                        :start-game
+                        (java.time.Instant/now)
+                        {:timestamp (java.time.Instant/now)})
+      
+      ;; Fetch game from database - this goes through ensure-fresh-state -> rebuild -> normalize
+      (let [game (db/get-game-by-code short-code)
+            hands (get-in game [:state :zones :hands])]
+        
+        ;; Critical: hands should NOT be empty after normalization
+        (is (map? hands) "Hands should be a map")
+        (is (= 2 (count hands)) "Should have hands for 2 players")
+        (is (contains? hands 1) "Should have hand for player 1")
+        (is (contains? hands 2) "Should have hand for player 2")
+        
+        ;; Validate each player's hand
+        (let [p1-hand (get hands 1)
+              p2-hand (get hands 2)]
+          (is (= 4 (count p1-hand)) "Player 1 should have 4 cards")
+          (is (= 4 (count p2-hand)) "Player 2 should have 4 cards")
+          
+          ;; Validate card structure with STRING ranks (not keywords)
+          (is (every? map? p1-hand) "Player 1 cards should be maps")
+          (is (every? map? p2-hand) "Player 2 cards should be maps")
+          
+          ;; Critical: ranks should be STRINGS like "A", "2", "10" (not keywords like :ace, :two)
+          (is (every? #(string? (:rank %)) p1-hand) "Player 1 card ranks should be strings")
+          (is (every? #(string? (:rank %)) p2-hand) "Player 2 card ranks should be strings")
+          
+          ;; Suits should be keywords
+          (is (every? #(keyword? (:suit %)) p1-hand) "Player 1 card suits should be keywords")
+          (is (every? #(keyword? (:suit %)) p2-hand) "Player 2 card suits should be keywords")
+          
+          ;; Ranks should be valid values
+          (let [valid-ranks #{"2" "3" "4" "5" "6" "7" "8" "9" "10" "J" "Q" "K" "A"}]
+            (is (every? #(valid-ranks (:rank %)) p1-hand) "Player 1 ranks should be valid")
+            (is (every? #(valid-ranks (:rank %)) p2-hand) "Player 2 ranks should be valid"))))))
+  
+  (testing "Direct normalization of game state with hands preserves string ranks"
+    ;; Create a game state directly (not via database)
+    (let [state (-> (game/new-game "TEST")
+                    (game/add-player {:id 1 :name "Alice"})
+                    (game/add-player {:id 2 :name "Bob"})
+                    (game/start-game {}))
+          hands-before (get-in state [:zones :hands])
+          normalized (schema/normalize-game state)
+          hands-after (get-in normalized [:zones :hands])]
+      
+      ;; Hands should be preserved through normalization
+      (is (= (count hands-before) (count hands-after)) "Hand count should be preserved")
+      (is (= 2 (count hands-after)) "Should have 2 players' hands")
+      
+      ;; Each player should still have 4 cards
+      (is (= 4 (count (get hands-after 1))) "Player 1 should have 4 cards after normalization")
+      (is (= 4 (count (get hands-after 2))) "Player 2 should have 4 cards after normalization")
+      
+      ;; Ranks should still be strings
+      (let [all-cards (concat (get hands-after 1) (get hands-after 2))]
+        (is (every? #(string? (:rank %)) all-cards) "All ranks should remain strings after normalization")
+        (is (every? #(keyword? (:suit %)) all-cards) "All suits should remain keywords after normalization")))))
+

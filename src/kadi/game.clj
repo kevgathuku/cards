@@ -213,7 +213,7 @@
     state
     (let [deck (cards/make-deck)
           starting-card (cards/select-starting-card deck)
-          deck-without-start (remove #{starting-card} deck)]
+          deck-without-start (vec (remove #{starting-card} deck))]
       (-> state
           (assoc :status :live)
           (assoc-in [:zones :deck] deck-without-start)

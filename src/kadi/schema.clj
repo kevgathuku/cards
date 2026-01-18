@@ -46,7 +46,7 @@
   [:enum :hearts :diamonds :clubs :spades])
 
 (def Rank
-  [:enum :ace :two :three :four :five :six :seven :eight :nine :ten :jack :queen :king])
+  [:enum "2" "3" "4" "5" "6" "7" "8" "9" "10" "J" "Q" "K" "A"])
 
 (def Card
   [:map
