@@ -199,7 +199,7 @@
 
 (defn create-game!
   "Create a new game from an action. Persists event and game_player in a transaction,
-   then computes state by applying the event. Returns {:id :short_code :state :state_sequence}."
+   then computes state by applying the event. Returns {:id :short-code :state :state_sequence}."
   [action]
   (let [short-code (or (:short-code action) (game/generate-short-code))
         player-id (get-in action [:player :id])
@@ -225,7 +225,7 @@
               {:game-id new-game-id :seq next-seq}))
           ;; State will be computed lazily on read
           state (rebuild-state-from-events game-id)]
-      {:id game-id :short_code short-code :state state :state_sequence seq})))
+      {:id game-id :short-code short-code :state state :state_sequence seq})))
 
 (defn apply-and-persist!
   "Append event and update state atomically. Returns the sequence number."

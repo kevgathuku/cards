@@ -84,7 +84,7 @@
         (html-response
          (views/auth-error-page {:message "This sign-in link is invalid or has expired."}))))))
 
-(defn signout [request]
+(defn signout [_request]
   (-> (redirect "/")
       (with-session nil)))
 
@@ -114,7 +114,7 @@
   (if-let [player (auth/current-player request)]
     (let [action {:player (select-keys player [:id :name])}
           result (db/create-game! action)]
-      (redirect (str "/games/" (:short_code result))))
+      (redirect (str "/games/" (:short-code result))))
     (redirect "/auth/signin")))
 
 (defn get-game [request]

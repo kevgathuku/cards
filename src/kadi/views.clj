@@ -130,9 +130,12 @@
              [:h3 "Your Active Games"]
              [:ul.game-list
               (for [game games]
-                [:li
-                 [:a {:href (str "/games/" (:short_code game))}
-                  (str "Game " (:short_code game) " - " (name (get-in game [:state :status])))]])]])))
+                (let [status (get-in game [:state :status])
+                      short-code (:short_code game)]
+                  [:li
+                   [:a {:href (str "/games/" short-code)}
+                    (str "Game " short-code
+                         (when status (str " - " (name status))))]]))]])))
 
 (defn guest-home-page
   "Home page for guests."
@@ -227,11 +230,13 @@
         my-hand (when player (game/get-hand state (:id player)))
         is-my-turn? (= (:id player) (:id current-player))
         top-card (last (get-in state [:zones :played-stack]))
-        deck-count (count (get-in state [:zones :deck]))]
+        deck-count (count (get-in state [:zones :deck]))
+        direction (get-in state [:turn :direction])]
     (layout {:title (str "Game " (:short_code game)) :player player}
             [:div.card
              [:h2 (str "Game: " (:short_code game))]
-             [:p (str "Direction: " (name (get-in state [:turn :direction])))]
+             (when direction
+               [:p (str "Direction: " (name direction))])
              [:div {:style "display: flex; gap: 2rem;"}
               [:div
                [:h3 "Top Card"]
