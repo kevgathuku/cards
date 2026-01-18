@@ -10,20 +10,20 @@
 (defn make-test-game
   "Create a game with two players for testing."
   []
-  (-> (game/new-game {})
-      (game/add-player {:id 1 :name "Alice"})
-      (game/add-player {:id 2 :name "Bob"})
+  (-> (game/new-game "TEST")
+      (#(:ok (game/join-player % {:id 1 :name "Alice"})))
+      (#(:ok (game/join-player % {:id 2 :name "Bob"})))
       (game/start-game {})))
 
 (defn give-card
   "Give a specific card to a player (for testing)."
   [state player-id card]
-  (game/update-player state player-id #(update % :hand conj card)))
+  (game/update-hand state player-id #(conj % card)))
 
 (defn set-top-card
   "Set the top card of the played stack (for testing)."
   [state card]
-  (update state :played-stack #(conj (vec (butlast %)) card)))
+  (assoc-in state [:zones :played-stack] [card]))
 
 ;; =============================================================================
 ;; Card Tests
@@ -62,14 +62,14 @@
 ;; =============================================================================
 
 (deftest new-game-creation
-  (let [game (game/new-game {})]
+  (let [game (game/new-game "TEST")]
     (is (= :lobby (:status game)))
     (is (empty? (:players game)))
-    (is (= :clockwise (:direction game)))))
+    (is (= :clockwise (get-in game [:turn :direction])))))
 
 (deftest player-management
   (testing "adding players"
-    (let [game (-> (game/new-game {})
+    (let [game (-> (game/new-game "TEST")
                    (game/add-player {:id 1 :name "Alice"})
                    (game/add-player {:id 2 :name "Bob"}))]
       (is (= 2 (count (:players game))))
@@ -84,15 +84,15 @@
   (testing "game starts with correct state"
     (let [game (make-test-game)]
       (is (= :live (:status game)))
-      (is (= 4 (count (get-in game [:players 0 :hand]))))
-      (is (= 1 (count (:played-stack game))))
-      (is (pos? (count (:deck game))))))
+      (is (= 4 (count (game/get-hand game (:id (get-in game [:players 0]))))))
+      (is (= 1 (count (get-in game [:zones :played-stack]))))
+      (is (pos? (count (get-in game [:zones :deck]))))))
 
   (testing "cannot start with less than 2 players"
-    (let [game (-> (game/new-game {})
+    (let [game (-> (game/new-game "TEST")
                    (game/add-player {:id 1 :name "Alice"})
                    (game/start-game {}))]
-      (is (:error game)))))
+      (is (= :lobby (:status game))))))
 
 ;; =============================================================================
 ;; Turn Management Tests
@@ -102,24 +102,23 @@
   (testing "turn advances clockwise"
     (let [game (make-test-game)
           next-game (game/advance-turn game)]
-      (is (= 1 (:current-player-index next-game)))))
+      (is (= 1 (game/current-player-index next-game)))))
 
   (testing "turn wraps around"
-    (let [game (-> (make-test-game)
-                   (assoc :current-player-index 1))
-          next-game (game/advance-turn game)]
-      (is (= 0 (:current-player-index next-game))))))
+    (let [game (assoc (make-test-game) :current-player-index 1)
+        next-game (game/advance-turn game)]
+      (is (= 0 (game/current-player-index next-game))))))
 
 (deftest direction-reversal
   (testing "king reverses direction"
     (let [game (make-test-game)
-          reversed (game/reverse-direction game)]
-      (is (= :counter-clockwise (:direction reversed))))
+        reversed (game/reverse-direction game)]
+      (is (= :counter-clockwise (get-in reversed [:turn :direction]))))
 
     (let [game (-> (make-test-game)
                    (assoc :direction :counter-clockwise))
           reversed (game/reverse-direction game)]
-      (is (= :clockwise (:direction reversed))))))
+      (is (= :clockwise (get-in reversed [:turn :direction]))))))
 
 ;; =============================================================================
 ;; Card Play Tests
@@ -160,7 +159,7 @@
                                           :player-id 1
                                           :cards [ace]})]
       (is (not (:error result)))
-      (is (= :select-suit (get-in result [:action :type]))))))
+        (is (some #(= :select-suit (:type %)) (:effects result))))))
 
 (deftest king-reverses-direction
   (testing "playing king reverses game direction"
@@ -173,7 +172,7 @@
                                           :player-id 1
                                           :cards [king]})]
       (is (not (:error result)))
-      (is (= :counter-clockwise (:direction result))))))
+        (is (= :counter-clockwise (get-in result [:turn :direction]))))))
 
 (deftest jack-skips-player
   (testing "playing jack skips next player"
@@ -187,7 +186,7 @@
                                           :cards [jack]})]
       (is (not (:error result)))
       ;; In 2-player game, skip brings back to player 1
-      (is (= 0 (:current-player-index result))))))
+        (is (= 0 (game/current-player-index result))))))
 
 ;; =============================================================================
 ;; Penalty Tests
@@ -204,5 +203,6 @@
                                           :player-id 1
                                           :cards [two]})]
       (is (not (:error result)))
-      (is (get-in result [:penalty :active]))
-      (is (= :two (get-in result [:penalty :type]))))))
+        (is (some #(= :penalty (:type %)) (:effects result))
+            "penalty effect present")
+        (is (= :two (:penalty-type (first (filter #(= :penalty (:type %)) (:effects result)))))))))

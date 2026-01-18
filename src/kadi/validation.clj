@@ -101,17 +101,30 @@
 (defn is-players-turn?
   "Check if it's the specified player's turn."
   [state player-id]
-  (let [current-idx (:current-player-index state)
+  (let [current-idx (get-in state [:turn :current-player-index])
         current-player (get-in state [:players current-idx])]
     (= player-id (:id current-player))))
+
+(defn active-penalty
+  "Return active penalty effect map or nil."
+  [state]
+  (first (filter #(= :penalty (:type %)) (:effects state))))
+
+(defn action-suit
+  "Return selected suit if present (after select-suit)."
+  [state]
+  (some->> (:effects state)
+           (filter #(= :suit-selected (:type %)))
+           first
+           :suit))
 
 (defn validate-play
   "Validate a play attempt. Returns {:valid? bool, :reason string}."
   [state player-id card-list]
   (let [player (first (filter #(= player-id (:id %)) (:players state)))
-        top-card (last (:played-stack state))
-        penalty (get state :penalty)
-        action-suit (get-in state [:action :suit])]
+        top-card (last (get-in state [:zones :played-stack]))
+        penalty (active-penalty state)
+        action-suit (action-suit state)]
 
     (cond
       ;; Must be player's turn
@@ -131,8 +144,8 @@
       {:valid? false :reason "Invalid card combination"}
 
       ;; During active penalty
-      (:active penalty)
-      (if (valid-penalty-block? card-list (:type penalty))
+      penalty
+      (if (valid-penalty-block? card-list (:penalty-type penalty))
         {:valid? true}
         {:valid? false :reason "Must block penalty with matching card or Ace"})
 

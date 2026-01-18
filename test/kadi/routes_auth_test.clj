@@ -11,9 +11,9 @@
 (use-fixtures :once setup-db)
 
 (defn make-game-with-code [code]
-  (let [state (game/new-game {})
+  (let [state (game/new-game code)
         row   (db/create-game! {:short-code code :state state})]
-    (assoc row :state state)))
+    row))
 
 (deftest protect-game-route-requires-auth
   (testing "unauthenticated access redirects to signin"
