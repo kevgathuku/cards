@@ -11,10 +11,8 @@
 (use-fixtures :once setup-db)
 
 (defn make-game-with-code [code]
-  (let [action {:player {:id 1 :name "Creator"}
-                :short-code code}
-        state (game/apply-action nil (assoc action :type :game-created))]
-    (db/apply-and-persist! nil state :game-created action)))
+  (db/create-game! {:player {:id 1 :name "Creator"}
+                    :short-code code}))
 
 (deftest protect-game-route-requires-auth
   (testing "unauthenticated access redirects to signin"

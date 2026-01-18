@@ -113,13 +113,9 @@
 
 (defn create-game [request]
   (if-let [player (auth/current-player request)]
-    (let [short-code (game/generate-short-code)
-          action {:player (select-keys player [:id :name])
-                  :short-code short-code}
-          state (game/apply-action nil (assoc action :type :game-created))
-          result (db/apply-and-persist! nil state :game-created action)]
-      (db/add-player-to-game! (:id result) (:id player))
-      (redirect (str "/games/" short-code)))
+    (let [action {:player (select-keys player [:id :name])}
+          result (db/create-game! action)]
+      (redirect (str "/games/" (:short_code result))))
     (redirect "/auth/signin")))
 
 (defn get-game [request]

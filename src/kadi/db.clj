@@ -182,28 +182,45 @@
             nil
             events)))
 
+(defn create-game!
+  "Create a new game from an action. Computes state, persists game, appends event,
+   and adds player to game_players for authorization. All operations run in a transaction.
+   Returns {:id :short_code :state :state_sequence}."
+  [action]
+  (let [state (game/apply-action nil (assoc action :type :game-created))
+        short-code (:short-code state)
+        player-id (get-in action [:player :id])]
+    (jdbc/with-transaction [tx (datasource)]
+      (let [game-result (jdbc/execute-one! tx
+                                           ["INSERT INTO games (short_code, state, state_sequence) VALUES (?, ?, 0)"
+                                            short-code (->json state)]
+                                           {:return-keys true
+                                            :builder-fn rs/as-unqualified-lower-maps})
+            new-game-id (or (:id game-result) (get game-result (keyword "last_insert_rowid()")))
+            next-seq (or (:seq (jdbc/execute-one! tx
+                                                  ["SELECT COALESCE(MAX(sequence_number), 0) + 1 as seq FROM game_events WHERE game_id = ?" new-game-id]
+                                                  {:builder-fn rs/as-unqualified-lower-maps}))
+                         1)]
+        ;; Append event
+        (jdbc/execute-one! tx
+                           ["INSERT INTO game_events (game_id, sequence_number, event_type, event_data) VALUES (?, ?, ?, ?)"
+                            new-game-id next-seq "game-created" (->json action)])
+        ;; Update game with sequence
+        (jdbc/execute-one! tx
+                           ["UPDATE games SET state = ?, state_sequence = ?, updated_at = datetime('now') WHERE id = ?"
+                            (->json state) next-seq new-game-id])
+        ;; Add player to game for authorization
+        (jdbc/execute-one! tx
+                           ["INSERT OR IGNORE INTO game_players (game_id, player_id) VALUES (?, ?)"
+                            new-game-id player-id])
+        {:id new-game-id :short_code short-code :state state :state_sequence next-seq}))))
+
 (defn apply-and-persist!
-  "Append event and update state atomically.
-   For creation (game-id nil), extracts short-code from state.
-   Returns {:id :short_code :state :state_sequence} for creation, or sequence number for updates."
+  "Append event and update state atomically. Returns the sequence number."
   [game-id new-state event-type event-data]
-  (if (nil? game-id)
-    ;; Creation: insert game row, then append event
-    (let [short-code (:short-code new-state)
-          result (jdbc/execute-one! (datasource)
-                                    ["INSERT INTO games (short_code, state, state_sequence) VALUES (?, ?, 0)"
-                                     short-code
-                                     (->json new-state)]
-                                    {:return-keys true
-                                     :builder-fn rs/as-unqualified-lower-maps})
-          new-game-id (or (:id result) (get result (keyword "last_insert_rowid()")))
-          event (append-event! new-game-id event-type event-data)]
-      (update-game! new-game-id new-state (:sequence_number event))
-      {:id new-game-id :short_code short-code :state new-state :state_sequence (:sequence_number event)})
-    ;; Update: append event and update state
-    (let [event (append-event! game-id event-type event-data)]
-      (update-game! game-id new-state (:sequence_number event))
-      (:sequence_number event))))
+  (let [event (append-event! game-id event-type event-data)]
+    (update-game! game-id new-state (:sequence_number event))
+    (:sequence_number event)))
 
 ;; =============================================================================
 ;; Player Operations
