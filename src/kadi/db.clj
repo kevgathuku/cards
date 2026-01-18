@@ -3,7 +3,8 @@
   (:require [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
             [jsonista.core :as json]
-            [kadi.game :as game]))
+            [kadi.game :as game]
+            [kadi.schema :as schema]))
 
 (def db-spec {:dbtype "sqlite" :dbname "kadi.db"})
 
@@ -162,16 +163,17 @@
 
 (defn- ensure-fresh-state
   "Check if game state is stale and rebuild from events if needed.
-   Returns game with fresh state."
+   Returns game with fresh state (normalized)."
   [game]
   (when game
     (let [latest-seq (get-latest-event-seq (:id game))
           cached-seq (:state_sequence game)]
       (if (or (nil? cached-seq) (< cached-seq latest-seq))
         ;; State is stale, rebuild from events
-        (let [fresh-state (rebuild-state-from-events (:id game))]
-          (update-game! (:id game) fresh-state latest-seq)
-          (assoc game :state fresh-state :state_sequence latest-seq))
+        (let [fresh-state (rebuild-state-from-events (:id game))
+              normalized-state (schema/normalize-game fresh-state)]
+          (update-game! (:id game) normalized-state latest-seq)
+          (assoc game :state normalized-state :state_sequence latest-seq))
         ;; State is fresh
         game))))
 
@@ -181,7 +183,10 @@
   (when-let [row (jdbc/execute-one! (datasource)
                                     ["SELECT * FROM games WHERE short_code = ?" short-code]
                                     {:builder-fn rs/as-unqualified-lower-maps})]
-    (ensure-fresh-state (update row :state <-json))))
+    (-> row
+        (update :state <-json)
+        ensure-fresh-state
+        schema/normalize-game-row)))
 
 (defn list-games
   "List all games, optionally filtered by status (extracted from state JSON)."
@@ -192,7 +197,8 @@
                   (name status)]
                  ["SELECT * FROM games ORDER BY created_at DESC"])]
      (->> (jdbc/execute! (datasource) query {:builder-fn rs/as-unqualified-lower-maps})
-          (map #(update % :state <-json))))))
+          (map #(update % :state <-json))
+          (map schema/normalize-game-row)))))
 
 (defn create-game!
   "Create a new game from an action. Persists event and game_player in a transaction,
@@ -221,8 +227,9 @@
                                   new-game-id player-id])
               {:game-id new-game-id :seq next-seq}))
           ;; State will be computed lazily on read
-          state (rebuild-state-from-events game-id)]
-      {:id game-id :short-code short-code :state state :state_sequence seq})))
+          state (rebuild-state-from-events game-id)
+          normalized-state (schema/normalize-game state)]
+      {:id game-id :short-code short-code :state normalized-state :state_sequence seq})))
 
 (defn apply-and-persist!
   "Append event and update state atomically. Returns the sequence number."
@@ -329,7 +336,8 @@
                         ORDER BY g.updated_at DESC" player-id]
                       {:builder-fn rs/as-unqualified-lower-maps})
        (map #(update % :state <-json))
-       (map ensure-fresh-state)))
+       (map ensure-fresh-state)
+       (map schema/normalize-game-row)))
 
 (comment
   (rebuild-state-from-events 5))

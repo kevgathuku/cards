@@ -7,13 +7,6 @@
 ;; Use a test database file that gets cleaned up
 (def test-db-file "test-kadi.db")
 
-;; Helper to normalize status to string for consistent comparison
-(defn- normalize-status [status]
-  (cond
-    (keyword? status) (name status)
-    (string? status) status
-    :else nil))
-
 (defn with-test-db [f]
   ;; Delete test db if it exists
   (let [file (java.io.File. test-db-file)]
@@ -110,8 +103,8 @@
         (let [game2 (db/get-game-by-code short-code)]
           (is (= initial-seq (:state_sequence game2))
               "State sequence should not change when fresh")
-          (is (= "lobby" (normalize-status (get-in game2 [:state :status])))
-              "Status should be lobby")
+          (is (= :lobby (get-in game2 [:state :status]))
+              "Status should be lobby (keyword after normalization)")
           (is (= (count (get-in game1 [:state :players]))
                  (count (get-in game2 [:state :players])))
               "Player count should be identical when fresh"))))))
@@ -130,8 +123,8 @@
       (let [game (db/get-game-by-code short-code)]
         (is (some? (:state_sequence game)) "Should have rebuilt state_sequence")
         (is (= 1 (:state_sequence game)) "Should match event count")
-        (is (= "lobby" (normalize-status (get-in game [:state :status])))
-            "Should have lobby status"))))
+        (is (= :lobby (get-in game [:state :status]))
+            "Should have lobby status (keyword after normalization)"))))
   
   (testing "When game is nil"
     (let [result (#'db/ensure-fresh-state nil)]
@@ -154,8 +147,8 @@
             "Should have sequence 4 (create + 3 events)")
         (is (= 3 (count (get-in game [:state :players])))
             "Should have 3 players")
-        (is (= "live" (normalize-status (get-in game [:state :status])))
-            "Game should be live after start-game"))))
+        (is (= :live (get-in game [:state :status]))
+            "Game should be live after start-game (keyword after normalization)"))))
 
 (deftest create-game-test
   (testing "Creating a game with default short-code"
