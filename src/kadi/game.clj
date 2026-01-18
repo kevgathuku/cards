@@ -15,16 +15,18 @@
 ;; Game State Shape (hierarchical)
 ;; =============================================================================
 
-(defn new-game
-  "Create a new game in lobby state with hierarchical schema.
+(defn generate-short-code
+  "Generate a random 6-character game code."
+  []
+  (let [chars "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"]
+    (apply str (repeatedly 6 #(rand-nth chars)))))
 
-  short-code: game join code; game-id: optional DB id (when known)."
-  ([short-code] (new-game short-code nil))
-  ([short-code game-id]
-   {:game/id game-id
-    :short-code short-code
-   :game/ruleset :kadi
+(defn new-game
+  "Create a new game in lobby state with hierarchical schema."
+  [short-code]
+  {:game/ruleset :kadi
    :game/version 1
+   :short-code short-code
 
    ;; Players (ordered by join time for turn order) - metadata only
    :players []
@@ -43,8 +45,8 @@
 
    ;; Game metadata
    :status :lobby
-     :meta {:created-at (java.time.Instant/now)
-       :updated-at (java.time.Instant/now)}}))
+   :meta {:created-at (java.time.Instant/now)
+          :updated-at (java.time.Instant/now)}})
 
 ;; =============================================================================
 ;; Player Management
@@ -123,8 +125,8 @@
   "Calculate the next player index, respecting direction and skip count."
   [{:keys [players] :as state} skip-count]
   (let [player-count (count players)
-      direction (turn-direction state)
-      current-player-index (current-player-index state)
+        direction (turn-direction state)
+        current-player-index (current-player-index state)
         offset (case direction
                  :clockwise skip-count
                  :counter-clockwise (- skip-count))]
@@ -234,33 +236,33 @@
     (cond-> state
       ;; King reverses direction
       (some #{"K"} ranks)
-        reverse-direction
+      reverse-direction
 
       ;; Ace triggers suit selection
       (some #{"A"} ranks)
-        (update :effects conj {:type :select-suit})
+      (update :effects conj {:type :select-suit})
 
       ;; 2 creates draw-2 penalty
       (some #{"2"} ranks)
-        (update :effects conj {:type :penalty :penalty-type :two})
+      (update :effects conj {:type :penalty :penalty-type :two})
 
       ;; 3 creates draw-3 penalty
       (some #{"3"} ranks)
-        (update :effects conj {:type :penalty :penalty-type :three})
+      (update :effects conj {:type :penalty :penalty-type :three})
 
       ;; Jack skips players
       (pos? jack-count)
       (assoc ::skip-count (inc jack-count))
 
         ;; Question without answer
-        (and (every? cards/question-card? cards)
-             (not (empty? cards)))
-        (update :effects conj {:type :awaiting-answer}))))
+      (and (every? cards/question-card? cards)
+           (not (empty? cards)))
+      (update :effects conj {:type :awaiting-answer}))))
 
 (defn maybe-advance-turn
   "Advance turn unless waiting for suit selection or question answer."
   [state cards]
-    (let [skip-count (or (::skip-count state) 1)]
+  (let [skip-count (or (::skip-count state) 1)]
     (cond
       ;; Waiting for suit selection
       (some #(= :select-suit (:type %)) (:effects state))
@@ -281,7 +283,7 @@
   [state player-id cards]
   (let [player (get-player state player-id)
         hand (get-hand state player-id)
-      triggers-cardless? (some #(contains? #{"K" "J" "2" "3"} (:rank %)) cards)]
+        triggers-cardless? (some #(contains? #{"K" "J" "2" "3"} (:rank %)) cards)]
     (if (and (empty? hand) triggers-cardless?)
       (update-player state player-id #(assoc % :status :cardless))
       state)))
@@ -305,15 +307,15 @@
   "Player accepts penalty and draws cards."
   [state player-id]
   (let [penalty-effect (first (filter #(= :penalty (:type %)) (:effects state)))
-  penalty-type (:penalty-type penalty-effect)
-  draw-count (case penalty-type :two 2 :three 3 0)]
+        penalty-type (:penalty-type penalty-effect)
+        draw-count (case penalty-type :two 2 :three 3 0)]
     (-> state
         (draw-card player-id)
         (as-> s (if (> draw-count 1)
                   (reduce (fn [st _] (draw-card st player-id))
                           s (range (dec draw-count)))
                   s))
-  (update :effects #(remove (fn [e] (= :penalty (:type e))) %))
+        (update :effects #(remove (fn [e] (= :penalty (:type e))) %))
         (advance-turn))))
 
 ;; =============================================================================
@@ -454,17 +456,23 @@
 ;; =============================================================================
 
 (defmulti apply-action
-  "Apply an action (event) to the game state. Assumes validity."
+  "Apply an action (event) to the game state."
   (fn [_state action] (:type action)))
 
-(defmethod apply-action :join-game [state {:keys [player-id player-name]}]
+(defmethod apply-action :game-created [_state {:keys [player short-code]}]
+  ;; Game creation starts fresh with creator as first player
+  (let [code (or short-code (generate-short-code))]
+    (-> (new-game code)
+        (add-player-metadata player))))
+
+(defmethod apply-action :join-game [state {:keys [player]}]
   (-> state
-      (add-player-metadata {:id player-id :name player-name})
+      (add-player-metadata player)
       (update-in [:meta :updated-at] (constantly (java.time.Instant/now)))))
 
 (defmethod apply-action :start-game [state action]
   (-> (start-game state action)
-      (update-in [:meta :updated-at] (constantly (java.time.Instant/now)))) )
+      (update-in [:meta :updated-at] (constantly (java.time.Instant/now)))))
 
 (defmethod apply-action :play-cards [state {:keys [player-id cards]}]
   (-> state

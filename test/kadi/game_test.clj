@@ -63,6 +63,7 @@
 
 (deftest new-game-creation
   (let [game (game/new-game "TEST")]
+    (is (= "TEST" (:short-code game)))
     (is (= :lobby (:status game)))
     (is (empty? (:players game)))
     (is (= :clockwise (get-in game [:turn :direction])))))
@@ -106,13 +107,13 @@
 
   (testing "turn wraps around"
     (let [game (assoc (make-test-game) :current-player-index 1)
-        next-game (game/advance-turn game)]
+          next-game (game/advance-turn game)]
       (is (= 0 (game/current-player-index next-game))))))
 
 (deftest direction-reversal
   (testing "king reverses direction"
     (let [game (make-test-game)
-        reversed (game/reverse-direction game)]
+          reversed (game/reverse-direction game)]
       (is (= :counter-clockwise (get-in reversed [:turn :direction]))))
 
     (let [game (-> (make-test-game)
@@ -159,7 +160,7 @@
                                           :player-id 1
                                           :cards [ace]})]
       (is (not (:error result)))
-        (is (some #(= :select-suit (:type %)) (:effects result))))))
+      (is (some #(= :select-suit (:type %)) (:effects result))))))
 
 (deftest king-reverses-direction
   (testing "playing king reverses game direction"
@@ -172,7 +173,7 @@
                                           :player-id 1
                                           :cards [king]})]
       (is (not (:error result)))
-        (is (= :counter-clockwise (get-in result [:turn :direction]))))))
+      (is (= :counter-clockwise (get-in result [:turn :direction]))))))
 
 (deftest jack-skips-player
   (testing "playing jack skips next player"
@@ -186,7 +187,7 @@
                                           :cards [jack]})]
       (is (not (:error result)))
       ;; In 2-player game, skip brings back to player 1
-        (is (= 0 (game/current-player-index result))))))
+      (is (= 0 (game/current-player-index result))))))
 
 ;; =============================================================================
 ;; Penalty Tests
@@ -203,6 +204,6 @@
                                           :player-id 1
                                           :cards [two]})]
       (is (not (:error result)))
-        (is (some #(= :penalty (:type %)) (:effects result))
-            "penalty effect present")
-        (is (= :two (:penalty-type (first (filter #(= :penalty (:type %)) (:effects result)))))))))
+      (is (some #(= :penalty (:type %)) (:effects result))
+          "penalty effect present")
+      (is (= :two (:penalty-type (first (filter #(= :penalty (:type %)) (:effects result)))))))))

@@ -94,22 +94,6 @@
 ;; Game Operations
 ;; =============================================================================
 
-(defn create-game!
-  "Create a new game and return it. Accepts {:short-code code :state state-map}."
-  [{:keys [short-code state]}]
-  (let [ds (datasource)]
-    (let [result (jdbc/execute-one! ds
-                       ["INSERT INTO games (short_code, state, state_sequence) VALUES (?, ?, 0)"
-                        short-code
-                        (->json state)]
-                       {:return-keys true
-                        :builder-fn rs/as-unqualified-lower-maps})]
-      (println "DEBUG create-game! result:" result)
-      ;; SQLite returns last_insert_rowid() with parentheses as the key name
-      (let [game-id (or (:id result) (get result (keyword "last_insert_rowid()")))]
-        (println "DEBUG create-game! game-id:" game-id)
-        (assoc result :id game-id :short-code short-code :state state)))))
-
 (defn get-game
   "Get a game by ID."
   [game-id]
@@ -189,21 +173,37 @@
 
 (defn rebuild-state-from-events
   "Rebuild game state by replaying all events from the event log.
-  This allows verification of state correctness and recovery from corruption."
+  This allows verification of state correctness and recovery from corruption.
+  Starts with nil since the first event (:game-created) creates the initial state."
   [game-id]
-  (let [events (get-events game-id)
-        initial-state (game/new-game nil)]
+  (let [events (get-events game-id)]
     (reduce (fn [state {:keys [event-type event-data]}]
               (game/apply-action state (merge event-data {:type event-type})))
-            initial-state
+            nil
             events)))
 
 (defn apply-and-persist!
-  "Append event and update state atomically. Returns the new sequence number."
+  "Append event and update state atomically.
+   For creation (game-id nil), extracts short-code from state.
+   Returns {:id :short_code :state :state_sequence} for creation, or sequence number for updates."
   [game-id new-state event-type event-data]
-  (let [event (append-event! game-id event-type event-data)]
-    (update-game! game-id new-state (:sequence_number event))
-    (:sequence_number event)))
+  (if (nil? game-id)
+    ;; Creation: insert game row, then append event
+    (let [short-code (:short-code new-state)
+          result (jdbc/execute-one! (datasource)
+                                    ["INSERT INTO games (short_code, state, state_sequence) VALUES (?, ?, 0)"
+                                     short-code
+                                     (->json new-state)]
+                                    {:return-keys true
+                                     :builder-fn rs/as-unqualified-lower-maps})
+          new-game-id (or (:id result) (get result (keyword "last_insert_rowid()")))
+          event (append-event! new-game-id event-type event-data)]
+      (update-game! new-game-id new-state (:sequence_number event))
+      {:id new-game-id :short_code short-code :state new-state :state_sequence (:sequence_number event)})
+    ;; Update: append event and update state
+    (let [event (append-event! game-id event-type event-data)]
+      (update-game! game-id new-state (:sequence_number event))
+      (:sequence_number event))))
 
 ;; =============================================================================
 ;; Player Operations

@@ -29,10 +29,6 @@
       (:params request)
       {}))
 
-(defn- generate-short-code []
-  (let [chars "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"]
-    (apply str (repeatedly 6 #(rand-nth chars)))))
-
 (defn require-auth
   "Middleware helper - redirects to signin if not authenticated."
   [handler]
@@ -117,17 +113,13 @@
 
 (defn create-game [request]
   (if-let [player (auth/current-player request)]
-    (let [short-code (generate-short-code)
-      game-state (game/new-game short-code)
-      join-result (game/join-player game-state player)]
-      (if (:error join-result)
-        (redirect "/games" {:type :error :message (:error join-result)})
-        (let [state' (:ok join-result)
-              result (db/create-game! {:short-code short-code :state state'})
-              game-id (:id result)]
-          (db/append-event! game-id :game-created {})
-          (db/add-player-to-game! game-id (:id player))
-          (redirect (str "/games/" short-code)))))
+    (let [short-code (game/generate-short-code)
+          action {:player (select-keys player [:id :name])
+                  :short-code short-code}
+          state (game/apply-action nil (assoc action :type :game-created))
+          result (db/apply-and-persist! nil state :game-created action)]
+      (db/add-player-to-game! (:id result) (:id player))
+      (redirect (str "/games/" short-code)))
     (redirect "/auth/signin")))
 
 (defn get-game [request]
@@ -157,8 +149,8 @@
         (let [result (game/join-player (:state game) player)]
           (if (:error result)
             (redirect (str "/games/" short-code) {:type :error :message (:error result)})
-            (do
-              (db/apply-and-persist! (:id game) (:ok result) :player-joined {:player-id (:id player)})
+            (let [action {:player (select-keys player [:id :name])}]
+              (db/apply-and-persist! (:id game) (:ok result) :join-game action)
               (db/add-player-to-game! (:id game) (:id player))
               (redirect (str "/games/" short-code)))))
         (redirect "/games" {:type :error :message "Game not found"})))
@@ -175,7 +167,7 @@
             (if (:error result)
               (redirect (str "/games/" short-code) {:type :error :message (:error result)})
               (do
-                (db/apply-and-persist! (:id game) (:ok result) :game-started {:player-id (:id player)})
+                (db/apply-and-persist! (:id game) (:ok result) :start-game {:player-id (:id player)})
                 (redirect (str "/games/" short-code))))))
         (redirect "/games" {:type :error :message "Game not found"})))
     (redirect "/auth/signin")))

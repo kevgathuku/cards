@@ -11,16 +11,17 @@
 (use-fixtures :once setup-db)
 
 (defn make-game-with-code [code]
-  (let [state (game/new-game code)
-        row   (db/create-game! {:short-code code :state state})]
-    row))
+  (let [action {:player {:id 1 :name "Creator"}
+                :short-code code}
+        state (game/apply-action nil (assoc action :type :game-created))]
+    (db/apply-and-persist! nil state :game-created action)))
 
 (deftest protect-game-route-requires-auth
   (testing "unauthenticated access redirects to signin"
     (let [code "ABC123"
           _    (make-game-with-code code)
           req  {:request-method :get
-                 :path-params {:code code}}
+                :path-params {:code code}}
           resp ((handlers/require-auth handlers/get-game) req)]
       (is (= 302 (:status resp)))
       (is (= "/auth/signin" (get-in resp [:headers "Location"])))))
