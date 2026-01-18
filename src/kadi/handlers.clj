@@ -149,7 +149,8 @@
             (redirect (str "/games/" short-code) {:type :error :message (:error result)})
             (do
               (when-not already-joined?
-                (let [action {:player (select-keys player [:id :name])}]
+                (let [action {:player (select-keys player [:id :name])
+                              :timestamp (java.time.Instant/now)}]
                   (db/apply-and-persist! (:id game) :join-game action)
                   (db/add-player-to-game! (:id game) (:id player))))
               (redirect (str "/games/" short-code)))))
@@ -176,7 +177,8 @@
             (redirect "/games/join" {:type :error :message (:error result)})
             (do
               (when-not already-joined?
-                (let [action {:player (select-keys player [:id :name])}]
+                (let [action {:player (select-keys player [:id :name])
+                              :timestamp (java.time.Instant/now)}]
                   (db/apply-and-persist! (:id game) :join-game action)
                   (db/add-player-to-game! (:id game) (:id player))))
               (redirect (str "/games/" short-code)))))
@@ -196,7 +198,7 @@
             (if (:error result)
               (redirect (str "/games/" short-code) {:type :error :message (:error result)})
               (do
-                (db/apply-and-persist! (:id game) :start-game {:player {:id (:id player)}})
+                (db/apply-and-persist! (:id game) :start-game {:timestamp (java.time.Instant/now)})
                 (redirect (str "/games/" short-code))))))
         (redirect "/games" {:type :error :message "Game not found"})))
     (redirect "/auth/signin")))
@@ -219,7 +221,9 @@
             (if (:error result)
               (redirect (str "/games/" short-code) {:type :error :message (:error result)})
               (do
-                (db/apply-and-persist! (:id game) :cards-played {:player-id (:id player) :cards cards})
+                (db/apply-and-persist! (:id game) :cards-played {:player-id (:id player)
+                                                                  :cards cards
+                                                                  :timestamp (java.time.Instant/now)})
                 (redirect (str "/games/" short-code))))))))
     (redirect "/auth/signin")))
 
@@ -235,6 +239,7 @@
             (if (:error result)
               (redirect (str "/games/" short-code) {:type :error :message (:error result)})
               (do
-                (db/apply-and-persist! (:id game) :card-drawn {:player-id (:id player)})
+                (db/apply-and-persist! (:id game) :card-drawn {:player-id (:id player)
+                                                                :timestamp (java.time.Instant/now)})
                 (redirect (str "/games/" short-code))))))))
     (redirect "/auth/signin")))

@@ -465,48 +465,46 @@
     (-> (new-game code)
         (add-player-metadata player))))
 
-(defmethod apply-action :join-game [state {:keys [player]}]
-  (-> state
-      (add-player-metadata player)
-      (update-in [:meta :updated-at] (constantly (java.time.Instant/now)))))
+(defmethod apply-action :join-game [state {:keys [player timestamp]}]
+  (cond-> (add-player-metadata state player)
+    timestamp (update-in [:meta :updated-at] (constantly timestamp))))
 
-(defmethod apply-action :start-game [state action]
-  (-> (start-game state action)
-      (update-in [:meta :updated-at] (constantly (java.time.Instant/now)))))
+(defmethod apply-action :start-game [state {:keys [timestamp]}]
+  (cond-> (start-game state {})
+    timestamp (update-in [:meta :updated-at] (constantly timestamp))))
 
-(defmethod apply-action :play-cards [state {:keys [player-id cards]}]
-  (-> state
-      (remove-cards-from-hand player-id cards)
-      (add-to-played-stack cards)
-      (apply-card-effects cards)
-      (check-cardless player-id cards)
-      (maybe-advance-turn cards)
-      (update-in [:meta :updated-at] (constantly (java.time.Instant/now)))))
+(defmethod apply-action :play-cards [state {:keys [player-id cards timestamp]}]
+  (cond-> (-> state
+              (remove-cards-from-hand player-id cards)
+              (add-to-played-stack cards)
+              (apply-card-effects cards)
+              (check-cardless player-id cards)
+              (maybe-advance-turn cards))
+    timestamp (update-in [:meta :updated-at] (constantly timestamp))))
 
-(defmethod apply-action :draw-card [state {:keys [player-id]}]
-  (-> state
-      (draw-card player-id)
-      (advance-turn)
-      (update-in [:meta :updated-at] (constantly (java.time.Instant/now)))))
+(defmethod apply-action :draw-card [state {:keys [player-id timestamp]}]
+  (cond-> (-> state
+              (draw-card player-id)
+              (advance-turn))
+    timestamp (update-in [:meta :updated-at] (constantly timestamp))))
 
-(defmethod apply-action :answer-question [state {:keys [player-id]}]
-  (-> state
-      (draw-card player-id)
-      (update :effects #(remove (fn [e] (= :awaiting-answer (:type e))) %))
-      (advance-turn)
-      (update-in [:meta :updated-at] (constantly (java.time.Instant/now)))))
+(defmethod apply-action :answer-question [state {:keys [player-id timestamp]}]
+  (cond-> (-> state
+              (draw-card player-id)
+              (update :effects #(remove (fn [e] (= :awaiting-answer (:type e))) %))
+              (advance-turn))
+    timestamp (update-in [:meta :updated-at] (constantly timestamp))))
 
-(defmethod apply-action :select-suit [state {:keys [suit]}]
-  (-> state
-      (update :effects #(remove (fn [e] (= :select-suit (:type e))) %))
-      (update :effects conj {:type :suit-selected :suit suit})
-      (advance-turn)
-      (update-in [:meta :updated-at] (constantly (java.time.Instant/now)))))
+(defmethod apply-action :select-suit [state {:keys [suit timestamp]}]
+  (cond-> (-> state
+              (update :effects #(remove (fn [e] (= :select-suit (:type e))) %))
+              (update :effects conj {:type :suit-selected :suit suit})
+              (advance-turn))
+    timestamp (update-in [:meta :updated-at] (constantly timestamp))))
 
-(defmethod apply-action :accept-penalty [state {:keys [player-id]}]
-  (-> state
-      (accept-penalty player-id)
-      (update-in [:meta :updated-at] (constantly (java.time.Instant/now)))))
+(defmethod apply-action :accept-penalty [state {:keys [player-id timestamp]}]
+  (cond-> (accept-penalty state player-id)
+    timestamp (update-in [:meta :updated-at] (constantly timestamp))))
 
 (defmethod apply-action :default [state _]
   state)

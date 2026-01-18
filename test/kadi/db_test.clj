@@ -60,14 +60,15 @@
           game-id (:id result)]
       
       ;; Join another player
-      (db/append-event! game-id :join-game {:player {:id 2 :name "Bob"}})
+      (db/append-event! game-id :join-game {:player {:id 2 :name "Bob"}
+                                             :timestamp (java.time.Instant/now)})
       
       (let [state (db/rebuild-state-from-events game-id)]
         (is (= 2 (count (:players state))) "Should have 2 players")
         (is (= "Bob" (-> state :players second :name)) "Second player should be Bob"))
       
       ;; Start the game
-      (db/append-event! game-id :start-game {})
+      (db/append-event! game-id :start-game {:timestamp (java.time.Instant/now)})
       
       (let [state (db/rebuild-state-from-events game-id)]
         (is (= :live (:status state)) "Game should be live after start-game event")
@@ -85,7 +86,8 @@
           short-code (:short-code result)]
       
       ;; Add an event after game creation
-      (db/append-event! game-id :join-game {:player {:id 2 :name "Bob"}})
+      (db/append-event! game-id :join-game {:player {:id 2 :name "Bob"}
+                                             :timestamp (java.time.Instant/now)})
       
       ;; Get game - should detect stale state and rebuild
       (let [game (db/get-game-by-code short-code)]
@@ -142,9 +144,11 @@
           short-code (:short-code result)]
       
       ;; Add multiple events
-      (db/append-event! game-id :join-game {:player {:id 2 :name "Bob"}})
-      (db/append-event! game-id :join-game {:player {:id 3 :name "Charlie"}})
-      (db/append-event! game-id :start-game {})
+      (db/append-event! game-id :join-game {:player {:id 2 :name "Bob"}
+                                             :timestamp (java.time.Instant/now)})
+      (db/append-event! game-id :join-game {:player {:id 3 :name "Charlie"}
+                                             :timestamp (java.time.Instant/now)})
+      (db/append-event! game-id :start-game {:timestamp (java.time.Instant/now)})
       
       ;; Get game - should have all events applied
       (let [game (db/get-game-by-code short-code)]
