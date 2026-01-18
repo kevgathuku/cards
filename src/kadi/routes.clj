@@ -17,9 +17,9 @@
    ["/games"
     ["" {:get h/list-games
          :post h/create-game}]
-    ["/:id" {:get h/get-game}]
-    ["/:id/join" {:post h/join-game}]
-    ["/:id/start" {:post h/start-game}]
-    ["/:id/play" {:post h/play-cards}]
-    ["/:id/draw" {:post h/draw-card}]
-    ["/:id/players" {:get h/get-players-fragment}]]])
+      ["/:code" {:get (h/require-auth h/get-game)}]
+      ["/:code/join" {:post (h/require-auth h/join-game)}]
+      ["/:code/start" {:post (h/require-auth h/start-game)}]
+      ["/:code/play" {:post (h/require-auth h/play-cards)}]
+      ["/:code/draw" {:post (h/require-auth h/draw-card)}]
+      ["/:code/players" {:get (h/require-auth h/get-players-fragment)}]]])

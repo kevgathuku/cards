@@ -33,7 +33,7 @@
   (let [chars "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"]
     (apply str (repeatedly 6 #(rand-nth chars)))))
 
-(defn- require-auth
+(defn require-auth
   "Middleware helper - redirects to signin if not authenticated."
   [handler]
   (fn [request]
@@ -109,13 +109,13 @@
           game-id (:id result)]
       (db/append-event! game-id :game-created {})
       (db/add-player-to-game! game-id (:id player))
-      (redirect (str "/games/" game-id)))
+      (redirect (str "/games/" short-code)))
     (redirect "/auth/signin")))
 
 (defn get-game [request]
-  (let [game-id (parse-long (get-in request [:path-params :id]))
+  (let [short-code (get-in request [:path-params :code])
         player (auth/current-player request)]
-    (if-let [game (db/get-game game-id)]
+    (if-let [game (db/get-game-by-code short-code)]
       (let [status (get-in game [:state :status])]
         (html-response
          (if (= :lobby status)
@@ -124,8 +124,8 @@
       (redirect "/games" {:type :error :message "Game not found"}))))
 
 (defn get-players-fragment [request]
-  (let [game-id (parse-long (get-in request [:path-params :id]))]
-    (if-let [game (db/get-game game-id)]
+  (let [short-code (get-in request [:path-params :code])]
+    (if-let [game (db/get-game-by-code short-code)]
       {:status 200
        :headers {"Content-Type" "text/html; charset=utf-8"}
        :body (views/players-list-fragment {:players (get-in game [:state :players])})}
@@ -133,63 +133,67 @@
 
 (defn join-game [request]
   (if-let [player (auth/current-player request)]
-    (let [game-id (parse-long (get-in request [:path-params :id]))]
-      (if-let [game (db/get-game game-id)]
+    (let [short-code (get-in request [:path-params :code])
+          game (db/get-game-by-code short-code)]
+      (if game
         (let [action {:type :join-game :player-id (:id player) :player-name (:name player)}
               new-state (game/apply-action (:state game) action)]
           (if (:error new-state)
-            (redirect (str "/games/" game-id) {:type :error :message (:error new-state)})
+            (redirect (str "/games/" short-code) {:type :error :message (:error new-state)})
             (do
-              (db/apply-and-persist! game-id new-state :player-joined action)
-              (db/add-player-to-game! game-id (:id player))
-              (redirect (str "/games/" game-id)))))
+              (db/apply-and-persist! (:id game) new-state :player-joined action)
+              (db/add-player-to-game! (:id game) (:id player))
+              (redirect (str "/games/" short-code)))))
         (redirect "/games" {:type :error :message "Game not found"})))
     (redirect "/auth/signin")))
 
 (defn start-game [request]
   (if-let [player (auth/current-player request)]
-    (let [game-id (parse-long (get-in request [:path-params :id]))]
-      (if-let [game (db/get-game game-id)]
+    (let [short-code (get-in request [:path-params :code])
+          game (db/get-game-by-code short-code)]
+      (if game
         (let [action {:type :start-game}
               new-state (game/apply-action (:state game) action)]
           (if (:error new-state)
-            (redirect (str "/games/" game-id) {:type :error :message (:error new-state)})
+            (redirect (str "/games/" short-code) {:type :error :message (:error new-state)})
             (do
-              (db/apply-and-persist! game-id new-state :game-started action)
-              (redirect (str "/games/" game-id)))))
+              (db/apply-and-persist! (:id game) new-state :game-started action)
+              (redirect (str "/games/" short-code)))))
         (redirect "/games" {:type :error :message "Game not found"})))
     (redirect "/auth/signin")))
 
 (defn play-cards [request]
   (if-let [player (auth/current-player request)]
-    (let [game-id (parse-long (get-in request [:path-params :id]))
+    (let [short-code (get-in request [:path-params :code])
+          game (db/get-game-by-code short-code)
           params (parse-form request)
           card-indices (mapv parse-long (if (sequential? (get params "cards[]"))
                                           (get params "cards[]")
                                           [(get params "cards[]")]))]
-      (if-let [game (db/get-game game-id)]
+      (if game
         (let [my-player (first (filter #(= (:id player) (:id %)) (get-in game [:state :players])))
               cards (mapv #(get (:hand my-player) %) card-indices)
               action {:type :play-cards :player-id (:id player) :cards cards}
               new-state (game/apply-action (:state game) action)]
           (if (:error new-state)
-            (redirect (str "/games/" game-id) {:type :error :message (:error new-state)})
+            (redirect (str "/games/" short-code) {:type :error :message (:error new-state)})
             (do
-              (db/apply-and-persist! game-id new-state :cards-played action)
-              (redirect (str "/games/" game-id)))))
+              (db/apply-and-persist! (:id game) new-state :cards-played action)
+              (redirect (str "/games/" short-code)))))
         (redirect "/games" {:type :error :message "Game not found"})))
     (redirect "/auth/signin")))
 
 (defn draw-card [request]
   (if-let [player (auth/current-player request)]
-    (let [game-id (parse-long (get-in request [:path-params :id]))]
-      (if-let [game (db/get-game game-id)]
+    (let [short-code (get-in request [:path-params :code])
+          game (db/get-game-by-code short-code)]
+      (if game
         (let [action {:type :draw-card :player-id (:id player)}
               new-state (game/apply-action (:state game) action)]
           (if (:error new-state)
-            (redirect (str "/games/" game-id) {:type :error :message (:error new-state)})
+            (redirect (str "/games/" short-code) {:type :error :message (:error new-state)})
             (do
-              (db/apply-and-persist! game-id new-state :card-drawn action)
-              (redirect (str "/games/" game-id)))))
+              (db/apply-and-persist! (:id game) new-state :card-drawn action)
+              (redirect (str "/games/" short-code)))))
         (redirect "/games" {:type :error :message "Game not found"})))
     (redirect "/auth/signin")))

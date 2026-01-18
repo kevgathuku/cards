@@ -130,7 +130,7 @@
              [:ul.game-list
               (for [game games]
                 [:li
-                 [:a {:href (str "/games/" (:id game))}
+                 [:a {:href (str "/games/" (:short_code game))}
                   (str "Game " (:short_code game) " - " (name (get-in game [:state :status])))]])]])))
 
 (defn guest-home-page
@@ -174,7 +174,7 @@
                 [:li {:style "display: flex; justify-content: space-between; align-items: center;"}
                  [:span (str "Game " (:short_code game)
                              " (" (count (get-in game [:state :players])) " players)")]
-                 [:a.btn.btn-secondary {:href (str "/games/" (:id game) "/join")} "Join"]])]
+                 [:a.btn.btn-secondary {:href (str "/games/" (:short_code game))} "Join"]])]
              [:p "No games available. Create one!"])]))
 
 (defn game-lobby-page
@@ -188,16 +188,16 @@
              [:h2 (str "Game: " (:short_code game))]
              [:p "Share this code with friends to let them join."]
              [:div {:id "player-list"
-                    :hx-get (str "/games/" (:id game) "/players")
+                    :hx-get (str "/games/" (:short_code game) "/players")
                     :hx-trigger "every 3s"}
               (players-list-fragment {:players players})]]
             [:div.card
              (if is-player?
                (if can-start?
-                 [:form {:method "post" :action (str "/games/" (:id game) "/start")}
+                 [:form {:method "post" :action (str "/games/" (:short_code game) "/start")}
                   [:button.btn.btn-primary {:type "submit"} "Start Game"]]
                  [:p "Waiting for more players... (need at least 2)"])
-               [:form {:method "post" :action (str "/games/" (:id game) "/join")}
+               [:form {:method "post" :action (str "/games/" (:short_code game) "/join")}
                 [:button.btn.btn-primary {:type "submit"} "Join Game"]])])))
 
 ;; =============================================================================
@@ -250,7 +250,7 @@
             (when my-player
               [:div.card {:id "my-hand"}
                [:h3 (if is-my-turn? "Your Turn!" "Your Hand")]
-               [:form {:method "post" :action (str "/games/" (:id game) "/play")}
+               [:form {:method "post" :action (str "/games/" (:short_code game) "/play")}
                 [:div.hand
                  (for [[idx card] (map-indexed vector (:hand my-player))]
                    [:label
@@ -263,6 +263,6 @@
                 (when is-my-turn?
                   [:div {:style "margin-top: 1rem; display: flex; gap: 0.5rem;"}
                    [:button.btn.btn-primary {:type "submit"} "Play Selected"]
-                   [:button.btn.btn-secondary {:type "submit" :formaction (str "/games/" (:id game) "/draw")}
+                   [:button.btn.btn-secondary {:type "submit" :formaction (str "/games/" (:short_code game) "/draw")}
                     "Draw Card"]])]]))))
 
