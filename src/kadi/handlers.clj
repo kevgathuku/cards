@@ -118,9 +118,9 @@
 (defn create-game [request]
   (if-let [player (auth/current-player request)]
     (let [short-code (generate-short-code)
-          game-state (-> (game/new-game {:id nil :short-code short-code})
+          game-state (-> (game/new-game {})
                          (game/add-player {:id (:id player) :name (:name player)}))
-          result (db/create-game! game-state)
+          result (db/create-game! {:short-code short-code :state game-state})
           game-id (:id result)]
       (db/append-event! game-id :game-created {})
       (db/add-player-to-game! game-id (:id player))

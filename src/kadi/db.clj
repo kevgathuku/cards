@@ -93,20 +93,20 @@
 ;; =============================================================================
 
 (defn create-game!
-  "Create a new game and return it."
-  [game-state]
+  "Create a new game and return it. Accepts {:short-code code :state state-map}."
+  [{:keys [short-code state]}]
   (let [ds (datasource)]
     (let [result (jdbc/execute-one! ds
                        ["INSERT INTO games (short_code, state, state_sequence) VALUES (?, ?, 0)"
-                        (:short-code game-state)
-                        (->json game-state)]
+                        short-code
+                        (->json state)]
                        {:return-keys true
                         :builder-fn rs/as-unqualified-lower-maps})]
       (println "DEBUG create-game! result:" result)
       ;; SQLite returns last_insert_rowid() with parentheses as the key name
       (let [game-id (or (:id result) (get result (keyword "last_insert_rowid()")))]
         (println "DEBUG create-game! game-id:" game-id)
-        (assoc result :id game-id)))))
+        (assoc result :id game-id :short-code short-code :state state)))))
 
 (defn get-game
   "Get a game by ID."
@@ -184,6 +184,17 @@
                        game-id after-sequence]
                       {:builder-fn rs/as-unqualified-lower-maps})
        (map #(update % :event_data <-json))))
+
+(defn rebuild-state-from-events
+  "Rebuild game state by replaying all events from the event log.
+  This allows verification of state correctness and recovery from corruption."
+  [game-id]
+  (let [events (get-events game-id)
+        initial-state (kadi.game/new-game {})]
+    (reduce (fn [state {:keys [event-type event-data]}]
+              (kadi.game/apply-action state (merge event-data {:type event-type})))
+            initial-state
+            events)))
 
 (defn apply-and-persist!
   "Append event and update state atomically. Returns the new sequence number."

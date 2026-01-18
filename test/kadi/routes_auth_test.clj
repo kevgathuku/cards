@@ -11,8 +11,8 @@
 (use-fixtures :once setup-db)
 
 (defn make-game-with-code [code]
-  (let [state (game/new-game {:id nil :short-code code})
-        row   (db/create-game! state)]
+  (let [state (game/new-game {})
+        row   (db/create-game! {:short-code code :state state})]
     (assoc row :state state)))
 
 (deftest protect-game-route-requires-auth
