@@ -7,25 +7,30 @@
 ;; Use a test database file that gets cleaned up
 (def test-db-file "test-kadi.db")
 
+;; SET THE DEFAULT DB TO TEST DB AT NAMESPACE LOAD TIME
+;; This ensures that even during namespace compilation/loading,
+;; we use the test database instead of the main database
+(alter-var-root #'db/*db-spec* (constantly {:dbtype "sqlite" :dbname test-db-file}))
+
+;; Initialize the test database schema
+(db/init!)
+
 (defn with-test-db [f]
   ;; Delete test db if it exists
   (let [file (java.io.File. test-db-file)]
     (when (.exists file)
       (.delete file)))
   
-  ;; Override to use test database and reset datasource
-  (with-redefs [db/db-spec {:dbtype "sqlite" :dbname test-db-file}]
-    ;; Reset the datasource atom to force new connection
-    (reset! @#'db/ds nil)
-    (db/init!)
-    (try
-      (f)
-      (finally
-        ;; Clean up
-        (reset! @#'db/ds nil)
-        (let [file (java.io.File. test-db-file)]
-          (when (.exists file)
-            (.delete file)))))))
+  ;; Re-initialize test database for this specific test
+  (db/init!)
+  
+  (try
+    (f)
+    (finally
+      ;; Clean up test db file
+      (let [file (java.io.File. test-db-file)]
+        (when (.exists file)
+          (.delete file))))))
 
 (use-fixtures :each with-test-db)
 

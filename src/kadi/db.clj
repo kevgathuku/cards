@@ -6,13 +6,12 @@
             [kadi.game :as game]
             [kadi.schema :as schema]))
 
-(def db-spec {:dbtype "sqlite" :dbname "kadi.db"})
-
-(def ^:private ds (atom nil))
+(def ^:dynamic *db-spec* {:dbtype "sqlite" :dbname "kadi.db"})
 
 (defn datasource []
-  (or @ds
-      (reset! ds (jdbc/get-datasource db-spec))))
+  "Get or create a datasource for the current *db-spec*.
+   Always reads *db-spec* so dynamic binding works correctly."
+  (jdbc/get-datasource *db-spec*))
 
 (def ^:private json-mapper (json/object-mapper {:decode-key-fn keyword}))
 
