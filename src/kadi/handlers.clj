@@ -2,118 +2,219 @@
   "HTTP request handlers."
   (:require [kadi.db :as db]
             [kadi.game :as game]
-            [jsonista.core :as json]))
+            [kadi.auth :as auth]
+            [kadi.views :as views]
+            [ring.util.response :as resp]))
 
-(def ^:private json-mapper (json/object-mapper {:decode-key-fn keyword}))
+;; =============================================================================
+;; Helpers
+;; =============================================================================
 
-(defn- json-response [status body]
-  {:status status
-   :headers {"Content-Type" "application/json"}
-   :body (json/write-value-as-string body json-mapper)})
+(defn- html-response [body]
+  {:status 200
+   :headers {"Content-Type" "text/html; charset=utf-8"}
+   :body body})
 
-(defn- parse-body [request]
-  (when-let [body (:body request)]
-    (json/read-value (slurp body) json-mapper)))
+(defn- redirect
+  ([path] (resp/redirect path))
+  ([path flash]
+   (-> (resp/redirect path)
+       (assoc :flash flash))))
+
+(defn- with-session [response session]
+  (assoc response :session session))
+
+(defn- parse-form [request]
+  (or (:form-params request)
+      (:params request)
+      {}))
 
 (defn- generate-short-code []
   (let [chars "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"]
     (apply str (repeatedly 6 #(rand-nth chars)))))
 
+(defn require-auth
+  "Middleware helper - redirects to signin if not authenticated."
+  [handler]
+  (fn [request]
+    (if (auth/authenticated? request)
+      (handler request)
+      (redirect "/auth/signin" {:type :error :message "Please sign in to continue"}))))
+
+(defn- player-in-game?
+  "Check if player is in the game."
+  [player game]
+  (some #(= (:id player) (:id %)) (get-in game [:state :players])))
+
+(defn- check-game-status
+  "Check that game exists and has expected status. Returns [game error] pair."
+  [short-code expected-status]
+  (if-let [game (db/get-game-by-code short-code)]
+    (let [actual-status (get-in game [:state :status])]
+      (if (= actual-status expected-status)
+        [game nil]
+        [game (str "Game is in " (name actual-status) " status, not " (name expected-status))]))
+    [nil "Game not found"]))
+
+;; =============================================================================
+;; Auth Handlers
+;; =============================================================================
+
+(defn signin-page [request]
+  (if (auth/authenticated? request)
+    (redirect "/")
+    (html-response
+     (views/signin-page {:flash (:flash request)}))))
+
+(defn send-signin-link [request]
+  (let [params (parse-form request)
+        email (get params "email")]
+    (if (auth/valid-email? email)
+      (let [token (auth/create-signin-token! email)]
+        (auth/send-signin-email! {:email email :token token})
+        (html-response
+         (views/check-email-page {:email email})))
+      (redirect "/auth/signin" {:type :error :message "Please enter a valid email address"}))))
+
+(defn verify-signin [request]
+  (let [token (get-in request [:path-params :token])]
+    (if-let [player (auth/verify-token! token)]
+      (do
+        (println "Auth success - player:" player)
+        (-> (redirect "/")
+            (with-session {:player-id (:id player)})))
+      (do
+        (println "Auth failed - token:" token)
+        (html-response
+         (views/auth-error-page {:message "This sign-in link is invalid or has expired."}))))))
+
+(defn signout [request]
+  (-> (redirect "/")
+      (with-session nil)))
+
 ;; =============================================================================
 ;; Page Handlers
 ;; =============================================================================
 
-(defn index [_request]
-  {:status 200
-   :headers {"Content-Type" "text/html"}
-   :body "<html>
-            <head><title>Kadi</title></head>
-            <body>
-              <h1>Kadi Card Game</h1>
-              <p>API available at /api</p>
-            </body>
-          </html>"})
+(defn index [request]
+  (if-let [player (auth/current-player request)]
+    (let [game-ids (db/get-player-games (:id player))
+          games (map db/get-game game-ids)]
+      (html-response
+       (views/home-page {:player player :games games})))
+    (html-response
+     (views/guest-home-page))))
 
 ;; =============================================================================
 ;; Game Handlers
 ;; =============================================================================
 
-(defn list-games [_request]
-  (let [games (db/list-games :lobby)]
-    (json-response 200 {:games (map #(select-keys % [:id :short_code :status :created_at]) games)})))
+(defn list-games [request]
+  (let [player (auth/current-player request)
+        games (db/list-games :lobby)]
+    (html-response
+     (views/games-list-page {:player player :games games}))))
 
 (defn create-game [request]
-  (let [body (parse-body request)
-        player-id (:player-id body)
-        short-code (generate-short-code)
-        game-state (game/new-game {:id nil
-                                   :short-code short-code
-                                   :created-by player-id})
-        result (db/create-game! game-state)
-        game-id (:id result)]
-    (db/append-event! game-id :game-created {:player-id player-id})
-    (json-response 201 {:id game-id :short-code short-code})))
+  (if-let [player (auth/current-player request)]
+    (let [short-code (generate-short-code)
+          game-state (-> (game/new-game {})
+                         (game/add-player {:id (:id player) :name (:name player)}))
+          result (db/create-game! {:short-code short-code :state game-state})
+          game-id (:id result)]
+      (db/append-event! game-id :game-created {})
+      (db/add-player-to-game! game-id (:id player))
+      (redirect (str "/games/" short-code)))
+    (redirect "/auth/signin")))
 
 (defn get-game [request]
-  (let [game-id (parse-long (get-in request [:path-params :id]))]
-    (if-let [game (db/get-game game-id)]
-      (json-response 200 game)
-      (json-response 404 {:error "Game not found"}))))
+  (let [short-code (get-in request [:path-params :code])
+        player (auth/current-player request)]
+    (if-let [game (db/get-game-by-code short-code)]
+      (let [status (get-in game [:state :status])]
+        (html-response
+         (if (= :lobby status)
+           (views/game-lobby-page {:player player :game game})
+           (views/game-play-page {:player player :game game}))))
+      (redirect "/games" {:type :error :message "Game not found"}))))
+
+(defn get-players-fragment [request]
+  (let [short-code (get-in request [:path-params :code])]
+    (if-let [game (db/get-game-by-code short-code)]
+      {:status 200
+       :headers {"Content-Type" "text/html; charset=utf-8"}
+       :body (views/players-list-fragment {:players (get-in game [:state :players])})}
+      {:status 404 :body "Game not found"})))
 
 (defn join-game [request]
-  (let [game-id (parse-long (get-in request [:path-params :id]))
-        body (parse-body request)
-        player-id (:player-id body)
-        player-name (:player-name body)]
-    (if-let [game (db/get-game game-id)]
-      (let [new-state (game/apply-action (:state game)
-                                         {:type :join-game
-                                          :player-id player-id
-                                          :player-name player-name})]
-        (if (:error new-state)
-          (json-response 400 {:error (:error new-state)})
-          (do
-            (db/update-game! game-id new-state)
-            (db/append-event! game-id :player-joined {:player-id player-id :player-name player-name})
-            (json-response 200 {:status "joined"}))))
-      (json-response 404 {:error "Game not found"}))))
+  (if-let [player (auth/current-player request)]
+    (let [short-code (get-in request [:path-params :code])
+          game (db/get-game-by-code short-code)]
+      (if game
+        (let [action {:type :join-game :player-id (:id player) :player-name (:name player)}
+              new-state (game/apply-action (:state game) action)]
+          (if (:error new-state)
+            (redirect (str "/games/" short-code) {:type :error :message (:error new-state)})
+            (do
+              (db/apply-and-persist! (:id game) new-state :player-joined action)
+              (db/add-player-to-game! (:id game) (:id player))
+              (redirect (str "/games/" short-code)))))
+        (redirect "/games" {:type :error :message "Game not found"})))
+    (redirect "/auth/signin")))
 
 (defn start-game [request]
-  (let [game-id (parse-long (get-in request [:path-params :id]))]
-    (if-let [game (db/get-game game-id)]
-      (let [new-state (game/apply-action (:state game) {:type :start-game})]
-        (if (:error new-state)
-          (json-response 400 {:error (:error new-state)})
-          (do
-            (db/update-game! game-id new-state)
-            (db/append-event! game-id :game-started {})
-            (json-response 200 {:status "started"}))))
-      (json-response 404 {:error "Game not found"}))))
+  (if-let [player (auth/current-player request)]
+    (let [short-code (get-in request [:path-params :code])
+          game (db/get-game-by-code short-code)]
+      (if game
+        (if-not (player-in-game? player game)
+          (redirect "/games" {:type :error :message "You are not in this game"})
+          (let [action {:type :start-game}
+                new-state (game/apply-action (:state game) action)]
+            (if (:error new-state)
+              (redirect (str "/games/" short-code) {:type :error :message (:error new-state)})
+              (do
+                (db/apply-and-persist! (:id game) new-state :game-started action)
+                (redirect (str "/games/" short-code))))))
+        (redirect "/games" {:type :error :message "Game not found"})))
+    (redirect "/auth/signin")))
 
-(defn game-action [request]
-  (let [game-id (parse-long (get-in request [:path-params :id]))
-        action (parse-body request)]
-    (if-let [game (db/get-game game-id)]
-      (let [new-state (game/apply-action (:state game) action)]
-        (if (:error new-state)
-          (json-response 400 {:error (:error new-state)})
-          (do
-            (db/update-game! game-id new-state)
-            (db/append-event! game-id (keyword (:type action)) action)
-            (json-response 200 {:status "ok" :state new-state}))))
-      (json-response 404 {:error "Game not found"}))))
+(defn play-cards [request]
+  (if-let [player (auth/current-player request)]
+    (let [short-code (get-in request [:path-params :code])
+          [game error-msg] (check-game-status short-code :live)]
+      (if error-msg
+        (redirect "/games" {:type :error :message error-msg})
+        (if-not (player-in-game? player game)
+          (redirect "/games" {:type :error :message "You are not in this game"})
+          (let [params (parse-form request)
+                card-indices (mapv parse-long (if (sequential? (get params "cards[]"))
+                                                (get params "cards[]")
+                                                [(get params "cards[]")]))
+                my-player (first (filter #(= (:id player) (:id %)) (get-in game [:state :players])))
+                cards (mapv #(get (:hand my-player) %) card-indices)
+                action {:type :play-cards :player-id (:id player) :cards cards}
+                new-state (game/apply-action (:state game) action)]
+            (if (:error new-state)
+              (redirect (str "/games/" short-code) {:type :error :message (:error new-state)})
+              (do
+                (db/apply-and-persist! (:id game) new-state :cards-played action)
+                (redirect (str "/games/" short-code))))))))
+    (redirect "/auth/signin")))
 
-;; =============================================================================
-;; Player Handlers
-;; =============================================================================
-
-(defn create-player [request]
-  (let [body (parse-body request)
-        result (db/create-player! body)]
-    (json-response 201 {:id (:id result)})))
-
-(defn get-player [request]
-  (let [player-id (parse-long (get-in request [:path-params :id]))]
-    (if-let [player (db/get-player player-id)]
-      (json-response 200 (dissoc player :password_hash))
-      (json-response 404 {:error "Player not found"}))))
+(defn draw-card [request]
+  (if-let [player (auth/current-player request)]
+    (let [short-code (get-in request [:path-params :code])
+          [game error-msg] (check-game-status short-code :live)]
+      (if error-msg
+        (redirect "/games" {:type :error :message error-msg})
+        (if-not (player-in-game? player game)
+          (redirect "/games" {:type :error :message "You are not in this game"})
+          (let [action {:type :draw-card :player-id (:id player)}
+                new-state (game/apply-action (:state game) action)]
+            (if (:error new-state)
+              (redirect (str "/games/" short-code) {:type :error :message (:error new-state)})
+              (do
+                (db/apply-and-persist! (:id game) new-state :card-drawn action)
+                (redirect (str "/games/" short-code))))))))
+    (redirect "/auth/signin")))

@@ -6,21 +6,31 @@ PRAGMA journal_mode=WAL;
 PRAGMA foreign_keys=ON;
 
 -- Games
+-- state_sequence links to game_events.sequence_number for consistency
 CREATE TABLE IF NOT EXISTS games (
   id INTEGER PRIMARY KEY,
   short_code TEXT UNIQUE NOT NULL,
-  status TEXT NOT NULL DEFAULT 'lobby',
   state TEXT NOT NULL,
+  state_sequence INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- Players
+-- Players (email-based auth, no passwords)
 CREATE TABLE IF NOT EXISTS players (
   id INTEGER PRIMARY KEY,
   name TEXT NOT NULL,
-  email TEXT UNIQUE,
-  password_hash TEXT,
+  email TEXT UNIQUE NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Auth Tokens (for email magic links)
+CREATE TABLE IF NOT EXISTS auth_tokens (
+  id INTEGER PRIMARY KEY,
+  email TEXT NOT NULL,
+  token TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL,
+  used INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -47,5 +57,8 @@ CREATE TABLE IF NOT EXISTS game_events (
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_games_short_code ON games(short_code);
+CREATE INDEX IF NOT EXISTS idx_games_status ON games(json_extract(state, '$.status'));
 CREATE INDEX IF NOT EXISTS idx_game_events_game_id ON game_events(game_id);
 CREATE INDEX IF NOT EXISTS idx_game_players_game_id ON game_players(game_id);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_token ON auth_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_email ON auth_tokens(email);

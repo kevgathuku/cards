@@ -10,7 +10,7 @@
 (defn make-test-game
   "Create a game with two players for testing."
   []
-  (-> (game/new-game {:id 1 :short-code "TEST01" :created-by 1})
+  (-> (game/new-game {})
       (game/add-player {:id 1 :name "Alice"})
       (game/add-player {:id 2 :name "Bob"})
       (game/start-game {})))
@@ -62,15 +62,14 @@
 ;; =============================================================================
 
 (deftest new-game-creation
-  (let [game (game/new-game {:id 1 :short-code "ABC123" :created-by 1})]
+  (let [game (game/new-game {})]
     (is (= :lobby (:status game)))
-    (is (= "ABC123" (:short-code game)))
     (is (empty? (:players game)))
     (is (= :clockwise (:direction game)))))
 
 (deftest player-management
   (testing "adding players"
-    (let [game (-> (game/new-game {:id 1 :short-code "TEST" :created-by 1})
+    (let [game (-> (game/new-game {})
                    (game/add-player {:id 1 :name "Alice"})
                    (game/add-player {:id 2 :name "Bob"}))]
       (is (= 2 (count (:players game))))
@@ -90,7 +89,7 @@
       (is (pos? (count (:deck game))))))
 
   (testing "cannot start with less than 2 players"
-    (let [game (-> (game/new-game {:id 1 :short-code "TEST" :created-by 1})
+    (let [game (-> (game/new-game {})
                    (game/add-player {:id 1 :name "Alice"})
                    (game/start-game {}))]
       (is (:error game)))))
