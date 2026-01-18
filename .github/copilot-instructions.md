@@ -1,121 +1,116 @@
 # GitHub Copilot Instructions for Kadi
 
-This repository contains **Kadi**, a multiplayer online card game platform built with **Elixir 1.14+** and **Phoenix LiveView 1.7**, implementing "Poker" (Kadi), a popular Kenyan card game. The project uses a **database-driven architecture** with PostgreSQL for persistent game state management.
+This repository contains **Kadi**, a multiplayer online card game built with **Clojure 1.12**, implementing "Poker" (Kadi), a popular Kenyan card game. The project uses a **pure functional core with side effects at the edges** architecture, with SQLite for persistence.
 
 ## Repository Overview
 
-- **Size**: ~50 Elixir source files, ~2,100 lines of code
-- **Language**: Elixir (with embedded HTML via .heex templates)
-- **Framework**: Phoenix 1.7 with LiveView for real-time UI
-- **Database**: PostgreSQL via Ecto 3.x
-- **Runtime**: Elixir 1.17+ with OTP 25+
-- **Build Tool**: Mix (Elixir's build tool)
-- **Key Dependencies**: Phoenix LiveView, Ecto, bcrypt_elixir, Tailwind CSS, esbuild
+- **Size**: ~1,800 lines of Clojure code (10 source files, 2 test files)
+- **Language**: Clojure 1.12
+- **Runtime**: Java 17+ (tested with OpenJDK 17)
+- **Build Tool**: Clojure CLI (`clojure` or `clj` command)
+- **Framework**: Ring + Reitit (HTTP), Hiccup (HTML templating), Sente (WebSockets)
+- **Database**: SQLite (single file: `kadi.db`, no migrations needed)
+- **Testing**: Kaocha test runner
+- **Key Dependencies**: ring, reitit, hiccup, next.jdbc, sqlite-jdbc, sente, jsonista, malli
+
+## Core Architecture Philosophy
+
+```
+Game state is a pure value (immutable map).
+State transitions are pure functions: (state, action) -> state
+Side effects (persistence, broadcasting) happen at the edges.
+```
 
 ## Setup and Installation
 
 ### Prerequisites
-- **Elixir 1.17+** with **OTP 25+** installed
-- **PostgreSQL** running locally (default: localhost:5432)
+- **Java 17+** (OpenJDK recommended)
+- **Clojure CLI 1.11+** ([install guide](https://clojure.org/guides/install_clojure))
 - **Git** for version control
-- Hex package manager (install with `mix local.hex --force`)
-- Rebar (install with `mix local.rebar --force`)
 
 ### Initial Setup
-**Always run these commands in order:**
+**Always run commands in this order:**
 
 ```bash
-# 1. Install Hex and Rebar (if not already installed)
-mix local.hex --force
-mix local.rebar --force
+# 1. Download all dependencies (takes ~30-60 seconds on first run)
+clojure -P
 
-# 2. Run full setup (gets deps, creates DB, runs migrations, builds assets)
-mix setup
+# 2. Initialize database (creates kadi.db)
+clojure -M:dev -m kadi.db
 
-# 3. (Optional but recommended) Install git hooks for auto-formatting
-.githooks/install.sh
+# 3. (Optional) Download test dependencies
+clojure -M:test -P
 ```
 
-**Important**: The `mix setup` alias runs: `deps.get` → `ecto.setup` → `assets.setup` → `assets.build`
+**Important**: `clojure -P` (or `clj -P`) is the "prepare" command that downloads dependencies from Maven Central and Clojars. Run this after any changes to `deps.edn`.
 
-### Database Configuration
-- **Development DB**: `kadi_dev` (user: postgres, password: postgres)
-- **Test DB**: `kadi_test` (user: postgres, password: postgres)
-- Database config in `config/dev.exs` and `config/test.exs`
+### Database
+- SQLite database: `kadi.db` (created automatically by `kadi.db/init!`)
+- Schema defined in `kadi.db/schema` (runs `CREATE TABLE IF NOT EXISTS`)
+- No migration files - schema is idempotent
+- To reset database: `rm kadi.db && clojure -M:dev -m kadi.db`
 
 ## Build Commands
 
 ### Running the Application
 ```bash
-# Start Phoenix server (available at http://localhost:4000)
-mix phx.server
+# Start server at http://localhost:3000 (takes ~3-5 seconds)
+clojure -M:run
 
-# Start with interactive Elixir console (preferred for debugging)
-iex -S mix phx.server
+# Start REPL with nREPL server (for editor integration)
+clojure -M:repl
+
+# Start dev REPL with auto-start server
+clojure -M:dev-repl
 ```
+
+**Server startup**: Initializes database, starts Jetty on port 3000 (configurable via first argument: `clojure -M:run 8080`)
 
 ### Testing
 **Always run tests before committing code changes:**
 
 ```bash
-# Run all tests (takes ~10-30 seconds)
-mix test
+# Run all tests with Kaocha (takes ~2-5 seconds)
+clojure -M:test
 
-# Run specific test file
-mix test test/kadi/card_games_test.exs
+# Run specific test suite
+clojure -M:test --focus :unit
 
-# Run specific test at line number
-mix test test/kadi/card_games_test.exs:42
-
-# Run with warnings as errors
-mix test --warnings-as-errors
+# Tests are pure - no database setup required
 ```
 
-**Test Setup**: Tests use Ecto Sandbox with `:manual` mode. The test alias automatically creates and migrates the test database before running tests.
+**Important**: Tests in `test/kadi/game_test.clj` are **pure function tests** that don't require database setup. Tests in `test/kadi/routes_auth_test.clj` test HTTP routes and may use temporary databases.
+
+### REPL Development
+REPL-driven development is the **primary workflow** for Clojure. Common REPL commands:
+
+```clojure
+;; Initialize database
+(require '[kadi.db :as db])
+(db/init!)
+
+;; Create and manipulate game state (pure functions, no DB)
+(require '[kadi.game :as game])
+(def g (game/new-game {}))
+(def g (game/add-player g {:id 1 :name "Alice"}))
+(def g (game/add-player g {:id 2 :name "Bob"}))
+(def g (game/start-game g {}))
+
+;; Apply actions (pure)
+(game/apply-action g {:type :play-cards :player-id 1 :cards [...]})
+
+;; Check card predicates
+(require '[kadi.cards :as cards])
+(cards/ace? {:suit :hearts :rank "A"})  ;; => true
+
+;; Start/stop server programmatically
+(require '[kadi.server :as server])
+(server/start! {:port 3000})
+(server/stop!)
+```
 
 ### Code Formatting
-**Always format code before committing:**
-
-```bash
-# Format all Elixir/Phoenix files
-mix format
-
-# Check if files need formatting (for CI)
-mix format --check-formatted
-```
-
-The pre-commit hook (installed via `.githooks/install.sh`) automatically formats staged `.ex`, `.exs`, and `.heex` files.
-
-### Database Operations
-**⚠️ CRITICAL: NEVER run destructive database commands during development without explicit permission.**
-
-```bash
-# Safe operations:
-mix ecto.create       # Create database (safe, only if it doesn't exist)
-mix ecto.migrate      # Run pending migrations
-mix run priv/repo/seeds.exs  # Seed database with 52 standard cards
-
-# DESTRUCTIVE operations (use ONLY in test environment):
-MIX_ENV=test mix ecto.reset   # Reset test database
-MIX_ENV=test mix ecto.drop    # Drop test database
-
-# NEVER run these in development:
-# mix ecto.reset  ❌ (drops and recreates dev database)
-# mix ecto.drop   ❌ (destroys dev database)
-```
-
-### Assets
-Assets are managed by esbuild and Tailwind:
-
-```bash
-# Build assets (production)
-mix assets.build
-
-# Deploy assets (minified)
-mix assets.deploy
-```
-
-Assets are automatically watched and rebuilt during development via `mix phx.server`.
+Clojure code is typically formatted by your editor (cljfmt, Calva, Cursive). No pre-commit hooks are configured.
 
 ## Project Structure
 
@@ -124,265 +119,220 @@ Assets are automatically watched and rebuilt during development via `mix phx.ser
 /home/runner/work/cards/cards/
 ├── .github/
 │   └── workflows/
-│       └── elixir.yml          # CI pipeline (runs tests on PRs)
-├── .githooks/
-│   ├── pre-commit              # Auto-formats code on commit
-│   └── install.sh              # Installs git hooks
-├── assets/
-│   ├── css/app.css             # Tailwind CSS
-│   ├── js/app.js               # JavaScript entry point
-│   └── tailwind.config.js      # Tailwind configuration
-├── config/
-│   ├── config.exs              # Application configuration
-│   ├── dev.exs                 # Development config (DB: kadi_dev)
-│   ├── test.exs                # Test config (DB: kadi_test)
-│   ├── prod.exs                # Production config
-│   └── runtime.exs             # Runtime configuration
+│       └── clojure.yml         # CI: Java 21 + Clojure CLI + clojure -M:test
+├── .claude/                    # Claude AI custom prompts/agents
+├── deps.edn                    # Dependencies and aliases (:dev, :test, :run, :repl)
+├── tests.edn                   # Kaocha test runner config
+├── dev/
+│   └── user.clj                # REPL utilities (start-server, stop-server, restart-server)
 ├── docs/
-│   └── database-relationships.md  # Database schema documentation
-├── lib/
-│   ├── kadi/
-│   │   ├── accounts.ex         # Player authentication context
-│   │   ├── card_games.ex       # Main game logic context (22K LOC)
-│   │   ├── games/
-│   │   │   ├── card.ex         # Card schema (52 shared cards)
-│   │   │   ├── deck.ex         # Deck schema (one per game)
-│   │   │   ├── deck_card.ex    # Card locations (deck/hand/played)
-│   │   │   ├── game_session.ex # Game session schema
-│   │   │   ├── game_session_player.ex  # Join table
-│   │   │   ├── play_validator.ex       # Validates card plays
-│   │   │   ├── utils.ex        # Game utilities
-│   │   │   └── poker/          # Poker-specific logic
-│   │   ├── application.ex      # OTP application
-│   │   ├── repo.ex             # Ecto repository
-│   │   └── registry.ex         # Process registry
-│   └── kadi_web/
-│       ├── live/
-│       │   ├── game_live.ex    # Main game UI
-│       │   ├── lobby_live.ex   # Game list
-│       │   └── player_*.ex     # Authentication LiveViews
-│       ├── components/         # Phoenix components
-│       ├── controllers/        # HTTP controllers
-│       ├── router.ex           # Route definitions
-│       └── endpoint.ex         # Phoenix endpoint
-├── priv/
-│   ├── repo/
-│   │   ├── migrations/         # 15 database migrations
-│   │   └── seeds.exs           # Seeds 52 cards
-│   └── static/                 # Static assets
-├── test/
-│   ├── kadi/                   # Context tests
-│   ├── kadi_web/               # Web layer tests
-│   └── test_helper.exs         # Test configuration
-├── mix.exs                     # Project configuration & dependencies
-├── .formatter.exs              # Code formatting rules
-├── CLAUDE.md                   # Claude AI instructions
-└── README.md                   # Project documentation
+│   ├── CLOJURE_BOOTSTRAP_BRIEF.md  # Complete game rules and design decisions
+│   └── *.md                    # Feature specifications
+├── resources/
+│   └── migrations/
+│       └── 001_initial.sql     # Schema reference (executed via kadi.db/init!)
+├── src/kadi/
+│   ├── core.clj                # -main entry point
+│   ├── game.clj                # Pure game state & transitions (300 LOC)
+│   ├── cards.clj               # Card predicates & utilities (100 LOC)
+│   ├── validation.clj          # Play validation rules (pure, 160 LOC)
+│   ├── db.clj                  # SQLite persistence (200 LOC)
+│   ├── auth.clj                # Email magic link authentication (100 LOC)
+│   ├── server.clj              # Ring/Jetty server (50 LOC)
+│   ├── routes.clj              # Reitit route definitions (150 LOC)
+│   ├── handlers.clj            # HTTP request handlers (200 LOC)
+│   └── views.clj               # Hiccup HTML views (270 LOC)
+└── test/kadi/
+    ├── game_test.clj           # Pure function tests (200 LOC)
+    └── routes_auth_test.clj    # HTTP route tests (40 LOC)
 ```
 
 ### Key Configuration Files
-- **mix.exs**: Project config, dependencies, aliases (setup, test, ecto.*)
-- **.formatter.exs**: Auto-formatting config (imports Phoenix/Ecto styles)
-- **config/dev.exs**: Dev environment, DB settings, watchers
-- **config/test.exs**: Test environment, Ecto Sandbox settings
+- **deps.edn**: Project dependencies, paths, and aliases (`:dev`, `:test`, `:run`, `:repl`, `:dev-repl`)
+- **tests.edn**: Kaocha config (test paths, color output, fail-fast)
+- **dev/user.clj**: REPL helper functions (auto-loaded in REPL sessions with `:dev` alias)
 
 ## Architecture
 
-### Database-Driven State Management
-**All game state is persisted in PostgreSQL, not in-memory.**
+### Pure Core, Effects at Edges
 
-#### Core Schemas:
-- **`players`**: User accounts (authentication via bcrypt)
-- **`game_sessions`**: Game instances (status: "lobby" → "live" → "complete")
-- **`game_session_players`**: Join table for players in games
-- **`decks`**: One deck per game session
-- **`cards`**: 52 shared cards (suits × ranks), never deleted
-- **`deck_cards`**: Tracks card locations with `location_type`:
-  - `"deck"` - Cards in draw pile (ordered by `order_index`, lowest = top)
-  - `"player_hand"` - Cards in player's hand (`order_index` is NULL)
-  - `"played_stack"` - Played cards (ordered by `order_index`, highest = top/visible)
+**Pure Core** (No side effects):
+- **`kadi.game`**: All state transitions via `apply-action` multimethod
+  - `new-game`, `add-player`, `start-game`, `advance-turn`, `reverse-direction`
+  - `apply-action` handles: `:play-cards`, `:draw-card`, `:select-suit`, `:answer-question`
+- **`kadi.cards`**: Card predicates (`ace?`, `king?`, `jack?`, `question-card?`, `penalty-card?`)
+- **`kadi.validation`**: `validate-play` returns `{:valid? bool :reason string}`
 
-#### Critical Database Relationships:
-- Players are **protected** from deletion via `:restrict` constraints
-- Game sessions cascade delete: `game_session` → `decks` → `deck_cards` → `game_session_players`
-- Cards (52 shared resources) use `:restrict` to prevent deletion
-- Full documentation: `docs/database-relationships.md`
+**Effects at Edges**:
+- **`kadi.db`**: SQLite operations (games, players, auth tokens, events)
+  - Event sourcing: `append-event!` and `get-events` for full game history
+  - Game CRUD: `create-game!`, `update-game!`, `get-game-by-short-code`
+- **`kadi.auth`**: Token generation (`create-signin-token!`), email sending (stubbed for dev)
+- **`kadi.handlers`**: HTTP handlers that read DB, apply pure functions, persist results
+- **`kadi.views`**: Server-rendered Hiccup HTML (HTMX for partial updates)
 
-### Key Modules and Contexts
+### Database Schema (SQLite, INTEGER PKs)
 
-#### Contexts (Business Logic)
-- **`Kadi.CardGames`** (lib/kadi/card_games.ex): Main game operations
-  - `create_game_session/2` - Create new game
-  - `join_game_session/2` - Add player to game
-  - `start_game/1` - Deal cards, transition to "live"
-  - `draw_card_from_deck/2` - Draw card for player
-  - `play_card/3` - Play card from hand
-  - `recycle_played_stack/1` - Shuffle played cards back to deck
-- **`Kadi.Accounts`** (lib/kadi/accounts.ex): Player authentication/registration
-- **`Kadi.Games.PlayValidator`**: Validates card plays per game rules
-- **`Kadi.Games.Utils`**: Game utilities (deck shuffling, hand validation)
+Tables:
+- **`games`**: `id`, `short_code`, `state` (JSON), `state_sequence` (links to events), `created_at`, `updated_at`
+- **`players`**: `id`, `name`, `email` (unique), `created_at` - **No passwords** (email magic links only)
+- **`auth_tokens`**: `id`, `email`, `token`, `expires_at`, `used`, `created_at`
+- **`game_players`**: `id`, `game_id` (FK), `player_id` (FK), `joined_at`, `status`, UNIQUE(game_id, player_id)
+- **`game_events`**: `id`, `game_id` (FK), `sequence_number`, `event_type`, `event_data` (JSON), `created_at`
 
-#### Web Layer (Phoenix LiveView)
-- **`KadiWeb.GameLive`**: Real-time game UI (card hands, turns, actions)
-- **`KadiWeb.LobbyLive`**: Game session list
-- **`KadiWeb.Router`**: Three live_session scopes:
-  - `:public` - Redirects authenticated users
-  - `:authenticated` - Requires authentication
-  - `:confirm_email` - Email confirmation flow
+Indexes:
+- Games: `short_code`, `json_extract(state, '$.status')`
+- Events: `game_id`
+- Tokens: `token`, `email`
 
-All game interactions happen through LiveView events, **not REST APIs**.
+**Inspect DB**:
+```bash
+sqlite3 kadi.db ".tables"
+sqlite3 kadi.db "SELECT id, short_code, json_extract(state, '$.status') FROM games;"
+```
 
-### Real-time Updates
-- Phoenix PubSub broadcasts game state changes
-- LiveView handles WebSocket connections
-- Subscriptions in LiveViews: `Phoenix.PubSub.subscribe(Kadi.PubSub, "game:#{id}")`
+### Game Rules Quick Reference
+See `docs/CLOJURE_BOOTSTRAP_BRIEF.md` for **complete** specification. Key points:
+
+| Rank | Match Rule | Combo | Effect | Can Start |
+|------|------------|-------|--------|-----------|
+| 2    | Suit/Rank  | Yes   | Draw 2 penalty | No |
+| 3    | Suit/Rank  | Yes   | Draw 3 penalty | No |
+| 4-7,9,10 | Suit/Rank | Yes | None | Yes |
+| 8    | Suit/Rank  | Q,8   | Question | Yes |
+| J    | Suit/Rank  | J only | Skip N players | No |
+| Q    | Suit/Rank  | Q,8   | Question | Yes |
+| K    | Suit/Rank  | No    | Reverse direction | Yes |
+| A    | Always     | A only | Suit selection | Yes |
+
+**Critical Rules**:
+- Aces can **always** be played (ignore suit/rank matching)
+- Penalties (2/3) can only be blocked by same rank or Ace
+- Question cards (Q/8) require "answer" card (same suit/rank, non-question)
+- Playing K/J/2/3 as last card triggers "cardless" state (not a win)
 
 ## Common Workflows
 
-### Game Flow
-1. Player registers → `Kadi.Accounts.register_player/1`
-2. Player creates game → `Kadi.CardGames.create_game_session/2` (status: "lobby")
-3. Other players join → `Kadi.CardGames.join_game_session/2`
-4. Host starts game → `Kadi.CardGames.start_game/1` (deals 4 cards each, status: "live")
-5. Players take turns → `draw_card_from_deck/2` or `play_card/3`
-6. Game ends when player plays last card
+### Development Workflow
+1. Start REPL: `clojure -M:repl`
+2. Connect editor (nREPL port printed on startup)
+3. Evaluate code in editor
+4. Test changes with `(require '[kadi.game-test] :reload)` and `(clojure.test/run-tests 'kadi.game-test)`
+5. Run full test suite: `clojure -M:test`
+
+### Adding New Card Effects
+1. Add predicate to `kadi.cards` if needed (e.g., `special-card?`)
+2. Add validation rule to `kadi.validation/validate-play`
+3. Add effect handling to `kadi.game/apply-card-effects`
+4. Write pure function tests in `test/kadi/game_test.clj`
 
 ### Testing Patterns
-Tests use Ecto Sandbox for isolation:
+Tests are **pure** - no database or server required:
 
-```elixir
-setup do
-  :ok = Ecto.Adapters.SQL.Sandbox.checkout(Kadi.Repo)
-  # Most tests can be async: true
-end
+```clojure
+(deftest my-test
+  (let [game (-> (game/new-game {})
+                 (game/add-player {:id 1 :name "Alice"})
+                 (game/start-game {}))]
+    (is (= :live (:status game)))
+    (is (= 4 (count (get-in game [:players 0 :hand]))))))
 ```
-
-Common test helpers in `test/support/`:
-- `DataCase`: Database test helpers
-- `ConnCase`: Controller/LiveView test helpers
-- `FixturesFactory`: Test data fixtures
 
 ## GitHub Actions CI
 
-### Workflow: `.github/workflows/elixir.yml`
+### Workflow: `.github/workflows/clojure.yml`
 **Runs on**: Push to `main`, all pull requests
 
 **Steps**:
 1. Checkout code
-2. Setup Elixir 1.17.3 + OTP 27.0 (via `erlef/setup-beam`)
-3. Cache dependencies (speeds up builds)
-4. Install dependencies: `mix deps.get`
-5. Run tests: `mix test`
+2. Setup Java 21 (Temurin distribution)
+3. Install Clojure CLI (latest)
+4. Cache dependencies (`~/.m2/repository`, `~/.gitlibs`, `~/.deps.clj`)
+5. Run tests: `clojure -M:test`
 
-**Services**: PostgreSQL 12 (port 5432, password: postgres)
-
-**Expected duration**: 2-5 minutes
+**Expected duration**: 1-2 minutes (with cache hit)
 
 **To replicate CI locally**:
 ```bash
-mix deps.get
-mix test
+clojure -M:test
 ```
 
 ## Common Pitfalls and Workarounds
 
-### Database Issues
-**Problem**: "Database already exists" error during `mix ecto.create`
-- **Solution**: Database already created, safe to proceed with `mix ecto.migrate`
-
-**Problem**: "relation does not exist" error during tests
-- **Solution**: Run `MIX_ENV=test mix ecto.create && MIX_ENV=test mix ecto.migrate`
-
-**Problem**: "Connection refused" to PostgreSQL
-- **Solution**: Ensure PostgreSQL is running: `pg_isready` or start service
-
 ### Dependency Issues
-**Problem**: "Could not find Hex" error
-- **Solution**: Run `mix local.hex --force && mix local.rebar --force`
+**Problem**: `org.eclipse.aether.resolution.ArtifactDescriptorException` or network errors
+- **Solution**: Some networks block Maven Central or Clojars. Try: (1) different network, (2) configure Maven mirror, or (3) use cached deps from CI
 
-**Problem**: Stale dependencies
-- **Solution**: `rm -rf deps _build && mix deps.get`
+**Problem**: "Could not find artifact" error
+- **Solution**: Run `clojure -P` to download dependencies. Check `deps.edn` for typos.
 
-### Asset Build Issues
-**Problem**: Assets not updating in browser
-- **Solution**: Assets are watched automatically; if stuck, restart `mix phx.server`
+**Problem**: Stale dependencies after updating `deps.edn`
+- **Solution**: Delete cache: `rm -rf ~/.clojure/.cpcache` and re-run `clojure -P`
 
-**Problem**: Tailwind CSS not building
-- **Solution**: Run `mix assets.setup` to reinstall asset tools
+### REPL Issues
+**Problem**: REPL hangs on startup
+- **Solution**: Check if port 3000 or nREPL port (printed on startup) is already in use
+
+**Problem**: "No such namespace" error in REPL
+- **Solution**: Use `(require '[namespace] :reload)` to reload changed namespaces
+
+### Database Issues
+**Problem**: SQLite "database is locked" error
+- **Solution**: Ensure no other process has `kadi.db` open. SQLite uses WAL mode for better concurrency.
+
+**Problem**: Schema changes not reflected
+- **Solution**: Delete `kadi.db` and re-run `clojure -M:dev -m kadi.db` (destructive - only for development)
 
 ### Test Failures
-**Problem**: Tests fail with database errors
-- **Solution**: Ensure test database exists: `MIX_ENV=test mix ecto.create`
-
-**Problem**: "Connection is already checked out" error
-- **Solution**: Remove `async: true` from test that uses database transactions
+**Problem**: Tests fail after code changes
+- **Solution**: Tests are pure - if they fail, it's a logic error in pure functions. Use REPL to debug: `(require '[kadi.game-test] :reload)` and run individual tests.
 
 ## Development Best Practices
 
 ### Code Style
-- **Always run `mix format`** before committing (or install git hooks)
-- Follow existing patterns in the codebase
-- Use `@doc` and `@moduledoc` for public functions
-- Add typespecs (`@spec`) for function signatures
+- Follow Clojure style guide: https://guide.clojure.style/
+- Use descriptive names (`add-player`, not `ap`)
+- Keep functions small and focused
+- Prefer pure functions over side effects
 
-### DRY Principle (From CLAUDE.md)
-**Before adding new code**:
-1. Search for existing functions: `grep -rn "def function_name" lib/`
-2. Check module documentation
-3. Avoid creating wrapper functions with no added value
-4. Reuse existing functions instead of duplicating
+### DRY Principle
+**Before adding code**:
+1. Search existing functions: `grep -rn "defn function-name" src/`
+2. Check if `kadi.game` or `kadi.cards` already has what you need
+3. Avoid duplicating validation or state transition logic
 
 **Before adding tests**:
-1. Search existing tests: `grep -n "describe \"function_name" test/`
-2. Don't duplicate test scenarios
-3. Unit tests should test functions directly once
-4. Integration tests should test unique interactions
-
-### Database Safety
-- **Never reset dev database** unless explicitly required
-- Use test database for destructive operations: `MIX_ENV=test mix ecto.reset`
-- Verify changes through tests, not by resetting databases
-- Database may contain important development data
+1. Search existing tests: `grep -n "deftest" test/`
+2. Tests should be pure and fast - no database or HTTP mocking needed
 
 ### Making Changes
-1. Make minimal, surgical changes to accomplish the task
-2. Run `mix test` after each change
-3. Format code with `mix format`
-4. Check for compilation warnings: `mix compile --warnings-as-errors`
-5. Ensure CI passes before merging
+1. Make minimal, focused changes
+2. Run tests after each change: `clojure -M:test`
+3. Test interactively in REPL before finalizing
+4. Ensure CI passes before merging
 
 ## Validation Steps
 
 Before finalizing changes, **always**:
-1. ✅ Run `mix format --check-formatted` (formatting)
-2. ✅ Run `mix compile --warnings-as-errors` (no warnings)
-3. ✅ Run `mix test` (all tests pass)
-4. ✅ Verify CI pipeline passes on GitHub
-5. ✅ Check that no development database was modified destructively
+1. ✅ Run `clojure -M:test` (all tests pass)
+2. ✅ Verify CI pipeline passes on GitHub
+3. ✅ Test manually in REPL if adding new features
+4. ✅ Check that `kadi.db` is in `.gitignore` (never commit database file)
 
 ## Additional Resources
 
-- **README.md**: Comprehensive project documentation with examples
-- **CLAUDE.md**: Detailed guidelines for AI assistants
-- **docs/database-relationships.md**: Database schema and cascade behavior
-- **Phoenix LiveView**: https://hexdocs.pm/phoenix_live_view
-- **Ecto**: https://hexdocs.pm/ecto
-- **Elixir**: https://elixir-lang.org/docs.html
+- **README.md**: Quick start guide with API examples
+- **CLAUDE.md**: Detailed development guidelines for AI assistants
+- **docs/CLOJURE_BOOTSTRAP_BRIEF.md**: Complete game specification and design decisions
+- **Clojure Docs**: https://clojure.org/reference/documentation
+- **Ring**: https://github.com/ring-clojure/ring
+- **Reitit**: https://cljdoc.org/d/metosin/reitit
 
 ## Trust These Instructions
 
-These instructions have been carefully validated. **Only search for additional information if**:
+These instructions are based on actual project structure and tested commands. **Only search for additional information if**:
 - These instructions are incomplete for your specific task
 - You encounter an error not documented here
-- The instructions are found to be incorrect or outdated
+- Project structure has changed significantly
 
 For most development tasks, the commands and patterns documented here are sufficient and proven to work.
-
-## Active Technologies
-- Elixir 1.17+ with OTP 25+ + Phoenix 1.7, Phoenix LiveView, Ecto 3.x (007-jack-card)
-- PostgreSQL (via Ecto) - existing game_sessions, game_session_players, deck_cards tables (007-jack-card)
-- Elixir 1.17+ with OTP 25+ + Phoenix 1.7, Phoenix LiveView 1.7, Ecto 3.x (008-ace-card-feature)
-- PostgreSQL via Ecto (database-driven game state) (008-ace-card-feature)
-
-## Recent Changes
-- 007-jack-card: Added Elixir 1.17+ with OTP 25+ + Phoenix 1.7, Phoenix LiveView, Ecto 3.x
