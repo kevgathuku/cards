@@ -150,7 +150,7 @@
             (do
               (when-not already-joined?
                 (let [action {:player (select-keys player [:id :name])}]
-                  (db/apply-and-persist! (:id game) (:ok result) :join-game action)
+                  (db/apply-and-persist! (:id game) :join-game action)
                   (db/add-player-to-game! (:id game) (:id player))))
               (redirect (str "/games/" short-code)))))
         (redirect "/games" {:type :error :message "Game not found"})))
@@ -177,7 +177,7 @@
             (do
               (when-not already-joined?
                 (let [action {:player (select-keys player [:id :name])}]
-                  (db/apply-and-persist! (:id game) (:ok result) :join-game action)
+                  (db/apply-and-persist! (:id game) :join-game action)
                   (db/add-player-to-game! (:id game) (:id player))))
               (redirect (str "/games/" short-code)))))
         (redirect "/games/join" {:type :error :message (if (seq short-code)
@@ -196,7 +196,7 @@
             (if (:error result)
               (redirect (str "/games/" short-code) {:type :error :message (:error result)})
               (do
-                (db/apply-and-persist! (:id game) (:ok result) :start-game {:player-id (:id player)})
+                (db/apply-and-persist! (:id game) :start-game {:player {:id (:id player)}})
                 (redirect (str "/games/" short-code))))))
         (redirect "/games" {:type :error :message "Game not found"})))
     (redirect "/auth/signin")))
@@ -219,7 +219,7 @@
             (if (:error result)
               (redirect (str "/games/" short-code) {:type :error :message (:error result)})
               (do
-                (db/apply-and-persist! (:id game) (:ok result) :cards-played {:player-id (:id player) :cards cards})
+                (db/apply-and-persist! (:id game) :cards-played {:player-id (:id player) :cards cards})
                 (redirect (str "/games/" short-code))))))))
     (redirect "/auth/signin")))
 
@@ -235,6 +235,6 @@
             (if (:error result)
               (redirect (str "/games/" short-code) {:type :error :message (:error result)})
               (do
-                (db/apply-and-persist! (:id game) (:ok result) :card-drawn {:player-id (:id player)})
+                (db/apply-and-persist! (:id game) :card-drawn {:player-id (:id player)})
                 (redirect (str "/games/" short-code))))))))
     (redirect "/auth/signin")))

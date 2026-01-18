@@ -231,10 +231,9 @@
       {:id game-id :short-code short-code :state normalized-state :state_sequence seq})))
 
 (defn apply-and-persist!
-  "Append event and update state atomically. Returns the sequence number."
-  [game-id new-state event-type event-data]
+  "Append event to the event log. State will be computed on demand when game is read. Returns the sequence number."
+  [game-id event-type event-data]
   (let [event (append-event! game-id event-type event-data)]
-    (update-game! game-id new-state (:sequence_number event))
     (:sequence_number event)))
 
 ;; =============================================================================
@@ -339,4 +338,4 @@
        (map schema/normalize-game-row)))
 
 (comment
-  (rebuild-state-from-events 5))
+  (rebuild-state-from-events 120))
