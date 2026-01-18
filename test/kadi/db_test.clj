@@ -54,15 +54,23 @@
           game-id (:id result)]
       
       ;; Join another player
-      (db/append-event! game-id :join-game {:player {:id 2 :name "Bob"}
-                                             :timestamp (java.time.Instant/now)})
+      (db/append-event! game-id
+                        (str (java.util.UUID/randomUUID))
+                        :join-game
+                        (java.time.Instant/now)
+                        {:player {:id 2 :name "Bob"}
+                         :timestamp (java.time.Instant/now)})
       
       (let [state (db/rebuild-state-from-events game-id)]
         (is (= 2 (count (:players state))) "Should have 2 players")
         (is (= "Bob" (-> state :players second :name)) "Second player should be Bob"))
       
       ;; Start the game
-      (db/append-event! game-id :start-game {:timestamp (java.time.Instant/now)})
+      (db/append-event! game-id
+                        (str (java.util.UUID/randomUUID))
+                        :start-game
+                        (java.time.Instant/now)
+                        {:timestamp (java.time.Instant/now)})
       
       (let [state (db/rebuild-state-from-events game-id)]
         (is (= :live (:status state)) "Game should be live after start-game event")
@@ -80,8 +88,12 @@
           short-code (:short-code result)]
       
       ;; Add an event after game creation
-      (db/append-event! game-id :join-game {:player {:id 2 :name "Bob"}
-                                             :timestamp (java.time.Instant/now)})
+      (db/append-event! game-id
+                        (str (java.util.UUID/randomUUID))
+                        :join-game
+                        (java.time.Instant/now)
+                        {:player {:id 2 :name "Bob"}
+                         :timestamp (java.time.Instant/now)})
       
       ;; Get game - should detect stale state and rebuild
       (let [game (db/get-game-by-code short-code)]
@@ -138,11 +150,23 @@
           short-code (:short-code result)]
       
       ;; Add multiple events
-      (db/append-event! game-id :join-game {:player {:id 2 :name "Bob"}
-                                             :timestamp (java.time.Instant/now)})
-      (db/append-event! game-id :join-game {:player {:id 3 :name "Charlie"}
-                                             :timestamp (java.time.Instant/now)})
-      (db/append-event! game-id :start-game {:timestamp (java.time.Instant/now)})
+      (db/append-event! game-id
+                        (str (java.util.UUID/randomUUID))
+                        :join-game
+                        (java.time.Instant/now)
+                        {:player {:id 2 :name "Bob"}
+                         :timestamp (java.time.Instant/now)})
+      (db/append-event! game-id
+                        (str (java.util.UUID/randomUUID))
+                        :join-game
+                        (java.time.Instant/now)
+                        {:player {:id 3 :name "Charlie"}
+                         :timestamp (java.time.Instant/now)})
+      (db/append-event! game-id
+                        (str (java.util.UUID/randomUUID))
+                        :start-game
+                        (java.time.Instant/now)
+                        {:timestamp (java.time.Instant/now)})
       
       ;; Get game - should have all events applied
       (let [game (db/get-game-by-code short-code)]
@@ -152,6 +176,27 @@
             "Should have 3 players")
         (is (= :live (get-in game [:state :status]))
             "Game should be live after start-game (keyword after normalization)"))))
+
+(deftest event-idempotency-test
+  (testing "Appending the same event_id twice is idempotent"
+    (let [action {:player {:id 1 :name "Alice"}}
+          result (db/create-game! action)
+          game-id (:id result)
+          short-code (:short-code result)
+          event-id (str (java.util.UUID/randomUUID))
+          timestamp (java.time.Instant/now)
+          event-data {:player {:id 2 :name "Bob"} :timestamp timestamp}]
+      
+      ;; Append event first time
+      (db/append-event! game-id event-id :join-game timestamp event-data)
+      
+      ;; Append same event_id again - should be idempotent
+      (db/append-event! game-id event-id :join-game timestamp event-data)
+      
+      ;; Verify only one event was created
+      (let [game (db/get-game-by-code short-code)]
+        (is (= 2 (:state_sequence game)) "Should have sequence 2 (not 3)")
+        (is (= 2 (count (get-in game [:state :players]))) "Should have 2 players (not duplicate)")))))
 
 (deftest create-game-test
   (testing "Creating a game with default short-code"

@@ -64,8 +64,10 @@
      id INTEGER PRIMARY KEY,
      game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
      sequence_number INTEGER NOT NULL,
+     event_id TEXT NOT NULL UNIQUE,
      event_type TEXT NOT NULL,
      event_data TEXT NOT NULL,
+     timestamp TEXT NOT NULL,
      created_at TEXT NOT NULL DEFAULT (datetime('now')),
      UNIQUE(game_id, sequence_number)
    );
@@ -74,6 +76,7 @@
   CREATE INDEX IF NOT EXISTS idx_games_status ON games(json_extract(state, '$.status'));
   CREATE INDEX IF NOT EXISTS idx_games_status_meta ON games(json_extract(state, '$.meta.status'));
    CREATE INDEX IF NOT EXISTS idx_game_events_game_id ON game_events(game_id);
+   CREATE INDEX IF NOT EXISTS idx_game_events_event_id ON game_events(event_id);
    CREATE INDEX IF NOT EXISTS idx_game_players_game_id ON game_players(game_id);
    CREATE INDEX IF NOT EXISTS idx_auth_tokens_token ON auth_tokens(token);
    CREATE INDEX IF NOT EXISTS idx_auth_tokens_email ON auth_tokens(email);")
@@ -123,21 +126,32 @@
             events)))
 
 (defn append-event!
-  "Append an event to a game's event log. Returns the event with sequence_number."
-  [game-id event-type event-data]
+  "Append an event to a game's event log with idempotency protection.
+   If event_id already exists, returns the existing event (idempotent).
+   Otherwise inserts and returns the new event with sequence_number."
+  [game-id event-id event-type timestamp event-data]
   (when (nil? game-id)
     (throw (Exception. "game-id cannot be nil in append-event!")))
   (let [ds (datasource)
-        next-seq (or (:seq (jdbc/execute-one! ds
-                                              ["SELECT COALESCE(MAX(sequence_number), 0) + 1 as seq FROM game_events WHERE game_id = ?" game-id]
-                                              {:builder-fn rs/as-unqualified-lower-maps}))
-                     1)]
-    (jdbc/execute-one! ds
-                       ["INSERT INTO game_events (game_id, sequence_number, event_type, event_data) VALUES (?, ?, ?, ?)"
-                        game-id next-seq (name event-type) (->json event-data)]
-                       {:return-keys true
-                        :builder-fn rs/as-unqualified-lower-maps})
-    {:sequence_number next-seq :event_type event-type :event_data event-data}))
+        ;; Check if event_id already exists (idempotency)
+        existing (jdbc/execute-one! ds
+                                    ["SELECT sequence_number, event_type, event_data FROM game_events WHERE event_id = ?"
+                                     event-id]
+                                    {:builder-fn rs/as-unqualified-lower-maps})]
+    (if existing
+      ;; Event already exists, return it (idempotent)
+      (assoc existing :event_data (<-json (:event_data existing)))
+      ;; New event, insert it
+      (let [next-seq (or (:seq (jdbc/execute-one! ds
+                                                  ["SELECT COALESCE(MAX(sequence_number), 0) + 1 as seq FROM game_events WHERE game_id = ?" game-id]
+                                                  {:builder-fn rs/as-unqualified-lower-maps}))
+                         1)]
+        (jdbc/execute-one! ds
+                           ["INSERT INTO game_events (game_id, sequence_number, event_id, event_type, event_data, timestamp) VALUES (?, ?, ?, ?, ?, ?)"
+                            game-id next-seq event-id (name event-type) (->json event-data) (str timestamp)]
+                           {:return-keys true
+                            :builder-fn rs/as-unqualified-lower-maps})
+        {:sequence_number next-seq :event_type event-type :event_data event-data}))))
 
 ;; =============================================================================
 ;; Game Operations
@@ -214,6 +228,8 @@
   [action]
   (let [short-code (or (:short-code action) (game/generate-short-code))
         player-id (get-in action [:player :id])
+        event-id (or (:event-id action) (str (java.util.UUID/randomUUID)))
+        timestamp (or (:timestamp action) (java.time.Instant/now))
         action-with-code (assoc action :short-code short-code)]
     ;; Transaction: persist event and authorization
     (let [{:keys [game-id]}
@@ -225,10 +241,10 @@
                                                   :builder-fn rs/as-unqualified-lower-maps})
                   new-game-id (or (:id game-result) (get game-result (keyword "last_insert_rowid()")))
                   next-seq 1]
-              ;; Append event
+              ;; Append event with event_id and timestamp
               (jdbc/execute-one! tx
-                                 ["INSERT INTO game_events (game_id, sequence_number, event_type, event_data) VALUES (?, ?, ?, ?)"
-                                  new-game-id next-seq "game-created" (->json action-with-code)])
+                                 ["INSERT INTO game_events (game_id, sequence_number, event_id, event_type, event_data, timestamp) VALUES (?, ?, ?, ?, ?, ?)"
+                                  new-game-id next-seq event-id "game-created" (->json action-with-code) (str timestamp)])
               ;; Add player to game for authorization
               (jdbc/execute-one! tx
                                  ["INSERT OR IGNORE INTO game_players (game_id, player_id) VALUES (?, ?)"
@@ -236,12 +252,6 @@
               {:game-id new-game-id}))]
       ;; State will be computed lazily on read via get-game-by-code
       {:id game-id :short-code short-code})))
-
-(defn apply-and-persist!
-  "Append event to the event log. State will be computed on demand when game is read. Returns the sequence number."
-  [game-id event-type event-data]
-  (let [event (append-event! game-id event-type event-data)]
-    (:sequence_number event)))
 
 ;; =============================================================================
 ;; Player Operations
