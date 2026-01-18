@@ -96,12 +96,17 @@
   "Create a new game and return it."
   [game-state]
   (let [ds (datasource)]
-    (jdbc/execute-one! ds
+    (let [result (jdbc/execute-one! ds
                        ["INSERT INTO games (short_code, state, state_sequence) VALUES (?, ?, 0)"
                         (:short-code game-state)
                         (->json game-state)]
                        {:return-keys true
-                        :builder-fn rs/as-unqualified-lower-maps})))
+                        :builder-fn rs/as-unqualified-lower-maps})]
+      (println "DEBUG create-game! result:" result)
+      ;; SQLite returns last_insert_rowid() with parentheses as the key name
+      (let [game-id (or (:id result) (get result (keyword "last_insert_rowid()")))]
+        (println "DEBUG create-game! game-id:" game-id)
+        (assoc result :id game-id)))))
 
 (defn get-game
   "Get a game by ID."
@@ -146,11 +151,16 @@
 (defn append-event!
   "Append an event to a game's event log. Returns the event with sequence_number."
   [game-id event-type event-data]
+  (println "DEBUG append-event! - game-id:" game-id "event-type:" event-type)
+  (when (nil? game-id)
+    (println "ERROR: game-id is nil in append-event!")
+    (throw (Exception. "game-id cannot be nil in append-event!")))
   (let [ds (datasource)
         next-seq (or (:seq (jdbc/execute-one! ds
                                               ["SELECT COALESCE(MAX(sequence_number), 0) + 1 as seq FROM game_events WHERE game_id = ?" game-id]
                                               {:builder-fn rs/as-unqualified-lower-maps}))
                      1)]
+    (println "DEBUG append-event! - next-seq:" next-seq)
     (jdbc/execute-one! ds
                        ["INSERT INTO game_events (game_id, sequence_number, event_type, event_data) VALUES (?, ?, ?, ?)"
                         game-id next-seq (name event-type) (->json event-data)]
@@ -200,7 +210,7 @@
                                    name email]
                                   {:return-keys true
                                    :builder-fn rs/as-unqualified-lower-maps})
-        player-id (or (:id result) (:last_insert_rowid result))]
+        player-id (or (:id result) (get result (keyword "last_insert_rowid()")))]
     (get-player player-id)))
 
 (defn get-player-by-email
