@@ -151,8 +151,9 @@
                                {:builder-fn rs/as-unqualified-lower-maps}))
       0))
 
-(defn update-game!
-  "Update game state with the sequence number of the last applied event."
+(defn update-game-cache!
+  "Update the denormalized game state cache with the sequence number of the last applied event.
+   The cached state is a materialized view derived from events for performance."
   [game-id game-state state-sequence]
   (jdbc/execute-one! (datasource)
                      ["UPDATE games SET state = ?, state_sequence = ?, updated_at = datetime('now') WHERE id = ?"
@@ -161,17 +162,25 @@
                       game-id]))
 
 (defn- ensure-fresh-state
-  "Check if game state is stale and rebuild from events if needed.
+  "Check if game state is stale and rebuild from snapshot + subsequent events if needed.
+   Uses the cached state as a snapshot and only replays events after state_sequence.
    Returns game with fresh state (normalized)."
   [game]
   (when game
     (let [latest-seq (get-latest-event-seq (:id game))
           cached-seq (:state_sequence game)]
       (if (or (nil? cached-seq) (< cached-seq latest-seq))
-        ;; State is stale, rebuild from events
-        (let [fresh-state (rebuild-state-from-events (:id game))
+        ;; State is stale, rebuild from snapshot + subsequent events
+        (let [snapshot-state (if (and (:state game) (pos? cached-seq))
+                               (:state game)  ; Use cached state as snapshot
+                               nil)           ; No snapshot, start from scratch
+              subsequent-events (get-events-after (:id game) (or cached-seq 0))
+              fresh-state (reduce (fn [state {:keys [event_type event_data]}]
+                                    (game/apply-action state (merge event_data {:type (keyword event_type)})))
+                                  snapshot-state
+                                  subsequent-events)
               normalized-state (schema/normalize-game fresh-state)]
-          (update-game! (:id game) normalized-state latest-seq)
+          (update-game-cache! (:id game) normalized-state latest-seq)
           (assoc game :state normalized-state :state_sequence latest-seq))
         ;; State is fresh
         game))))

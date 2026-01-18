@@ -593,7 +593,7 @@ CREATE INDEX idx_game_players_game_id ON game_players(game_id);
 ;; Apply action and persist atomically
 (defn apply-and-persist! [game-id new-state event-type event-data]
   (let [event (append-event! game-id event-type event-data)]
-    (update-game! game-id new-state (:sequence_number event))
+    (update-game-cache! game-id new-state (:sequence_number event))
     (:sequence_number event)))
 
 ;; Rebuild state from events (for recovery or debugging)
