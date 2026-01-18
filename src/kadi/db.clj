@@ -38,8 +38,16 @@
    CREATE TABLE IF NOT EXISTS players (
      id INTEGER PRIMARY KEY,
      name TEXT NOT NULL,
-     email TEXT UNIQUE,
-     password_hash TEXT,
+     email TEXT UNIQUE NOT NULL,
+     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+   );
+
+   CREATE TABLE IF NOT EXISTS auth_tokens (
+     id INTEGER PRIMARY KEY,
+     email TEXT NOT NULL,
+     token TEXT NOT NULL UNIQUE,
+     expires_at TEXT NOT NULL,
+     used INTEGER NOT NULL DEFAULT 0,
      created_at TEXT NOT NULL DEFAULT (datetime('now'))
    );
 
@@ -64,7 +72,9 @@
    CREATE INDEX IF NOT EXISTS idx_games_short_code ON games(short_code);
    CREATE INDEX IF NOT EXISTS idx_games_status ON games(json_extract(state, '$.status'));
    CREATE INDEX IF NOT EXISTS idx_game_events_game_id ON game_events(game_id);
-   CREATE INDEX IF NOT EXISTS idx_game_players_game_id ON game_players(game_id);")
+   CREATE INDEX IF NOT EXISTS idx_game_players_game_id ON game_players(game_id);
+   CREATE INDEX IF NOT EXISTS idx_auth_tokens_token ON auth_tokens(token);
+   CREATE INDEX IF NOT EXISTS idx_auth_tokens_email ON auth_tokens(email);")
 
 (defn init!
   "Initialize the database with schema and pragmas."
@@ -178,10 +188,10 @@
 
 (defn create-player!
   "Create a new player."
-  [{:keys [name email password-hash]}]
+  [{:keys [name email]}]
   (jdbc/execute-one! (datasource)
-                     ["INSERT INTO players (name, email, password_hash) VALUES (?, ?, ?)"
-                      name email password-hash]
+                     ["INSERT INTO players (name, email) VALUES (?, ?)"
+                      name email]
                      {:return-keys true
                       :builder-fn rs/as-unqualified-lower-maps}))
 
@@ -198,6 +208,38 @@
   (jdbc/execute-one! (datasource)
                      ["SELECT * FROM players WHERE email = ?" email]
                      {:builder-fn rs/as-unqualified-lower-maps}))
+
+;; =============================================================================
+;; Auth Token Operations
+;; =============================================================================
+
+(defn create-auth-token!
+  "Create a new auth token for email sign-in."
+  [{:keys [email token expires-at]}]
+  (jdbc/execute-one! (datasource)
+                     ["INSERT INTO auth_tokens (email, token, expires_at) VALUES (?, ?, ?)"
+                      email token expires-at]
+                     {:return-keys true
+                      :builder-fn rs/as-unqualified-lower-maps}))
+
+(defn get-auth-token
+  "Get an auth token by token string."
+  [token]
+  (jdbc/execute-one! (datasource)
+                     ["SELECT * FROM auth_tokens WHERE token = ?" token]
+                     {:builder-fn rs/as-unqualified-lower-maps}))
+
+(defn mark-token-used!
+  "Mark an auth token as used."
+  [token]
+  (jdbc/execute-one! (datasource)
+                     ["UPDATE auth_tokens SET used = 1 WHERE token = ?" token]))
+
+(defn delete-expired-tokens!
+  "Clean up expired tokens."
+  []
+  (jdbc/execute-one! (datasource)
+                     ["DELETE FROM auth_tokens WHERE expires_at < datetime('now')"]))
 
 ;; =============================================================================
 ;; Game Players (for authorization - who can access which game)

@@ -44,18 +44,24 @@ clj -M:test --focus :unit # Run specific test suite
 (require '[kadi.core :as core])
 (require '[kadi.game :as game])
 (require '[kadi.db :as db])
+(require '[kadi.auth :as auth])
 
 ;; Initialize DB
 (db/init!)
 
 ;; Create and manipulate game state (pure functions)
-(def g (game/new-game {:id 1 :short-code "TEST" :created-by 1}))
+(def g (game/new-game {:id 1 :short-code "TEST"}))
 (def g (game/add-player g {:id 1 :name "Alice"}))
 (def g (game/add-player g {:id 2 :name "Bob"}))
 (def g (game/start-game g {}))
 
 ;; Apply actions
 (game/apply-action g {:type :play-cards :player-id 1 :cards [...]})
+
+;; Auth flow (in dev mode, prints link to console)
+(def token (auth/create-signin-token! "test@example.com"))
+(auth/send-signin-email! {:email "test@example.com" :token token})
+;; Click link or call: (auth/verify-token! token)
 ```
 
 ## Architecture
@@ -82,10 +88,22 @@ clj -M:test --focus :unit # Run specific test suite
 - Game CRUD operations
 - Event sourcing with `append-event!` and `get-events`
 - Player management
+- Auth token management for email sign-in
 
-**`kadi.server`** / **`kadi.handlers`** - HTTP API:
+**`kadi.auth`** - Email-based authentication:
+- Token generation and validation
+- Session helpers
+- No passwords - magic link sign-in only
+
+**`kadi.views`** - Server-rendered HTML with Hiccup:
+- All pages rendered on server
+- HTMX for partial updates without full page reloads
+- Layout with flash messages and session state
+
+**`kadi.server`** / **`kadi.handlers`** - HTTP handlers:
 - Ring + Reitit for routing
-- JSON API for game actions
+- Session cookies for authentication
+- HTML responses (not JSON API)
 
 ## Database
 
@@ -93,7 +111,8 @@ SQLite with INTEGER primary keys (not UUIDs). Database file: `kadi.db`
 
 **Tables:**
 - `games` - state (JSON), state_sequence (links to last event)
-- `players` - authentication
+- `players` - name, email (no password - email auth only)
+- `auth_tokens` - email magic link tokens (expires_at, used flag)
 - `game_players` - authorization (who can access which game)
 - `game_events` - event sourcing (sequence_number, event_type, event_data)
 
