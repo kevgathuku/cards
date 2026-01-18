@@ -217,7 +217,9 @@
   [{:keys [player game]}]
   (let [players (get-in game [:state :players])
         can-start? (>= (count players) 2)
-        is-player? (some #(= (:id player) (:id %)) players)]
+        is-player? (some #(= (:id player) (:id %)) players)
+        creator (first players)
+        is-creator? (= (:id player) (:id creator))]
     (layout {:title (str "Game " (:short_code game)) :player player}
             [:div.card
              [:h2 "Game Lobby"]
@@ -238,10 +240,12 @@
                  [:li (:name p)])]]]
             [:div.card
              (if is-player?
-               (if can-start?
+               (if (and can-start? is-creator?)
                  [:form {:method "post" :action (str "/games/" (:short_code game) "/start")}
                   [:button.btn.btn-primary {:type "submit"} "Start Game"]]
-                 [:p "Waiting for more players... (need at least 2)"])
+                 [:p (if can-start?
+                       "Waiting for the game creator to start..."
+                       "Waiting for more players... (need at least 2)")])
                [:form {:method "post" :action (str "/games/" (:short_code game) "/join")}
                 [:button.btn.btn-primary {:type "submit"} "Join Game"]])])))
 
