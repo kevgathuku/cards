@@ -1,7 +1,8 @@
 (ns kadi.game-test
   (:require [clojure.test :refer [deftest testing is]]
             [kadi.game :as game]
-            [kadi.cards :as cards]))
+            [kadi.cards :as cards]
+            [kadi.schema :as schema]))
 
 ;; =============================================================================
 ;; Test Helpers
@@ -568,3 +569,92 @@
           result (game/apply-action game {:type :card-drawn
                                           :player-id player-id})]
       (is (= (inc hand-before) (count (game/get-hand result player-id)))))))
+
+;; =============================================================================
+;; Q/8 Question-Answer Flow Tests
+;; =============================================================================
+
+(deftest question-sets-awaiting-answer
+  (testing "playing Q sets :awaiting-answer and keeps turn on same player"
+    (let [top {:suit :clubs :rank "Q"}
+          q {:suit :hearts :rank "Q"}
+          game (-> (make-test-game)
+                   (set-top-card top)
+                   (give-card 1 q))
+          idx-before (game/current-player-index game)
+          result (game/apply-action game {:type :play-cards
+                                          :player-id 1
+                                          :cards [q]})]
+      (is (not (:error result)))
+      (is (game/has-effect? result :awaiting-answer)
+          "awaiting-answer effect should be set")
+      (is (= idx-before (game/current-player-index result))
+          "turn should stay on same player"))))
+
+(deftest question-then-answer-succeeds
+  (testing "answer-question after Q play draws 1 card, clears effect, advances turn"
+    (let [top {:suit :clubs :rank "Q"}
+          q {:suit :hearts :rank "Q"}
+          game (-> (make-test-game)
+                   (set-top-card top)
+                   (give-card 1 q))
+          after-q (game/apply-action game {:type :play-cards
+                                           :player-id 1
+                                           :cards [q]})
+          player-id (game/current-player-id after-q)
+          hand-before (count (game/get-hand after-q player-id))
+          result (game/answer-question-cmd after-q player-id)]
+      (is (:ok result))
+      (is (= (inc hand-before) (count (game/get-hand (:ok result) player-id)))
+          "should draw 1 card")
+      (is (not (game/has-effect? (:ok result) :awaiting-answer))
+          "awaiting-answer should be cleared")
+      (is (not= 0 (game/current-player-index (:ok result)))
+          "turn should advance to next player"))))
+
+(deftest question-with-answer-combo-no-awaiting
+  (testing "Q+answer combo does not set :awaiting-answer"
+    (let [top {:suit :clubs :rank "Q"}
+          q {:suit :hearts :rank "Q"}
+          answer {:suit :hearts :rank "5"}
+          game (-> (make-test-game)
+                   (set-top-card top)
+                   (give-card 1 q)
+                   (give-card 1 answer))
+          result (game/apply-action game {:type :play-cards
+                                          :player-id 1
+                                          :cards [q answer]})]
+      (is (not (:error result)))
+      (is (not (game/has-effect? result :awaiting-answer))
+          "no awaiting-answer when Q is played with an answer card"))))
+
+;; =============================================================================
+;; Schema Normalization Tests
+;; =============================================================================
+
+(deftest effects-survive-normalization
+  (testing "penalty effect preserves :penalty-type after normalization"
+    (let [game (-> (make-test-game)
+                   (update :effects conj {:type :penalty :penalty-type :two}))
+          normalized (schema/normalize-game game)
+          penalty (game/get-effect normalized :penalty)]
+      (is (some? penalty) "penalty effect should exist")
+      (is (= :two (:penalty-type penalty))
+          "penalty-type should survive normalization")))
+
+  (testing "suit-selected effect preserves :suit after normalization"
+    (let [game (-> (make-test-game)
+                   (update :effects conj {:type :suit-selected :suit :hearts}))
+          normalized (schema/normalize-game game)
+          suit-effect (game/get-effect normalized :suit-selected)]
+      (is (some? suit-effect) "suit-selected effect should exist")
+      (is (= :hearts (:suit suit-effect))
+          "suit should survive normalization")))
+
+  (testing "draw-3 penalty preserves :penalty-type after normalization"
+    (let [game (-> (make-test-game)
+                   (update :effects conj {:type :penalty :penalty-type :three}))
+          normalized (schema/normalize-game game)
+          penalty (game/get-effect normalized :penalty)]
+      (is (= :three (:penalty-type penalty))
+          "penalty-type :three should survive normalization"))))

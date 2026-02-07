@@ -170,4 +170,11 @@
                       (assoc-in [:players 0 :hand] [(make-card :hearts "5")]))]
         (let [result (validation/validate-play state 1 [(make-card :hearts "5")])]
           (is (not (:valid? result)))
-          (is (= "Must block penalty with matching card or Ace" (:reason result))))))))
+          (is (= "Must block penalty with matching card or Ace" (:reason result))))))
+
+    (testing "awaiting-answer - cannot play normal cards"
+      (let [state (-> base-state
+                      (assoc :effects [{:type :awaiting-answer}]))]
+        (let [result (validation/validate-play state 1 [(make-card :hearts "5")])]
+          (is (not (:valid? result)))
+          (is (= "Must draw to answer the question first" (:reason result))))))))
