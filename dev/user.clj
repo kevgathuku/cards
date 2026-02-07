@@ -1,7 +1,11 @@
 (ns user
   "Development utilities for REPL session."
   (:require [kadi.db :as db]
-            [kadi.server :as server]))
+            [kadi.server :as server]
+            [kadi.game :as game]
+            [kadi.cards :as cards]
+            [kadi.validation :as validation]
+            [clojure.pprint :refer [pprint]]))
 
 (defn start-server
   "Start the development server and initialize the database."
@@ -30,7 +34,22 @@
    (Thread/sleep 500)
    (start-server port)))
 
+(defn help
+  "Display available development commands."
+  []
+  (println "\n=== Kadi Development REPL ===")
+  (println "Server Management:")
+  (println "  (start-server)          - Start the server on port 3000")
+  (println "  (start-server port)     - Start the server on specified port")
+  (println "  (stop-server)           - Stop the server")
+  (println "  (restart-server)        - Restart the server")
+  (println "\nGame Exploration:")
+  (println "  (game/new-game ...)     - Create a new game state")
+  (println "  (pprint some-state)     - Pretty-print game state")
+  (println "\nNamespaces loaded:")
+  (println "  kadi.db, kadi.server, kadi.game, kadi.cards, kadi.validation")
+  (println "\nType (help) to see this message again.\n"))
+
 (println "\n=== Kadi Development REPL ===")
-(println "Type (start-server) to start the server")
-(println "Type (stop-server) to stop the server")
-(println "Type (restart-server) to restart the server\n")
+(println "Type (help) to see available commands")
+(help)

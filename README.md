@@ -36,28 +36,39 @@ Visit [`localhost:3000`](http://localhost:3000) in your browser.
 
 ### REPL Development
 
+For the best development experience, start the REPL with the `:dev` alias to include development tools and the `user` namespace:
+
 ```bash
-# Start REPL with nREPL for editor connection
-clj -M:repl
+# Start interactive REPL with development tools
+clj -M:dev:repl
 ```
+
+Once the REPL starts, you can manage the application server directly:
 
 ```clojure
 ;; In REPL
-(require '[kadi.game :as game])
-(require '[kadi.db :as db])
+(start-server)          ; Starts the server on port 3000 and initializes DB
+(stop-server)           ; Stops the running server
+(restart-server)        ; Stops, waits, and starts the server again (hot reload)
+(start-server 3001)     ; Start on a custom port
+```
 
-;; Initialize database
-(db/init!)
+You can also interact with the game logic directly for debugging:
+
+```clojure
+(require '[kadi.game :as game])
 
 ;; Create and manipulate game state (pure functions)
 (def g (game/new-game {:id 1 :short-code "TEST" :created-by 1}))
 (def g (game/add-player g {:id 1 :name "Alice"}))
-(def g (game/add-player g {:id 2 :name "Bob"}))
-(def g (game/start-game g {}))
-
-;; Play cards
-(game/apply-action g {:type :play-cards :player-id 1 :cards [...]})
+...
 ```
+
+For a completely automated startup, use the `:dev-repl` alias:
+```bash
+clj -M:dev-repl
+```
+This will start the server and the REPL in one command.
 
 ---
 
@@ -164,6 +175,9 @@ POST /api/games/:id/action
 ```bash
 # Run all tests
 clj -M:test
+
+# Run linter
+clj -M:lint
 
 # Tests are pure - no database setup required
 ```
