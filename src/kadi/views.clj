@@ -266,7 +266,7 @@
 
 (defn- effect-banner
   "Render a banner for active game effects."
-  [state short-code]
+  [state {:keys [is-my-turn? current-player-name]}]
   (let [effects (:effects state)
         penalty (first (filter #(= :penalty (:type %)) effects))
         select-suit (first (filter #(= :select-suit (:type %)) effects))
@@ -285,7 +285,9 @@
         (str "Required suit: " (name (:suit suit-selected)))])
      (when awaiting-answer
        [:div {:style "background: #eff6ff; border: 1px solid #bfdbfe; padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 0.5rem;"}
-        "Question asked! Next player must draw to answer."]))))
+        (if is-my-turn?
+          "Question asked! You must draw to answer."
+          (str "Question asked! Waiting for " current-player-name " to draw."))]))))
 
 (defn- suit-picker
   "Render suit selection buttons."
@@ -328,7 +330,8 @@
              [:h2 (str "Game: " (:short_code game))]
              (when direction
                [:p (str "Direction: " (name direction))])
-             (effect-banner state (:short_code game))
+             (effect-banner state {:is-my-turn? is-my-turn?
+                                   :current-player-name (:name current-player)})
              [:div {:style "display: flex; gap: 2rem;"}
               [:div
                [:h3 "Top Card"]
@@ -350,6 +353,7 @@
             (when my-player
               [:div.card {:id "my-hand"}
                [:h3 (if is-my-turn? "Your Turn!" "Your Hand")]
+               ;; Play form — contains hand checkboxes + play/block/draw buttons only
                [:form {:method "post" :action (str "/games/" (:short_code game) "/play")}
                 [:div.hand
                  (for [[idx card] (map-indexed vector my-hand)]
@@ -358,33 +362,42 @@
                              :style "display: none"
                              :disabled (not is-my-turn?)}]
                     [:div {:class (card-class card)
-                           :onclick "this.previousElementSibling.click(); this.classList.toggle('selected')"}
+                           :onclick "this.classList.toggle('selected')"}
                      (card-display card)]])]
-                (when is-my-turn?
+                (when (and is-my-turn?
+                           (not has-select-suit?)
+                           (not has-awaiting-answer?))
                   (cond
-                    ;; Suit selection: show suit picker instead of play/draw
-                    has-select-suit?
-                    (suit-picker (:short_code game))
-
-                    ;; Awaiting answer: show draw-to-answer button
-                    has-awaiting-answer?
-                    [:div {:style "margin-top: 1rem; display: flex; gap: 0.5rem;"}
-                     [:form {:method "post" :action (str "/games/" (:short_code game) "/answer-question")}
-                      [:button.btn.btn-primary {:type "submit"} "Draw to Answer"]]]
-
-                    ;; Penalty active: show accept + play (for blocking)
+                    ;; Penalty active: show play-to-block inside the play form
                     has-penalty?
                     [:div {:style "margin-top: 1rem; display: flex; gap: 0.5rem;"}
-                     [:button.btn.btn-primary {:type "submit"} "Play to Block"]
-                     [:form {:method "post" :action (str "/games/" (:short_code game) "/accept-penalty")
-                             :style "display: inline;"}
-                      [:button.btn.btn-secondary {:type "submit"}
-                       (str "Accept Penalty (Draw " penalty-draw-count ")")]]]
+                     [:button.btn.btn-primary {:type "submit"} "Play to Block"]]
 
                     ;; Normal: play or draw
                     :else
                     [:div {:style "margin-top: 1rem; display: flex; gap: 0.5rem;"}
                      [:button.btn.btn-primary {:type "submit"} "Play Selected"]
                      [:button.btn.btn-secondary {:type "submit" :formaction (str "/games/" (:short_code game) "/draw")}
-                      "Draw Card"]]))]]))))
+                      "Draw Card"]]))]
+               ;; Separate forms OUTSIDE the play form for special actions
+               (when is-my-turn?
+                 (cond
+                   ;; Suit selection: each suit is its own form
+                   has-select-suit?
+                   (suit-picker (:short_code game))
+
+                   ;; Awaiting answer: separate form
+                   has-awaiting-answer?
+                   [:form {:method "post" :action (str "/games/" (:short_code game) "/answer-question")
+                           :style "margin-top: 1rem;"}
+                    [:button.btn.btn-primary {:type "submit"} "Draw to Answer"]]
+
+                   ;; Penalty active: accept-penalty is a separate form
+                   has-penalty?
+                   [:form {:method "post" :action (str "/games/" (:short_code game) "/accept-penalty")
+                           :style "margin-top: 1rem;"}
+                    [:button.btn.btn-secondary {:type "submit"}
+                     (str "Accept Penalty (Draw " penalty-draw-count ")")]]
+
+                   :else nil))]))))
 
