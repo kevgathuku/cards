@@ -143,6 +143,10 @@
       (not (valid-combo? card-list))
       {:valid? false :reason "Invalid card combination"}
 
+      ;; Must answer question before playing
+      (some #(= :awaiting-answer (:type %)) (:effects state))
+      {:valid? false :reason "Must draw to answer the question first"}
+
       ;; During active penalty
       penalty
       (if (valid-penalty-block? card-list (:penalty-type penalty))

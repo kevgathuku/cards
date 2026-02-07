@@ -76,9 +76,8 @@
    [:updated-at inst?]])
 
 (def Effect
-  [:map
-   [:type keyword?]
-   [:data [:maybe map?]]])
+  [:map {:closed false}
+   [:type keyword?]])
 
 (def Game
   "Core game state schema. Represents both in-memory and persisted game state."
@@ -107,12 +106,30 @@
 ;; Normalization Functions
 ;; =============================================================================
 
+(defn- fix-hands-keys
+  "Convert keyword/string hands keys to integers after JSON deserialization.
+   JSON keys become keywords via jsonista (e.g. :1, :2) but get-hand
+   looks up by integer player-id."
+  [game]
+  (if-let [hands (get-in game [:zones :hands])]
+    (assoc-in game [:zones :hands]
+              (into {} (map (fn [[k v]]
+                              [(cond
+                                 (int? k) k
+                                 (keyword? k) (parse-long (name k))
+                                 (string? k) (parse-long k)
+                                 :else k)
+                               v])
+                            hands)))
+    game))
+
 (defn normalize-game
   "Normalize a game state to ensure consistent types (keywords, etc).
    Useful after JSON deserialization or event sourcing."
   [game]
   (when game
-    (m/decode Game game json-transformer)))
+    (-> (m/decode Game game json-transformer)
+        fix-hands-keys)))
 
 (defn normalize-game-row
   "Normalize a database game row, ensuring state is properly typed."

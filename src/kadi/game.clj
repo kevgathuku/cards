@@ -58,9 +58,13 @@
       (get-in state [:meta :status])))
 
 (defn turn-direction [state]
-  (cond
-    (contains? state :direction) (:direction state)
-    :else (or (get-in state [:turn :direction]) :clockwise)))
+  (let [dir (cond
+              (contains? state :direction) (:direction state)
+              :else (or (get-in state [:turn :direction]) :clockwise))]
+    (cond
+      (keyword? dir) dir
+      (string? dir) (keyword dir)
+      :else :clockwise)))
 
 (defn current-player-index [state]
   (cond

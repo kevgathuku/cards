@@ -186,7 +186,7 @@
       (if (or (nil? cached-seq) (< cached-seq latest-seq))
         ;; State is stale, rebuild from snapshot + subsequent events
         (let [snapshot-state (if (and (:state game) (pos? cached-seq))
-                               (:state game)  ; Use cached state as snapshot
+                               (schema/normalize-game (:state game))  ; Normalize before replay
                                nil)           ; No snapshot, start from scratch
               subsequent-events (get-events-after (:id game) (or cached-seq 0))
               fresh-state (reduce (fn [state {:keys [event_type event_data]}]

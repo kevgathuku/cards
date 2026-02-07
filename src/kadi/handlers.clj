@@ -223,9 +223,12 @@
         (if-not (player-in-game? player game)
           (redirect "/games" {:type :error :message "You are not in this game"})
           (let [params (parse-form request)
-                card-indices (mapv parse-long (if (sequential? (get params "cards[]"))
-                                                (get params "cards[]")
-                                                [(get params "cards[]")]))
+                raw-cards (get params "cards[]")
+                card-strs (cond
+                            (nil? raw-cards) []
+                            (sequential? raw-cards) raw-cards
+                            :else [raw-cards])
+                card-indices (mapv parse-long card-strs)
                 hand (game/get-hand (:state game) (:id player))
                 cards (mapv #(get hand %) card-indices)
                 result (game/play-cards-cmd (:state game) (:id player) cards)]
