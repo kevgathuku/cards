@@ -264,6 +264,46 @@
                       :spades "♠")]
     (str (:rank card) suit-symbol)))
 
+(defn- effect-banner
+  "Render a banner for active game effects."
+  [state short-code]
+  (let [effects (:effects state)
+        penalty (first (filter #(= :penalty (:type %)) effects))
+        select-suit (first (filter #(= :select-suit (:type %)) effects))
+        suit-selected (first (filter #(= :suit-selected (:type %)) effects))
+        awaiting-answer (first (filter #(= :awaiting-answer (:type %)) effects))]
+    (list
+     (when penalty
+       (let [draw-count (case (:penalty-type penalty) :two 2 :three 3 0)]
+         [:div {:style "background: #fef2f2; border: 1px solid #fecaca; padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 0.5rem;"}
+          (str "Penalty active! Next player must draw " draw-count " cards or block.")]))
+     (when select-suit
+       [:div {:style "background: #fffbeb; border: 1px solid #fde68a; padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 0.5rem;"}
+        "Waiting for suit selection (Ace played)."])
+     (when suit-selected
+       [:div {:style "background: #f0fdf4; border: 1px solid #bbf7d0; padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 0.5rem;"}
+        (str "Required suit: " (name (:suit suit-selected)))])
+     (when awaiting-answer
+       [:div {:style "background: #eff6ff; border: 1px solid #bfdbfe; padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 0.5rem;"}
+        "Question asked! Next player must draw to answer."]))))
+
+(defn- suit-picker
+  "Render suit selection buttons."
+  [short-code]
+  [:div {:style "margin-top: 1rem;"}
+   [:p {:style "font-weight: 500;"} "Select a suit:"]
+   [:div {:style "display: flex; gap: 0.5rem; margin-top: 0.5rem;"}
+    (for [[suit label color] [[:hearts "Hearts ♥" "#dc2626"]
+                              [:diamonds "Diamonds ♦" "#dc2626"]
+                              [:clubs "Clubs ♣" "#1f2937"]
+                              [:spades "Spades ♠" "#1f2937"]]]
+      [:form {:method "post" :action (str "/games/" short-code "/select-suit")
+              :style "display: inline;"}
+       [:input {:type "hidden" :name "suit" :value (name suit)}]
+       [:button.btn {:type "submit"
+                     :style (str "background: white; border: 2px solid " color "; color: " color ";")}
+        label]])]])
+
 (defn game-play-page
   "Live game page."
   [{:keys [player game]}]
@@ -276,12 +316,19 @@
         is-my-turn? (= (:id player) (:id current-player))
         top-card (last (get-in state [:zones :played-stack]))
         deck-count (count (get-in state [:zones :deck]))
-        direction (get-in state [:turn :direction])]
+        direction (get-in state [:turn :direction])
+        has-select-suit? (game/has-effect? state :select-suit)
+        has-penalty? (game/has-effect? state :penalty)
+        has-awaiting-answer? (game/has-effect? state :awaiting-answer)
+        penalty-effect (game/get-effect state :penalty)
+        penalty-draw-count (when penalty-effect
+                             (case (:penalty-type penalty-effect) :two 2 :three 3 0))]
     (layout {:title (str "Game " (:short_code game)) :player player}
             [:div.card
              [:h2 (str "Game: " (:short_code game))]
              (when direction
                [:p (str "Direction: " (name direction))])
+             (effect-banner state (:short_code game))
              [:div {:style "display: flex; gap: 2rem;"}
               [:div
                [:h3 "Top Card"]
@@ -314,8 +361,30 @@
                            :onclick "this.previousElementSibling.click(); this.classList.toggle('selected')"}
                      (card-display card)]])]
                 (when is-my-turn?
-                  [:div {:style "margin-top: 1rem; display: flex; gap: 0.5rem;"}
-                   [:button.btn.btn-primary {:type "submit"} "Play Selected"]
-                   [:button.btn.btn-secondary {:type "submit" :formaction (str "/games/" (:short_code game) "/draw")}
-                    "Draw Card"]])]]))))
+                  (cond
+                    ;; Suit selection: show suit picker instead of play/draw
+                    has-select-suit?
+                    (suit-picker (:short_code game))
+
+                    ;; Awaiting answer: show draw-to-answer button
+                    has-awaiting-answer?
+                    [:div {:style "margin-top: 1rem; display: flex; gap: 0.5rem;"}
+                     [:form {:method "post" :action (str "/games/" (:short_code game) "/answer-question")}
+                      [:button.btn.btn-primary {:type "submit"} "Draw to Answer"]]]
+
+                    ;; Penalty active: show accept + play (for blocking)
+                    has-penalty?
+                    [:div {:style "margin-top: 1rem; display: flex; gap: 0.5rem;"}
+                     [:button.btn.btn-primary {:type "submit"} "Play to Block"]
+                     [:form {:method "post" :action (str "/games/" (:short_code game) "/accept-penalty")
+                             :style "display: inline;"}
+                      [:button.btn.btn-secondary {:type "submit"}
+                       (str "Accept Penalty (Draw " penalty-draw-count ")")]]]
+
+                    ;; Normal: play or draw
+                    :else
+                    [:div {:style "margin-top: 1rem; display: flex; gap: 0.5rem;"}
+                     [:button.btn.btn-primary {:type "submit"} "Play Selected"]
+                     [:button.btn.btn-secondary {:type "submit" :formaction (str "/games/" (:short_code game) "/draw")}
+                      "Draw Card"]]))]]))))
 

@@ -161,8 +161,8 @@
                   (db/append-event! (:id game) event-id :join-game timestamp action)
                   (db/add-player-to-game! (:id game) (:id player))))
               (redirect (str "/games/" short-code))))
-        (redirect "/games" {:type :error :message "Game not found"})))
-    (redirect "/auth/signin"))))
+          (redirect "/games" {:type :error :message "Game not found"})))
+      (redirect "/auth/signin"))))
 
 (defn join-page [request]
   "Display the join game page with code input."
@@ -192,8 +192,8 @@
                   (db/add-player-to-game! (:id game) (:id player))))
               (redirect (str "/games/" short-code)))))
         (redirect "/games/join" {:type :error :message (if (seq short-code)
-                                                          "Game not found"
-                                                          "Please enter a game code")})))
+                                                         "Game not found"
+                                                         "Please enter a game code")})))
     (redirect "/auth/signin")))
 
 (defn start-game [request]
@@ -234,7 +234,7 @@
               (do
                 (let [event-id (str (java.util.UUID/randomUUID))
                       timestamp (java.time.Instant/now)]
-                  (db/append-event! (:id game) event-id :cards-played timestamp
+                  (db/append-event! (:id game) event-id :play-cards timestamp
                                     {:player-id (:id player)
                                      :cards cards
                                      :timestamp timestamp}))
@@ -255,7 +255,69 @@
               (do
                 (let [event-id (str (java.util.UUID/randomUUID))
                       timestamp (java.time.Instant/now)]
-                  (db/append-event! (:id game) event-id :card-drawn timestamp
+                  (db/append-event! (:id game) event-id :draw-card timestamp
+                                    {:player-id (:id player)
+                                     :timestamp timestamp}))
+                (redirect (str "/games/" short-code))))))))
+    (redirect "/auth/signin")))
+
+(defn select-suit [request]
+  (if-let [player (auth/current-player request)]
+    (let [short-code (get-in request [:path-params :code])
+          [game error-msg] (check-game-status short-code :live)]
+      (if error-msg
+        (redirect "/games" {:type :error :message error-msg})
+        (if-not (player-in-game? player game)
+          (redirect "/games" {:type :error :message "You are not in this game"})
+          (let [params (parse-form request)
+                suit (keyword (get params "suit"))
+                result (game/select-suit-cmd (:state game) suit)]
+            (if (:error result)
+              (redirect (str "/games/" short-code) {:type :error :message (:error result)})
+              (do
+                (let [event-id (str (java.util.UUID/randomUUID))
+                      timestamp (java.time.Instant/now)]
+                  (db/append-event! (:id game) event-id :select-suit timestamp
+                                    {:suit suit
+                                     :timestamp timestamp}))
+                (redirect (str "/games/" short-code))))))))
+    (redirect "/auth/signin")))
+
+(defn accept-penalty [request]
+  (if-let [player (auth/current-player request)]
+    (let [short-code (get-in request [:path-params :code])
+          [game error-msg] (check-game-status short-code :live)]
+      (if error-msg
+        (redirect "/games" {:type :error :message error-msg})
+        (if-not (player-in-game? player game)
+          (redirect "/games" {:type :error :message "You are not in this game"})
+          (let [result (game/accept-penalty-cmd (:state game) (:id player))]
+            (if (:error result)
+              (redirect (str "/games/" short-code) {:type :error :message (:error result)})
+              (do
+                (let [event-id (str (java.util.UUID/randomUUID))
+                      timestamp (java.time.Instant/now)]
+                  (db/append-event! (:id game) event-id :accept-penalty timestamp
+                                    {:player-id (:id player)
+                                     :timestamp timestamp}))
+                (redirect (str "/games/" short-code))))))))
+    (redirect "/auth/signin")))
+
+(defn answer-question [request]
+  (if-let [player (auth/current-player request)]
+    (let [short-code (get-in request [:path-params :code])
+          [game error-msg] (check-game-status short-code :live)]
+      (if error-msg
+        (redirect "/games" {:type :error :message error-msg})
+        (if-not (player-in-game? player game)
+          (redirect "/games" {:type :error :message "You are not in this game"})
+          (let [result (game/answer-question-cmd (:state game) (:id player))]
+            (if (:error result)
+              (redirect (str "/games/" short-code) {:type :error :message (:error result)})
+              (do
+                (let [event-id (str (java.util.UUID/randomUUID))
+                      timestamp (java.time.Instant/now)]
+                  (db/append-event! (:id game) event-id :answer-question timestamp
                                     {:player-id (:id player)
                                      :timestamp timestamp}))
                 (redirect (str "/games/" short-code))))))))

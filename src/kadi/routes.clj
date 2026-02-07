@@ -25,4 +25,7 @@
     ["/:code/start" {:post (h/require-auth h/start-game)}]
     ["/:code/play" {:post (h/require-auth h/play-cards)}]
     ["/:code/draw" {:post (h/require-auth h/draw-card)}]
+    ["/:code/select-suit" {:post (h/require-auth h/select-suit)}]
+    ["/:code/accept-penalty" {:post (h/require-auth h/accept-penalty)}]
+    ["/:code/answer-question" {:post (h/require-auth h/answer-question)}]
     ["/:code/players" {:get (h/require-auth h/get-players-fragment)}]]])
