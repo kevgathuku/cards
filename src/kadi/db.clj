@@ -211,16 +211,16 @@
         schema/normalize-game-row)))
 
 (defn list-games
-  "List all games, optionally filtered by status (extracted from state JSON)."
+  "List all games, optionally filtered by status.
+   Ensures fresh state via event replay so newly-created games are included."
   ([] (list-games nil))
   ([status]
-   (let [query (if status
-                 ["SELECT * FROM games WHERE COALESCE(json_extract(state, '$.status'), json_extract(state, '$.meta.status')) = ? ORDER BY created_at DESC"
-                  (name status)]
-                 ["SELECT * FROM games ORDER BY created_at DESC"])]
+   (let [query ["SELECT * FROM games ORDER BY created_at DESC"]]
      (->> (jdbc/execute! (datasource) query {:builder-fn rs/as-unqualified-lower-maps})
           (map #(update % :state <-json))
-          (map schema/normalize-game-row)))))
+          (map ensure-fresh-state)
+          (map schema/normalize-game-row)
+          (cond->> status (filter #(= status (get-in % [:state :status]))))))))
 
 (defn create-game!
   "Create a new game from an action. Persists event and game_player in a transaction,

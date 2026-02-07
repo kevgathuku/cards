@@ -506,5 +506,12 @@
   (cond-> (accept-penalty state player-id)
     timestamp (update-in [:meta :updated-at] (constantly timestamp))))
 
+;; Backward-compat aliases for legacy event names in existing DBs
+(defmethod apply-action :cards-played [state action]
+  (apply-action state (assoc action :type :play-cards)))
+
+(defmethod apply-action :card-drawn [state action]
+  (apply-action state (assoc action :type :draw-card)))
+
 (defmethod apply-action :default [state _]
   state)
