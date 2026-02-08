@@ -216,9 +216,10 @@
       (is (= 6 (count (:short-code result))) "Short-code should be 6 characters")))
   
   (testing "Creating a game with custom short-code"
-    (let [action {:player {:id 1 :name "Alice"} :short-code "CUSTOM1"}
+    (let [custom-code (str "CUST" (System/currentTimeMillis))
+          action {:player {:id 1 :name "Alice"} :short-code custom-code}
           result (db/create-game! action)]
-      (is (= "CUSTOM1" (:short-code result)) "Should use custom short-code")))
+      (is (= custom-code (:short-code result)) "Should use custom short-code")))
   
   (testing "Creating multiple games with different custom short-codes"
     ;; Use unique codes with timestamp to avoid collisions

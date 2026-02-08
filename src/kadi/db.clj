@@ -224,62 +224,35 @@
        (filter #(= status (get-in % [:state :status])) games)
        games))))
 
-(defn- try-create-game!
-  "Attempt to create a game with the given short-code. 
-   Returns {:success true :result ...} or {:success false :retry? true/false}"
-  [short-code player-id event-id timestamp action-with-code]
-  (try
-    (let [{:keys [game-id]}
-          (jdbc/with-transaction [tx (datasource)]
-            (let [game-result (jdbc/execute-one! tx
-                                                 ["INSERT INTO games (short_code, state, state_sequence) VALUES (?, ?, 0)"
-                                                  short-code "{}"]
-                                                 {:return-keys true
-                                                  :builder-fn rs/as-unqualified-lower-maps})
-                  new-game-id (or (:id game-result) (get game-result (keyword "last_insert_rowid()")))
-                  next-seq 1]
-              ;; Append event with event_id and timestamp
-              (jdbc/execute-one! tx
-                                 ["INSERT INTO game_events (game_id, sequence_number, event_id, event_type, event_data, timestamp) VALUES (?, ?, ?, ?, ?, ?)"
-                                  new-game-id next-seq event-id "game-created" (->json action-with-code) (str timestamp)])
-              ;; Add player to game for authorization
-              (jdbc/execute-one! tx
-                                 ["INSERT OR IGNORE INTO game_players (game_id, player_id) VALUES (?, ?)"
-                                  new-game-id player-id])
-              {:game-id new-game-id}))]
-      {:success true :result {:id game-id :short-code short-code}})
-    (catch org.sqlite.SQLiteException e
-      ;; Check if it's a UNIQUE constraint violation on short_code
-      (if (re-find #"UNIQUE constraint failed.*short_code" (.getMessage e))
-        {:success false :retry? true}
-        {:success false :retry? false :exception e}))))
-
 (defn create-game!
   "Create a new game from an action. Persists event and game_player in a transaction,
-   then computes state by applying the event. Returns {:id :short-code :state :state_sequence}.
-   Retries up to 3 times if short-code collision occurs (for auto-generated codes only)."
+   then computes state by applying the event. Returns {:id :short-code}.
+   Database UNIQUE constraint on short_code prevents collisions."
   [action]
   (let [player-id (get-in action [:player :id])
         event-id (or (:event-id action) (str (java.util.UUID/randomUUID)))
         timestamp (or (:timestamp action) (java.time.Instant/now))
-        custom-code? (some? (:short-code action))
-        max-retries 3]
-    (loop [attempt 0]
-      (let [short-code (or (:short-code action) (game/generate-short-code))
-            action-with-code (assoc action :short-code short-code)
-            result (try-create-game! short-code player-id event-id timestamp action-with-code)]
-        (cond
-          (:success result)
-          (:result result)
-          
-          (and (:retry? result) (< attempt max-retries) (not custom-code?))
-          (recur (inc attempt))
-          
-          (:exception result)
-          (throw (:exception result))
-          
-          :else
-          (throw (ex-info "Failed to create game after retries" {:attempts (inc attempt)})))))))
+        short-code (or (:short-code action) (game/generate-short-code))
+        action-with-code (assoc action :short-code short-code)
+        {:keys [game-id]}
+        (jdbc/with-transaction [tx (datasource)]
+          (let [game-result (jdbc/execute-one! tx
+                                               ["INSERT INTO games (short_code, state, state_sequence) VALUES (?, ?, 0)"
+                                                short-code "{}"]
+                                               {:return-keys true
+                                                :builder-fn rs/as-unqualified-lower-maps})
+                new-game-id (or (:id game-result) (get game-result (keyword "last_insert_rowid()")))
+                next-seq 1]
+            ;; Append event with event_id and timestamp
+            (jdbc/execute-one! tx
+                               ["INSERT INTO game_events (game_id, sequence_number, event_id, event_type, event_data, timestamp) VALUES (?, ?, ?, ?, ?, ?)"
+                                new-game-id next-seq event-id "game-created" (->json action-with-code) (str timestamp)])
+            ;; Add player to game for authorization
+            (jdbc/execute-one! tx
+                               ["INSERT OR IGNORE INTO game_players (game_id, player_id) VALUES (?, ?)"
+                                new-game-id player-id])
+            {:game-id new-game-id}))]
+    {:id game-id :short-code short-code}))
 
 ;; =============================================================================
 ;; Player Operations
