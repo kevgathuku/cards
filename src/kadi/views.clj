@@ -384,7 +384,7 @@
         is-my-turn? (= (:id player) (:id current-player))
         top-card (last (get-in state [:zones :played-stack]))
         deck-count (count (get-in state [:zones :deck]))
-        direction (get-in state [:turn :direction])
+        direction (:direction state)
         has-select-suit? (game/has-effect? state :select-suit)
         has-penalty? (game/has-effect? state :penalty)
         has-awaiting-answer? (game/has-effect? state :awaiting-answer)
@@ -448,9 +448,7 @@
           (when (and is-my-turn? (= :cardless (:status my-player)))
             [:div {:style "background: #fee2e2; border: 1px solid #dc2626; padding: 1rem; border-radius: 4px; margin-bottom: 1rem; color: #991b1b;"}
              [:p {:style "margin: 0; font-weight: bold;"}
-              "⚠️ You are CARDLESS — you must draw a card first!"]
-             [:p {:style "margin: 0.5rem 0 0 0; font-size: 0.875rem;"}
-              "You played a special card (K/J/2/3) as your last card. Draw a card to continue playing."]])
+              "⚠️ You are CARDLESS — you must draw a card first!"]])
 
           ;; Only show play form if NOT cardless
           (when (not= :cardless (:status my-player))

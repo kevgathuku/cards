@@ -13,11 +13,11 @@
   (mt/transformer
    {:name :string->keyword
     :decoders {:keyword? (fn [_schema]
-                            (fn [value]
-                              (cond
-                                (keyword? value) value
-                                (string? value) (keyword value)
-                                :else value)))}}))
+                           (fn [value]
+                             (cond
+                               (keyword? value) value
+                               (string? value) (keyword value)
+                               :else value)))}}))
 
 (def json-transformer
   "Transformer for JSON roundtrip normalization.
@@ -63,11 +63,6 @@
    [:id int?]
    [:name string?]
    [:status PlayerStatus]])
-
-(def Turn
-  [:map
-   [:current-player-index int?]
-   [:direction Direction]])
 
 (def Zones
   [:map
@@ -119,11 +114,13 @@
    AwaitingAnswerEffect])
 
 (def Game
-  "Core game state schema. Represents both in-memory and persisted game state."
+  "Core game state schema. Represents both in-memory and persisted game state.
+   Uses flat schema for turn management (current-player-index and direction)."
   [:map
    [:status GameStatus]
    [:players [:sequential Player]]
-   [:turn Turn]
+   [:current-player-index int?]
+   [:direction Direction]
    [:zones Zones]
    [:effects [:sequential Effect]]
    [:short-code string?]
@@ -226,7 +223,8 @@
   ;; Test normalization
   (normalize-game {:status "live"
                    :players [{:id 1 :name "Alice" :status "normal"}]
-                   :turn {:current-player-index 0 :direction "clockwise"}
+                   :current-player-index 0
+                   :direction "clockwise"
                    :zones {:deck [] :played-stack [] :hands {}}
                    :effects []
                    :short-code "ABC123"
@@ -238,7 +236,8 @@
   ;; Test validation
   (validate-game {:status :live
                   :players [{:id 1 :name "Alice" :status :normal}]
-                  :turn {:current-player-index 0 :direction :clockwise}
+                  :current-player-index 0
+                  :direction :clockwise
                   :zones {:deck [] :played-stack [] :hands {}}
                   :effects []
                   :short-code "ABC123"

@@ -32,9 +32,9 @@
    ;; Players (ordered by join time for turn order) - metadata only
    :players []
 
-   ;; Turn management
-   :turn {:current-player-index 0
-          :direction :clockwise}
+   ;; Turn management (flat schema)
+   :current-player-index 0
+   :direction :clockwise
 
    ;; Card locations
    :zones {:deck []
@@ -59,18 +59,14 @@
       (get-in state [:meta :status])))
 
 (defn turn-direction [state]
-  (let [dir (cond
-              (contains? state :direction) (:direction state)
-              :else (or (get-in state [:turn :direction]) :clockwise))]
+  (let [dir (:direction state :clockwise)]
     (cond
       (keyword? dir) dir
       (string? dir) (keyword dir)
       :else :clockwise)))
 
 (defn current-player-index [state]
-  (cond
-    (contains? state :current-player-index) (:current-player-index state)
-    :else (get-in state [:turn :current-player-index] 0)))
+  (:current-player-index state 0))
 
 (defn players [state]
   (:players state))
@@ -139,22 +135,18 @@
          player-count)))
 
 (defn advance-turn
-  "Advance to the next player's turn."
+  "Advance turn by skip-count players."
   ([state] (advance-turn state 1))
   ([state skip-count]
    (let [idx (next-player-index state skip-count)]
-     (-> state
-         (assoc-in [:turn :current-player-index] idx)
-         (assoc :current-player-index idx)))))
+     (assoc state :current-player-index idx))))
 
 (defn reverse-direction [state]
   (let [new-dir (case (turn-direction state)
                   :clockwise :counter-clockwise
                   :counter-clockwise :clockwise
                   :clockwise)]
-    (-> state
-        (assoc-in [:turn :direction] new-dir)
-        (assoc :direction new-dir))))
+    (assoc state :direction new-dir)))
 
 ;; =============================================================================
 ;; Card Operations

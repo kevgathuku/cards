@@ -82,7 +82,7 @@
     (is (= "TEST" (:short-code game)))
     (is (= :lobby (:status game)))
     (is (empty? (:players game)))
-    (is (= :clockwise (get-in game [:turn :direction])))))
+    (is (= :clockwise (:direction game)))))
 
 (deftest player-management
   (testing "adding players"
@@ -138,12 +138,12 @@
   (testing "king reverses direction"
     (let [game (make-test-game)
           reversed (game/reverse-direction game)]
-      (is (= :counter-clockwise (get-in reversed [:turn :direction]))))
+      (is (= :counter-clockwise (:direction reversed))))
 
     (let [game (-> (make-test-game)
                    (assoc :direction :counter-clockwise))
           reversed (game/reverse-direction game)]
-      (is (= :clockwise (get-in reversed [:turn :direction]))))))
+      (is (= :clockwise (:direction reversed))))))
 
 ;; =============================================================================
 ;; Card Play Tests
@@ -197,7 +197,7 @@
                                           :player-id 1
                                           :cards [king]})]
       (is (not (:error result)))
-      (is (= :counter-clockwise (get-in result [:turn :direction]))))))
+      (is (= :counter-clockwise (:direction result))))))
 
 (deftest jack-skips-player
   (testing "playing jack skips next player"
@@ -511,7 +511,7 @@
           result (game/apply-action game {:type :play-cards
                                           :player-id 1
                                           :cards [king]})]
-      (is (= :counter-clockwise (get-in result [:turn :direction])))
+      (is (= :counter-clockwise (:direction result)))
       ;; After reversal from idx 0, next is idx 2 (wraps counter-clockwise)
       (is (= 2 (game/current-player-index result))))))
 
@@ -708,7 +708,7 @@
                    (give-card 1 king))
           result (game/play-cards-cmd game 1 [q king])]
       (is (:ok result) "Q+King answer should succeed")
-      (is (= :counter-clockwise (get-in (:ok result) [:turn :direction]))
+      (is (= :counter-clockwise (:direction (:ok result)))
           "direction should reverse from King answer"))))
 
 ;; =============================================================================

@@ -134,7 +134,7 @@
                                :hand [(cards/make-card :hearts "5") (cards/make-card :clubs "A")]}
                               {:id 2 :name "Bob" :status :normal
                                :hand [(cards/make-card :diamonds "7")]}]
-                    :turn {:current-player-index 0 :direction :clockwise}
+                    :current-player-index 0 :direction :clockwise 
                     :zones {:deck [(cards/make-card :spades "10")]
                             :played-stack [(cards/make-card :hearts "9")]
                             :hands {1 [(cards/make-card :hearts "5") (cards/make-card :clubs "A")]
@@ -192,7 +192,7 @@
                                       (cards/make-card :hearts "K")]}
                               {:id 2 :name "Bob" :status :normal
                                :hand [(cards/make-card :diamonds "7")]}]
-                    :turn {:current-player-index 0 :direction :clockwise}
+                    :current-player-index 0 :direction :clockwise 
                     :zones {:deck [(cards/make-card :spades "10")]
                             :played-stack [(cards/make-card :hearts "9")]
                             :hands {1 [(cards/make-card :hearts "Q") (cards/make-card :hearts "5")
@@ -276,7 +276,7 @@
   (testing "Bug #1: validate-play should work with hands in :zones (no :hand on player)"
     (let [state {:status :live
                  :players [{:id 1 :name "Alice" :status :normal}]
-                 :turn {:current-player-index 0 :direction :clockwise}
+                 :current-player-index 0 :direction :clockwise 
                  :zones {:deck []
                          :played-stack [(cards/make-card :hearts "9")]
                          :hands {1 [(cards/make-card :hearts "5")]}}
@@ -287,7 +287,7 @@
   (testing "Bug #2: action-suit as string should work (from JSON database)"
     (let [state {:status :live
                  :players [{:id 1 :name "Alice" :status :normal}]
-                 :turn {:current-player-index 0 :direction :clockwise}
+                 :current-player-index 0 :direction :clockwise 
                  :zones {:deck []
                          :played-stack [(cards/make-card :spades "A")]
                          :hands {1 [(cards/make-card :diamonds "5")]}}
@@ -298,7 +298,7 @@
   (testing "Bug #1 + Bug #2: Combined - 8+2 with string suit and zones hands"
     (let [state {:status :live
                  :players [{:id 1 :name "Alice" :status :normal}]
-                 :turn {:current-player-index 0 :direction :clockwise}
+                 :current-player-index 0 :direction :clockwise 
                  :zones {:deck []
                          :played-stack [(cards/make-card :spades "A")]
                          :hands {1 [(cards/make-card :diamonds "8") 
@@ -312,7 +312,7 @@
   (testing "action-suit as keyword still works (backward compat)"
     (let [state {:status :live
                  :players [{:id 1 :name "Alice" :status :normal}]
-                 :turn {:current-player-index 0 :direction :clockwise}
+                 :current-player-index 0 :direction :clockwise 
                  :zones {:deck []
                          :played-stack [(cards/make-card :spades "A")]
                          :hands {1 [(cards/make-card :diamonds "5")]}}
@@ -326,7 +326,7 @@
           state {:status :live
                  :players [{:id 2 :name "mo" :status :normal}
                           {:id 1 :name "kevin" :status :normal}]
-                 :turn {:current-player-index 0 :direction :clockwise}
+                 :current-player-index 0 :direction :clockwise 
                  :zones {:deck [(cards/make-card :spades "8")]
                          :played-stack [(cards/make-card :spades "A")]
                          :hands {2 [(cards/make-card :diamonds "J")
@@ -351,7 +351,7 @@
     (let [state {:status :live
                  :players [{:id 1 :name "Alice" :status :cardless}
                           {:id 2 :name "Bob" :status :normal}]
-                 :turn {:current-player-index 0 :direction :clockwise}
+                 :current-player-index 0 :direction :clockwise 
                  :zones {:deck [(cards/make-card :spades "10")]
                          :played-stack [(cards/make-card :hearts "9")]
                          :hands {1 [(cards/make-card :hearts "5")]
@@ -367,7 +367,7 @@
     (let [state {:status :live
                  :players [{:id 1 :name "Alice" :status :normal}
                           {:id 2 :name "Bob" :status :normal}]
-                 :turn {:current-player-index 0 :direction :clockwise}
+                 :current-player-index 0 :direction :clockwise 
                  :zones {:deck [(cards/make-card :spades "10")]
                          :played-stack [(cards/make-card :hearts "9")]
                          :hands {1 [(cards/make-card :hearts "5")]

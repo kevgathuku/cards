@@ -126,7 +126,7 @@
 (defn is-players-turn?
   "Check if it's the specified player's turn."
   [state player-id]
-  (let [current-idx (get-in state [:turn :current-player-index])
+  (let [current-idx (:current-player-index state)
         current-player (get-in state [:players current-idx])]
     (= player-id (:id current-player))))
 
