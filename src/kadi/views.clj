@@ -376,7 +376,7 @@
    Returns HTML string with HTMX attributes for auto-refresh when not player's turn."
   [{:keys [player game]}]
   (let [state (:state game)
-        current-player-idx (get-in state [:turn :current-player-index])
+        current-player-idx (game/current-player-index state)
         players (:players state)
         current-player (get players current-player-idx)
         my-player (first (filter #(= (:id player) (:id %)) players))
