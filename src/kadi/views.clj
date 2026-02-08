@@ -528,8 +528,6 @@
                          "ℹ️"]]])
                     ;; Draw button form
                     [:form {:method "post" :action (str "/games/" (:short_code game) "/draw") :id "draw-form" :style "margin-top: 0.5rem;"}
-                     (when (= :kadi (:status my-player))
-                       [:input {:type "hidden" :name "maintain-kadi" :value "on"}])
                      [:button.btn.btn-secondary {:type "submit"} "Draw Card"]]]))
 
                ;; Separate forms OUTSIDE the play form for special actions
