@@ -230,7 +230,12 @@
                           (clojure.string/split ordered-cards-str #",")
                           [])
                 parsed-cards (keep cards/id->card card-ids)
-                result (game/play-cards-cmd (:state game) (:id player) parsed-cards)]
+                ;; Parse declare-kadi checkbox (will be "on" if checked)
+                declare-kadi? (= "on" (get params "declare-kadi"))
+                ;; Capture hand size before play (for event tracking)
+                hand-size-before (count (game/get-hand (:state game) (:id player)))
+                result (game/play-cards-cmd (:state game) (:id player) parsed-cards 
+                                           :declare-kadi? declare-kadi?)]
             (if (:error result)
               (redirect (str "/games/" short-code) {:type :error :message (:error result)})
               (do
@@ -239,6 +244,8 @@
                    (db/append-event! (:id game) event-id :play-cards timestamp
                                      {:player-id (:id player)
                                       :cards parsed-cards
+                                      :declare-kadi? declare-kadi?
+                                      :hand-size-before hand-size-before
                                       :timestamp timestamp}))
                 (redirect (str "/games/" short-code))))))))
     (redirect "/auth/signin")))
@@ -251,7 +258,11 @@
         (redirect "/games" {:type :error :message error-msg})
         (if-not (player-in-game? player game)
           (redirect "/games" {:type :error :message "You are not in this game"})
-          (let [result (game/draw-card-cmd (:state game) (:id player))]
+          (let [params (parse-form request)
+                ;; Parse maintain-kadi checkbox (will be "on" if checked)
+                maintain-kadi? (= "on" (get params "maintain-kadi"))
+                result (game/draw-card-cmd (:state game) (:id player) 
+                                          :maintain-kadi? maintain-kadi?)]
             (if (:error result)
               (redirect (str "/games/" short-code) {:type :error :message (:error result)})
               (do
@@ -259,6 +270,7 @@
                       timestamp (java.time.Instant/now)]
                   (db/append-event! (:id game) event-id :draw-card timestamp
                                     {:player-id (:id player)
+                                     :maintain-kadi? maintain-kadi?
                                      :timestamp timestamp}))
                 (redirect (str "/games/" short-code))))))))
     (redirect "/auth/signin")))
