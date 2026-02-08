@@ -438,7 +438,7 @@
                                           :cards [{:suit :hearts :rank "9"}]})]
       (is (= :normal (:status (game/get-player result 1))))))
 
-  (testing "A as last card does not trigger cardless"
+  (testing "A as last card triggers cardless (requires suit selection)"
     (let [game (-> (make-test-game)
                    (set-top-card {:suit :hearts :rank "5"})
                    (clear-hand 1)
@@ -446,7 +446,27 @@
           result (game/apply-action game {:type :play-cards
                                           :player-id 1
                                           :cards [{:suit :clubs :rank "A"}]})]
-      (is (= :normal (:status (game/get-player result 1)))))))
+      (is (= :cardless (:status (game/get-player result 1))))))
+
+  (testing "Q as last card triggers cardless (requires answer)"
+    (let [game (-> (make-test-game)
+                   (set-top-card {:suit :hearts :rank "5"})
+                   (clear-hand 1)
+                   (give-card 1 {:suit :hearts :rank "Q"}))
+          result (game/apply-action game {:type :play-cards
+                                          :player-id 1
+                                          :cards [{:suit :hearts :rank "Q"}]})]
+      (is (= :cardless (:status (game/get-player result 1))))))
+
+  (testing "8 as last card triggers cardless (requires answer)"
+    (let [game (-> (make-test-game)
+                   (set-top-card {:suit :hearts :rank "5"})
+                   (clear-hand 1)
+                   (give-card 1 {:suit :hearts :rank "8"}))
+          result (game/apply-action game {:type :play-cards
+                                          :player-id 1
+                                          :cards [{:suit :hearts :rank "8"}]})]
+      (is (= :cardless (:status (game/get-player result 1)))))))
 
 (deftest deck-recycling
   (testing "recycling moves played stack (minus top) back to deck"

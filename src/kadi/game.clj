@@ -315,12 +315,15 @@
 (defn check-cardless
   "Check if player entered cardless state.
    Rules:
-   - Playing K/J/2/3 as last card(s) → ALWAYS cardless (even if in :kadi)
-   - Otherwise → no change (Kadi declaration is optional, not required)"
+   - Playing K/J/2/3/A/Q/8 as last card(s) → ALWAYS cardless (even if in :kadi)
+   - These cards all require follow-up actions (skip/penalty/suit-select/question)
+   - Playing regular cards (4-7, 9, 10) as last → no cardless (normal finish)
+   - Kadi declaration is optional, not required"
   [state player-id cards]
   (let [player (get-player state player-id)
         hand (get-hand state player-id)
-        triggers-cardless? (some #(contains? #{"K" "J" "2" "3"} (:rank %)) cards)]
+        ;; Cards that trigger cardless: all special action cards
+        triggers-cardless? (some #(contains? #{"K" "J" "2" "3" "A" "Q" "8"} (:rank %)) cards)]
     (if (and (empty? hand) triggers-cardless?)
       (update-player state player-id #(assoc % :status :cardless))
       state)))

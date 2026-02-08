@@ -167,10 +167,15 @@ Side effects (persistence, broadcasting) should happen at the edges.
 
 **Critical Lesson**: Cardless is NOT a winning condition!
 
-- Triggered by: Playing K, J, 2, or 3 as last card
-- NOT triggered by: Regular cards, Aces, Q, 8 (these require follow-up actions)
-- Effect: Player marked as "cardless", game continues
-- Reset: When cardless player draws a card, status returns to normal
+- **Triggered by**: Playing K, J, 2, 3, A, Q, or 8 as last card
+  - These all require follow-up actions (skip/penalty/suit-select/question)
+  - Playing any special action card as your last card → cardless
+- **NOT triggered by**: Regular cards (4, 5, 6, 7, 9, 10) as last card
+  - These cards have no special effects and can be played to finish normally
+- **Effect**: Player marked as "cardless", game continues
+- **Reset**: When cardless player draws a card, status returns to normal
+
+**Rationale**: If a player has 0 cards but needs to complete a special action (like selecting a suit for Ace, or waiting for the next player to answer a Question), they are in an incomplete state and must draw before they can play again.
 
 ### 2.7 Starting Card Selection
 
