@@ -198,6 +198,63 @@ When deck is empty and player needs to draw:
 - Turn advances to next player
 - Broadcast anomaly notification to all players
 
+### 2.9 Kadi Finishing (Winning the Game)
+
+**New Feature**: Players must declare "Kadi" to win the game (similar to calling "Uno").
+
+#### Winning Requirements
+
+To win a game of Kadi, a player must:
+
+1. **Declare "Kadi"** by checking the "Declare Kadi" checkbox when playing cards
+2. **Successfully empty their hand** by playing valid card(s)
+3. **Not play a blocking card** (K/J/2/3) as their final card(s)
+
+When all conditions are met:
+- Game status becomes `:finished`
+- Player ID stored in `:winner` field
+- No further actions allowed
+
+#### Invalid Finishing Attempts
+
+A player becomes **cardless** (penalized) if they:
+- Play K, J, 2, or 3 as their final card(s) - even with Kadi declaration
+
+#### Optional Declaration
+
+**Important**: Kadi declaration is **optional**, not required
+- Playing last card WITHOUT declaration → player stays in `:normal` status
+- Game continues, player can draw on next turn
+- Only players who declare Kadi can win
+
+#### Kadi Status Management
+
+**Entering Kadi**:
+- Check "Declare Kadi" checkbox when playing cards
+- Player status becomes `:kadi`
+- Visible to all players via banner
+
+**Voluntary Draws** (regular draw button):
+- Player can choose to maintain or exit Kadi status
+- Default: maintain Kadi
+- Use case: Drawing to get better finishing card
+
+**Involuntary Draws** (penalties, questions):
+- Automatically reset player to `:normal` status
+- No option to maintain Kadi
+- Represents miscalculation of finishing attempt
+
+#### Behavior Matrix
+
+| Scenario | Kadi Declared? | Last Cards | Result |
+|----------|----------------|------------|--------|
+| Valid finish | ✅ | 5♥ | **WIN** (game finished) |
+| Valid combo | ✅ | 7♥ 7♦ 7♣ | **WIN** (game finished) |
+| Invalid (K/J/2/3) | ✅ | K♥ | **Cardless** (penalty) |
+| No declaration | ❌ | 5♥ | **Normal** (game continues) |
+| Voluntary draw + maintain | - | - | **Stay in Kadi** |
+| Accept penalty/question | - | - | **Auto-reset to Normal** |
+
 ---
 
 ## 3. Data Model
@@ -208,12 +265,13 @@ When deck is empty and player needs to draw:
 (def initial-game-state
   {:id 1                ; INTEGER primary key (auto-increment)
    :short-code "ABC123"
-   :status :lobby       ; :lobby | :live
+   :status :lobby       ; :lobby | :live | :finished
+   :winner nil          ; INTEGER player ID (when status is :finished)
 
    ;; Players (ordered by join time for turn order)
    :players [{:id 1              ; INTEGER primary key
               :name "Player 1"
-              :status :normal    ; :normal | :cardless
+              :status :normal    ; :normal | :cardless | :penalty | :skip | :selecting-suit | :kadi
               :hand []}]
 
    ;; Turn management
