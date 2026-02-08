@@ -32,7 +32,7 @@
 ;; =============================================================================
 
 (def PlayerStatus
-  [:enum :normal :penalty :skip :selecting-suit :kadi])
+  [:enum :normal :penalty :skip :selecting-suit :kadi :cardless])
 
 (def GameStatus
   [:enum :lobby :live :finished])
