@@ -45,3 +45,5 @@ Thumbs.db
 # Logs
 *.log
 *.sh
+.claude/settings.local.json
+.vscode/settings.json
