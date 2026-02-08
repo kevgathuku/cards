@@ -423,11 +423,15 @@
         [:h3 "Players"]
         [:ul.game-list
          (for [[idx p] (map-indexed vector players)]
-           [:li {:style (when (= idx current-player-idx) "font-weight: bold; background: #fef3c7;")}
-            (str (:name p) " - " (count (game/get-hand state (:id p))) " cards"
-                 (when (= idx current-player-idx) " (current turn)")
-                 (when (= :kadi (:status p)) " 🎯 KADI")
-                 (when (= :cardless (:status p)) " ⚠️ CARDLESS"))])]]
+           (let [is-current (= idx current-player-idx)
+                 status-text (cond
+                               (= :kadi (:status p)) " 🎯 KADI"
+                               (= :cardless (:status p)) " ⚠️ CARDLESS (must draw)"
+                               :else "")]
+             [:li {:style (when is-current "font-weight: bold; background: #fef3c7;")}
+              (str (:name p) " - " (count (game/get-hand state (:id p))) " cards"
+                   (when is-current " (current turn)")
+                   status-text)]))]]
 
        (when my-player
          [:div.card {:id "my-hand"}
