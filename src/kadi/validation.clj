@@ -126,7 +126,8 @@
 (defn validate-play
   "Validate a play attempt. Returns {:valid? bool, :reason string}."
   [state player-id card-list]
-  (let [player (first (filter #(= player-id (:id %)) (:players state)))
+  (let [hand (get-in state [:zones :hands player-id] [])
+        player {:id player-id :hand hand}  ; Create temporary player with embedded hand
         top-card (last (get-in state [:zones :played-stack]))
         penalty (active-penalty state)
         action-suit (action-suit state)]
