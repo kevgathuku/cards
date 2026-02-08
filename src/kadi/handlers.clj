@@ -224,11 +224,11 @@
         (if-not (player-in-game? player game)
           (redirect "/games" {:type :error :message "You are not in this game"})
           (let [params (parse-form request)
-                raw-cards (get params "cards")
-                card-ids (cond
-                           (nil? raw-cards) []
-                           (sequential? raw-cards) raw-cards
-                           :else [raw-cards])
+                ;; Use ordered-cards parameter which preserves selection order
+                ordered-cards-str (get params "ordered-cards")
+                card-ids (if (and ordered-cards-str (not= ordered-cards-str ""))
+                          (clojure.string/split ordered-cards-str #",")
+                          [])
                 parsed-cards (keep cards/id->card card-ids)
                 result (game/play-cards-cmd (:state game) (:id player) parsed-cards)]
             (if (:error result)

@@ -70,36 +70,44 @@
 
 (deftest play-single-card-test
   (testing "Playing a single valid card works via HTTP handler"
-    (let [{:keys [short-code p1]} (setup-test-game)
+    (let [{:keys [short-code p1 game-id]} (setup-test-game)
           game (db/get-game-by-code short-code)
-          hand (game/get-hand (:state game) (:id p1))
-          top-card (game/top-card (:state game))
-          ;; Find a playable card or use Ace
-          playable-card (first (filter (fn [c] (or (= (:suit c) (:suit top-card))
-                                                   (= (:rank c) (:rank top-card))
-                                                   (= (:rank c) "A")))
-                                       hand))]
+          current-state (:state game)
 
-      (is (some? playable-card) "Should have a playable card in test hand")
+          ;; Rig hand to ensure we have a playable card
+          rigged-hand [{:suit :hearts :rank "5"} {:suit :clubs :rank "9"} {:suit :spades :rank "K"}]
+          rigged-top-card {:suit :hearts :rank "9"}
 
-      (when playable-card
-        (let [req {:request-method :post
-                   :path-params {:code short-code}
-                   :headers {"content-type" "application/x-www-form-urlencoded"}
-                   :body (java.io.ByteArrayInputStream. (.getBytes (str "cards=" (cards/card->id playable-card))))
-                   :session {:player-id (:id p1)}}
+          state-with-rigged-hand (-> current-state
+                                     (game/set-hand (:id p1) rigged-hand)
+                                     (assoc-in [:zones :played-stack] [rigged-top-card]))
 
-              app (mock-app handlers/play-cards)
-              resp (app req)]
+          ;; Get latest seq to ensure cache is trusted
+          latest-seq (or (:seq (jdbc/execute-one! (db/datasource)
+                                                  ["SELECT MAX(sequence_number) as seq FROM game_events WHERE game_id = ?" game-id]))
+                         0)
+          _ (db/update-game-cache! game-id state-with-rigged-hand latest-seq)
 
-          (is (= 302 (:status resp)))
-          (is (= (str "/games/" short-code) (get-in resp [:headers "Location"])))
+          ;; Play 5 of hearts (matches suit)
+          playable-card {:suit :hearts :rank "5"}
 
-          (let [flash (get-in resp [:flash])]
-            (is (nil? flash) (str "Play failed with error: " (:message flash))))
+          req {:request-method :post
+               :path-params {:code short-code}
+               :headers {"content-type" "application/x-www-form-urlencoded"}
+               :body (java.io.ByteArrayInputStream. (.getBytes (str "ordered-cards=" (cards/card->id playable-card))))
+               :session {:player-id (:id p1)}}
 
-          (let [updated-game (db/get-game-by-code short-code)]
-            (is (= (dec (count hand)) (count (game/get-hand (:state updated-game) (:id p1)))))))))))
+          app (mock-app handlers/play-cards)
+          resp (app req)]
+
+      (is (= 302 (:status resp)))
+      (is (= (str "/games/" short-code) (get-in resp [:headers "Location"])))
+
+      (let [flash (get-in resp [:flash])]
+        (is (nil? flash) (str "Play failed with error: " (:message flash))))
+
+      (let [updated-game (db/get-game-by-code short-code)]
+        (is (= 2 (count (game/get-hand (:state updated-game) (:id p1)))))))))
 
 (deftest draw-card-test
   (testing "Drawing a card works via HTTP handler"
@@ -140,7 +148,7 @@
           req {:request-method :post
                :path-params {:code short-code}
                :headers {"content-type" "application/x-www-form-urlencoded"}
-               :body (java.io.ByteArrayInputStream. (.getBytes "cards=5-hearts&cards=5-clubs"))
+               :body (java.io.ByteArrayInputStream. (.getBytes "ordered-cards=5-hearts,5-clubs"))
                :session {:player-id (:id p1)}}
 
           app (mock-app handlers/play-cards)
@@ -163,3 +171,44 @@
                :body (java.io.ByteArrayInputStream. (.getBytes "cards=5-hearts&cards=5-clubs"))}
           resp (app req)]
       (is (= {:cards ["5-hearts" "5-clubs"]} (:body resp)) "Should parse multiple params into vector"))))
+
+(deftest play-question-with-answer-ordered-test
+  (testing "Playing Q+answer cards respects the order (Q first, then answer)"
+    (let [{:keys [short-code p1 game-id]} (setup-test-game)
+          game (db/get-game-by-code short-code)
+          current-state (:state game)
+
+          ;; Rig hand with Q and a matching answer card
+          rigged-hand [{:suit :hearts :rank "Q"} {:suit :hearts :rank "5"} {:suit :spades :rank "9"}]
+          rigged-top-card {:suit :hearts :rank "9"}
+
+          state-with-rigged-hand (-> current-state
+                                     (game/set-hand (:id p1) rigged-hand)
+                                     (assoc-in [:zones :played-stack] [rigged-top-card]))
+
+          ;; Get latest seq to ensure cache is trusted
+          latest-seq (or (:seq (jdbc/execute-one! (db/datasource)
+                                                  ["SELECT MAX(sequence_number) as seq FROM game_events WHERE game_id = ?" game-id]))
+                         0)
+          _ (db/update-game-cache! game-id state-with-rigged-hand latest-seq)
+
+          ;; Play Q first, then 5 (correct order)
+          req {:request-method :post
+               :path-params {:code short-code}
+               :headers {"content-type" "application/x-www-form-urlencoded"}
+               :body (java.io.ByteArrayInputStream. (.getBytes "ordered-cards=Q-hearts,5-hearts"))
+               :session {:player-id (:id p1)}}
+
+          app (mock-app handlers/play-cards)
+          resp (app req)]
+
+      (is (= 302 (:status resp)))
+      (let [flash (get-in resp [:flash])]
+        (is (nil? flash) (str "Should not have error: " (:message flash))))
+
+      (let [updated-game (db/get-game-by-code short-code)
+            new-hand (game/get-hand (:state updated-game) (:id p1))
+            state (:state updated-game)]
+        (is (= 1 (count new-hand)) "Should have 1 card left (played Q+5)")
+        (is (not (game/has-effect? state :awaiting-answer)) "Should not be awaiting answer after complete Q+A")))))
+

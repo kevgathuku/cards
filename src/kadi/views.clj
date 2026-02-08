@@ -56,10 +56,52 @@
         .playing-card.selected, input:checked + .playing-card { border-color: #2563eb; background: #e0f2fe; }
         .playing-card.hearts, .playing-card.diamonds { color: #dc2626; }
         .playing-card.clubs, .playing-card.spades { color: #1f2937; }
-        .htmx-indicator { display: none; }
-        .htmx-request .htmx-indicator { display: inline; }
-        .htmx-request.htmx-indicator { display: inline; }
-        .loading { opacity: 0.5; }"]]
+         .htmx-indicator { display: none; }
+         .htmx-request .htmx-indicator { display: inline; }
+         .htmx-request.htmx-indicator { display: inline; }
+         .loading { opacity: 0.5; }"]
+       ;; Card selection order tracking
+       [:script
+        "document.addEventListener('DOMContentLoaded', function() {
+           // Track selected cards in order
+           const selectedCards = [];
+           
+           function updateOrderedCardsInput() {
+             const orderedInput = document.getElementById('ordered-cards');
+             if (orderedInput) {
+               orderedInput.value = selectedCards.join(',');
+             }
+           }
+           
+           // Listen for checkbox changes
+           document.addEventListener('change', function(e) {
+             if (e.target.classList.contains('card-checkbox')) {
+               const cardId = e.target.dataset.cardId;
+               
+               if (e.target.checked) {
+                 // Add to selection order if not already there
+                 if (!selectedCards.includes(cardId)) {
+                   selectedCards.push(cardId);
+                 }
+               } else {
+                 // Remove from selection order
+                 const index = selectedCards.indexOf(cardId);
+                 if (index > -1) {
+                   selectedCards.splice(index, 1);
+                 }
+               }
+               
+               updateOrderedCardsInput();
+             }
+           });
+           
+           // Clear selection order when form is submitted
+           document.addEventListener('submit', function(e) {
+             if (e.target.id === 'play-form') {
+               // Form will submit with current ordered-cards value
+             }
+           });
+         });"]]
      [:body
       [:nav
        [:div {:style "display: flex; gap: 1rem; align-items: center;"}
@@ -354,16 +396,21 @@
             (when my-player
               [:div.card {:id "my-hand"}
                [:h3 (if is-my-turn? "Your Turn!" "Your Hand")]
-               ;; Play form — contains hand checkboxes + play/block/draw buttons only
-               [:form {:method "post" :action (str "/games/" (:short_code game) "/play")}
-                [:div.hand
-                 (for [[idx card] (map-indexed vector my-hand)]
-                   [:label
-                    [:input {:type "checkbox" :name "cards" :value (cards/card->id card)
-                             :style "display: none"
-                             :disabled (not is-my-turn?)}]
-                    [:div {:class (card-class card)}
-                     (card-display card)]])]
+                ;; Play form — contains hand checkboxes + play/block/draw buttons only
+                [:form {:method "post" :action (str "/games/" (:short_code game) "/play")
+                        :id "play-form"}
+                 ;; Hidden input to track ordered card IDs
+                 [:input {:type "hidden" :name "ordered-cards" :id "ordered-cards" :value ""}]
+                 [:div.hand
+                  (for [[idx card] (map-indexed vector my-hand)]
+                    [:label
+                     [:input {:type "checkbox" :name "cards" :value (cards/card->id card)
+                              :style "display: none"
+                              :disabled (not is-my-turn?)
+                              :data-card-id (cards/card->id card)
+                              :class "card-checkbox"}]
+                     [:div {:class (card-class card)}
+                      (card-display card)]])]
                 (when (and is-my-turn?
                            (not has-select-suit?)
                            (not has-awaiting-answer?))
