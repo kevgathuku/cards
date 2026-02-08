@@ -273,7 +273,8 @@
         (if-not (player-in-game? player game)
           (redirect "/games" {:type :error :message "You are not in this game"})
           (let [params (parse-form request)
-                suit (keyword (get params "suit"))
+                suit-str (get params "suit")
+                suit (when suit-str (keyword suit-str))
                 result (game/select-suit-cmd (:state game) suit)]
             (if (:error result)
               (redirect (str "/games/" short-code) {:type :error :message (:error result)})
