@@ -1,5 +1,6 @@
 (ns kadi.cards
-  "Card representation and deck utilities.")
+  "Card representation and deck utilities."
+  (:require [clojure.string :as str]))
 
 (def suits #{:hearts :diamonds :clubs :spades})
 
@@ -17,6 +18,20 @@
    (for [suit suits
          rank ranks]
      (make-card suit rank))))
+
+;; Card ID conversion
+
+(defn card->id
+  "Convert a card map to a string identifier, e.g. {:suit :hearts :rank \"8\"} -> \"8-hearts\""
+  [card]
+  (str (:rank card) "-" (name (:suit card))))
+
+(defn id->card
+  "Convert a string identifier to a card map, e.g. \"8-hearts\" -> {:suit :hearts :rank \"8\"}"
+  [id]
+  (let [[rank suit] (str/split id #"-" 2)]
+    (when (and rank suit)
+      (make-card (keyword suit) rank))))
 
 ;; Card type predicates
 

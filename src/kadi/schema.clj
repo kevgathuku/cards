@@ -128,8 +128,8 @@
    Useful after JSON deserialization or event sourcing."
   [game]
   (when game
-    (-> (m/decode Game game json-transformer)
-        fix-hands-keys)))
+    (let [fixed (fix-hands-keys game)]
+      (m/decode Game fixed json-transformer))))
 
 (defn normalize-game-row
   "Normalize a database game row, ensuring state is properly typed."
@@ -137,6 +137,11 @@
   (when row
     (let [normalized-state (normalize-game (:state row))]
       (assoc row :state normalized-state))))
+
+(defn normalize-cards
+  "Normalize a sequence of cards (e.g. from JSON event data)."
+  [cards]
+  (m/decode [:sequential Card] cards json-transformer))
 
 (defn validate-game
   "Validate a game state against the schema. Returns {:valid? bool :errors ...}"

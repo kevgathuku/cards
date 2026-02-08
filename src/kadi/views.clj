@@ -2,6 +2,7 @@
   "HTML views using Hiccup."
   (:require [hiccup2.core :as h]
             [hiccup.util :refer [raw-string]]
+            [kadi.cards :as cards]
             [kadi.game :as game]))
 
 ;; =============================================================================
@@ -52,7 +53,7 @@
         .playing-card { width: 60px; height: 84px; border: 2px solid #333; border-radius: 4px;
                         display: flex; align-items: center; justify-content: center;
                         background: white; cursor: pointer; font-size: 1.25rem; }
-        .playing-card.selected { border-color: #2563eb; background: #e0f2fe; }
+        .playing-card.selected, input:checked + .playing-card { border-color: #2563eb; background: #e0f2fe; }
         .playing-card.hearts, .playing-card.diamonds { color: #dc2626; }
         .playing-card.clubs, .playing-card.spades { color: #1f2937; }
         .htmx-indicator { display: none; }
@@ -358,11 +359,10 @@
                 [:div.hand
                  (for [[idx card] (map-indexed vector my-hand)]
                    [:label
-                    [:input {:type "checkbox" :name "cards[]" :value idx
+                    [:input {:type "checkbox" :name "cards" :value (cards/card->id card)
                              :style "display: none"
                              :disabled (not is-my-turn?)}]
-                    [:div {:class (card-class card)
-                           :onclick "this.classList.toggle('selected')"}
+                    [:div {:class (card-class card)}
                      (card-display card)]])]
                 (when (and is-my-turn?
                            (not has-select-suit?)

@@ -4,6 +4,7 @@
             [kadi.game :as game]
             [kadi.auth :as auth]
             [kadi.views :as views]
+            [kadi.cards :as cards]
             [ring.util.response :as resp]))
 
 ;; =============================================================================
@@ -223,24 +224,22 @@
         (if-not (player-in-game? player game)
           (redirect "/games" {:type :error :message "You are not in this game"})
           (let [params (parse-form request)
-                raw-cards (get params "cards[]")
-                card-strs (cond
-                            (nil? raw-cards) []
-                            (sequential? raw-cards) raw-cards
-                            :else [raw-cards])
-                card-indices (mapv parse-long card-strs)
-                hand (game/get-hand (:state game) (:id player))
-                cards (mapv #(get hand %) card-indices)
-                result (game/play-cards-cmd (:state game) (:id player) cards)]
+                raw-cards (get params "cards")
+                card-ids (cond
+                           (nil? raw-cards) []
+                           (sequential? raw-cards) raw-cards
+                           :else [raw-cards])
+                parsed-cards (keep cards/id->card card-ids)
+                result (game/play-cards-cmd (:state game) (:id player) parsed-cards)]
             (if (:error result)
               (redirect (str "/games/" short-code) {:type :error :message (:error result)})
               (do
-                (let [event-id (str (java.util.UUID/randomUUID))
-                      timestamp (java.time.Instant/now)]
-                  (db/append-event! (:id game) event-id :play-cards timestamp
-                                    {:player-id (:id player)
-                                     :cards cards
-                                     :timestamp timestamp}))
+                 (let [event-id (str (java.util.UUID/randomUUID))
+                       timestamp (java.time.Instant/now)]
+                   (db/append-event! (:id game) event-id :play-cards timestamp
+                                     {:player-id (:id player)
+                                      :cards parsed-cards
+                                      :timestamp timestamp}))
                 (redirect (str "/games/" short-code))))))))
     (redirect "/auth/signin")))
 
