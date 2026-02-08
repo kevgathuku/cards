@@ -28,4 +28,5 @@
     ["/:code/select-suit" {:post (h/require-auth h/select-suit)}]
     ["/:code/accept-penalty" {:post (h/require-auth h/accept-penalty)}]
     ["/:code/answer-question" {:post (h/require-auth h/answer-question)}]
-    ["/:code/players" {:get (h/require-auth h/get-players-fragment)}]]])
+    ["/:code/players" {:get (h/require-auth h/get-players-fragment)}]
+    ["/:code/lobby-status" {:get (h/require-auth h/get-lobby-status-fragment)}]]])

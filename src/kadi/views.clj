@@ -232,6 +232,42 @@
      (for [p players]
        [:li (:name p)])])))
 
+(defn lobby-status-fragment
+  "HTMX fragment for lobby status - includes player list and action buttons.
+   This allows dynamic updates when players join without full page refresh."
+  [{:keys [player game]}]
+  (let [players (get-in game [:state :players])
+        can-start? (>= (count players) 2)
+        is-player? (some #(= (:id player) (:id %)) players)
+        creator (first players)
+        is-creator? (= (:id player) (:id creator))
+        short-code (:short_code game)]
+    (str
+     (h/html
+      [:div {:id "lobby-status"}
+       [:div.card
+        [:div {:style "display: flex; justify-content: space-between; align-items: center;"}
+         [:h3 "Players in this game"]
+         [:button.btn.btn-secondary
+          {:hx-get (str "/games/" short-code "/lobby-status")
+           :hx-target "#lobby-status"
+           :hx-swap "outerHTML"}
+          "Refresh"]]
+        [:div {:id "player-list"}
+         [:ul.game-list
+          (for [p players]
+            [:li (:name p)])]]]
+       [:div.card
+        (if is-player?
+          (if (and can-start? is-creator?)
+            [:form {:method "post" :action (str "/games/" short-code "/start")}
+             [:button.btn.btn-primary {:type "submit"} "Start Game"]]
+            [:p (if can-start?
+                  "Waiting for the game creator to start..."
+                  "Waiting for more players... (need at least 2)")])
+          [:form {:method "post" :action (str "/games/" short-code "/join")}
+           [:button.btn.btn-primary {:type "submit"} "Join Game"]])]]))))
+
 ;; =============================================================================
 ;; Game Pages
 ;; =============================================================================
@@ -258,39 +294,15 @@
 (defn game-lobby-page
   "Game lobby - waiting for players."
   [{:keys [player game flash]}]
-  (let [players (get-in game [:state :players])
-        can-start? (>= (count players) 2)
-        is-player? (some #(= (:id player) (:id %)) players)
-        creator (first players)
-        is-creator? (= (:id player) (:id creator))]
-    (layout {:title (str "Game " (:short_code game)) :player player :flash flash}
-            [:div.card
-             [:h2 "Game Lobby"]
-             [:p "Share this code with friends to let them join:"]
-             [:div {:style "background: #f3f4f6; padding: 1rem; border-radius: 4px; text-align: center; margin: 1rem 0;"}
-              [:code {:style "font-size: 2rem; font-weight: bold; letter-spacing: 0.2em;"}
-               (:short_code game)]]
-             [:div {:style "display: flex; justify-content: space-between; align-items: center;"}
-              [:h3 "Players in this game"]
-              [:button.btn.btn-secondary
-               {:hx-get (str "/games/" (:short_code game) "/players")
-                :hx-target "#player-list"
-                :hx-swap "innerHTML"}
-               "Refresh"]]
-             [:div {:id "player-list"}
-              [:ul.game-list
-               (for [p players]
-                 [:li (:name p)])]]]
-            [:div.card
-             (if is-player?
-               (if (and can-start? is-creator?)
-                 [:form {:method "post" :action (str "/games/" (:short_code game) "/start")}
-                  [:button.btn.btn-primary {:type "submit"} "Start Game"]]
-                 [:p (if can-start?
-                       "Waiting for the game creator to start..."
-                       "Waiting for more players... (need at least 2)")])
-               [:form {:method "post" :action (str "/games/" (:short_code game) "/join")}
-                [:button.btn.btn-primary {:type "submit"} "Join Game"]])])))
+  (layout {:title (str "Game " (:short_code game)) :player player :flash flash}
+          [:div.card
+           [:h2 "Game Lobby"]
+           [:p "Share this code with friends to let them join:"]
+           [:div {:style "background: #f3f4f6; padding: 1rem; border-radius: 4px; text-align: center; margin: 1rem 0;"}
+            [:code {:style "font-size: 2rem; font-weight: bold; letter-spacing: 0.2em;"}
+             (:short_code game)]]]
+          ;; Use the fragment directly in the page so refresh updates everything
+          (h/raw (lobby-status-fragment {:player player :game game}))))
 
 ;; =============================================================================
 ;; Game Play Page
@@ -516,19 +528,18 @@
                    (and (not has-select-suit?)
                         (not has-awaiting-answer?)
                         (not has-penalty?))
-                   [:div
+                   ;; Draw button form
+                   [:form {:method "post" :action (str "/games/" (:short_code game) "/draw") :id "draw-form" :style "margin-top: 0.5rem;"}
                     ;; Maintain Kadi checkbox (only show if player is in :kadi status)
                     (when (= :kadi (:status my-player))
-                      [:div {:style "background: #fef3c7; border: 1px solid #fbbf24; padding: 0.75rem; border-radius: 4px; margin-top: 0.5rem;"}
+                      [:div {:style "background: #fef3c7; border: 1px solid #fbbf24; padding: 0.75rem; border-radius: 4px; margin-bottom: 0.5rem;"}
                        [:label {:style "display: flex; align-items: center; gap: 0.5rem; cursor: pointer;"}
-                        [:input {:type "checkbox" :name "maintain-kadi" :id "maintain-kadi" :checked true :form "draw-form"}]
+                        [:input {:type "checkbox" :name "maintain-kadi" :id "maintain-kadi" :checked true}]
                         [:span {:style "font-weight: 500; font-size: 0.875rem;"}
                          "Stay in Kadi after drawing"]
                         [:span {:style "font-size: 0.75rem; color: #78350f;" :title "Keep this checked to maintain your Kadi declaration after voluntary draw. Uncheck to exit Kadi status."}
                          "ℹ️"]]])
-                    ;; Draw button form
-                    [:form {:method "post" :action (str "/games/" (:short_code game) "/draw") :id "draw-form" :style "margin-top: 0.5rem;"}
-                     [:button.btn.btn-secondary {:type "submit"} "Draw Card"]]]))
+                    [:button.btn.btn-secondary {:type "submit"} "Draw Card"]]))
 
                ;; Separate forms OUTSIDE the play form for special actions
                ;; Don't show these for cardless players (they must draw first)
