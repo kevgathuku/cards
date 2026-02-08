@@ -116,12 +116,14 @@
   (first (filter #(= :penalty (:type %)) (:effects state))))
 
 (defn action-suit
-  "Return selected suit if present (after select-suit)."
+  "Return selected suit if present (after select-suit).
+  Normalizes string suits (from JSON database) to keywords."
   [state]
   (some->> (:effects state)
            (filter #(= :suit-selected (:type %)))
            first
-           :suit))
+           :suit
+           cards/normalize-suit))
 
 (defn validate-play
   "Validate a play attempt. Returns {:valid? bool, :reason string}."
