@@ -185,15 +185,22 @@
   (last (get-in state [:zones :played-stack])))
 
 (defn draw-card
-  "Draw one card from deck to player's hand."
-  [state player-id]
+  "Draw one card from deck to player's hand.
+   Optional maintain-kadi? keeps player in :kadi status (voluntary draws only)."
+  [state player-id & {:keys [maintain-kadi?] :or {maintain-kadi? false}}]
   (if (empty? (get-in state [:zones :deck]))
     state
-    (let [card (first (get-in state [:zones :deck]))]
+    (let [card (first (get-in state [:zones :deck]))
+          player (get-player state player-id)
+          current-status (:status player)
+          ;; Keep :kadi if maintain-kadi? is true AND player is currently in :kadi
+          new-status (if (and maintain-kadi? (= :kadi current-status))
+                       :kadi
+                       :normal)]
       (-> state
           (update-in [:zones :deck] rest)
           (update-hand player-id #(conj % card))
-          (update-player player-id #(assoc % :status :normal))))))
+          (update-player player-id #(assoc % :status new-status))))))
 
 (defn recycle-played-stack
   "Move all but top card from played stack back to deck (shuffled)."
@@ -306,7 +313,10 @@
           (dissoc ::skip-count)))))
 
 (defn check-cardless
-  "Check if player entered cardless state."
+  "Check if player entered cardless state.
+   Rules:
+   - Playing K/J/2/3 as last card(s) → ALWAYS cardless (even if in :kadi)
+   - Otherwise → no change (Kadi declaration is optional, not required)"
   [state player-id cards]
   (let [player (get-player state player-id)
         hand (get-hand state player-id)
@@ -397,12 +407,12 @@
     (empty? (get-in state [:zones :deck])) {:error "No cards in deck"}
     :else {:ok true}))
 
-(defn draw-card-cmd [state player-id]
+(defn draw-card-cmd [state player-id & {:keys [maintain-kadi?] :or {maintain-kadi? false}}]
   (let [v (validate-draw state player-id)]
     (if (:error v)
       v
       {:ok (-> state
-               (draw-card player-id)
+               (draw-card player-id :maintain-kadi? maintain-kadi?)
                (advance-turn)
                (update-in [:meta :updated-at] (constantly (java.time.Instant/now))))})))
 
@@ -414,7 +424,7 @@
     (empty? cards) {:error "Must play at least one card"}
     :else (validation/validate-play (with-embedded-hands state) player-id cards)))
 
-(defn play-cards-cmd [state player-id cards]
+(defn play-cards-cmd [state player-id cards & {:keys [declare-kadi?] :or {declare-kadi? false}}]
   (let [v (validate-play-cards state player-id cards)
         ;; Capture the top card BEFORE adding new cards to played stack
         prev-top-card (last (get-in state [:zones :played-stack]))]
@@ -422,11 +432,24 @@
       v
       (if (:valid? v)
         {:ok (-> state
+                 ;; Step 1: Set player to :kadi if declaring
+                 (cond-> declare-kadi? (update-player player-id #(assoc % :status :kadi)))
+                 ;; Step 2: Play cards normally
                  (update :effects #(remove (fn [e] (= :suit-selected (:type e))) %))
                  (remove-cards-from-hand player-id cards)
                  (add-to-played-stack cards)
                  (apply-card-effects cards prev-top-card)
+                 ;; Step 3: Check cardless (may set to :cardless if invalid finish)
                  (check-cardless player-id cards)
+                 ;; Step 4: Check for win (if still in :kadi and hand empty)
+                 (as-> s
+                   (let [player (get-player s player-id)
+                         hand (get-hand s player-id)]
+                     (if (and (= :kadi (:status player)) (empty? hand))
+                       (-> s
+                           (assoc :status :finished)
+                           (assoc :winner player-id))
+                       s)))
                  (maybe-advance-turn cards)
                  (update-in [:meta :updated-at] (constantly (java.time.Instant/now))))}
         {:error (:reason v)}))))
@@ -510,22 +533,35 @@
   (cond-> (start-game state {})
     timestamp (update-in [:meta :updated-at] (constantly timestamp))))
 
-(defmethod apply-action :play-cards [state {:keys [player-id cards timestamp]}]
+(defmethod apply-action :play-cards [state {:keys [player-id cards declare-kadi? timestamp]}]
   (let [normalized-cards (schema/normalize-cards cards)
         ;; Capture the top card BEFORE adding new cards
         prev-top-card (last (get-in state [:zones :played-stack]))]
     (cond-> (-> state
+                ;; Step 1: Set player to :kadi if declaring
+                (cond-> declare-kadi? (update-player player-id #(assoc % :status :kadi)))
+                ;; Step 2: Play cards normally
                 (update :effects #(remove (fn [e] (= :suit-selected (:type e))) %))
                 (remove-cards-from-hand player-id normalized-cards)
                 (add-to-played-stack normalized-cards)
                 (apply-card-effects normalized-cards prev-top-card)
+                ;; Step 3: Check cardless (may set to :cardless if invalid finish)
                 (check-cardless player-id normalized-cards)
+                ;; Step 4: Check for win (if still in :kadi and hand empty)
+                (as-> s
+                  (let [player (get-player s player-id)
+                        hand (get-hand s player-id)]
+                    (if (and (= :kadi (:status player)) (empty? hand))
+                      (-> s
+                          (assoc :status :finished)
+                          (assoc :winner player-id))
+                      s)))
                 (maybe-advance-turn normalized-cards))
       timestamp (update-in [:meta :updated-at] (constantly timestamp)))))
 
-(defmethod apply-action :draw-card [state {:keys [player-id timestamp]}]
+(defmethod apply-action :draw-card [state {:keys [player-id maintain-kadi? timestamp]}]
   (cond-> (-> state
-              (draw-card player-id)
+              (draw-card player-id :maintain-kadi? (boolean maintain-kadi?))
               (advance-turn))
     timestamp (update-in [:meta :updated-at] (constantly timestamp))))
 
