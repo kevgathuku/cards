@@ -171,3 +171,91 @@
         (let [result (validation/validate-play state 1 [(cards/make-card :hearts "5")])]
           (is (not (:valid? result)))
           (is (= "Must draw to answer the question first" (:reason result))))))))
+
+;; =============================================================================
+;; Q+answer validate-play Tests (Bug 1 regression tests)
+;; =============================================================================
+
+(deftest validate-play-question-with-answer-test
+  (let [base-state {:status :live
+                    :players [{:id 1 :name "Alice" :status :normal
+                               :hand [(cards/make-card :hearts "Q") (cards/make-card :hearts "5")
+                                      (cards/make-card :hearts "2") (cards/make-card :hearts "8")
+                                      (cards/make-card :hearts "K")]}
+                              {:id 2 :name "Bob" :status :normal
+                               :hand [(cards/make-card :diamonds "7")]}]
+                    :turn {:current-player-index 0 :direction :clockwise}
+                    :zones {:deck [(cards/make-card :spades "10")]
+                            :played-stack [(cards/make-card :hearts "9")]
+                            :hands {1 [(cards/make-card :hearts "Q") (cards/make-card :hearts "5")
+                                       (cards/make-card :hearts "2") (cards/make-card :hearts "8")
+                                       (cards/make-card :hearts "K")]
+                                    2 [(cards/make-card :diamonds "7")]}}
+                    :effects []}]
+
+    (testing "Q + matching answer card is accepted"
+      (let [result (validation/validate-play base-state 1
+                                             [(cards/make-card :hearts "Q") (cards/make-card :hearts "5")])]
+        (is (:valid? result))))
+
+    (testing "Q + penalty answer card is accepted"
+      (let [result (validation/validate-play base-state 1
+                                             [(cards/make-card :hearts "Q") (cards/make-card :hearts "2")])]
+        (is (:valid? result))))
+
+    (testing "8 + matching answer card is accepted"
+      (let [state (-> base-state
+                      (assoc-in [:zones :played-stack] [(cards/make-card :clubs "8")]))]
+        (let [result (validation/validate-play state 1
+                                               [(cards/make-card :hearts "8") (cards/make-card :hearts "5")])]
+          (is (:valid? result)))))
+
+    (testing "Q + non-matching answer card is rejected"
+      (let [state (-> base-state
+                      (update-in [:players 0 :hand] conj (cards/make-card :diamonds "7"))
+                      (update-in [:zones :hands 1] conj (cards/make-card :diamonds "7")))
+            result (validation/validate-play state 1
+                                             [(cards/make-card :hearts "Q") (cards/make-card :diamonds "7")])]
+        (is (not (:valid? result)))
+        (is (= "Answer must match the question" (:reason result)))))
+
+    (testing "Q + King answer is accepted (matches suit)"
+      (let [result (validation/validate-play base-state 1
+                                             [(cards/make-card :hearts "Q") (cards/make-card :hearts "K")])]
+        (is (:valid? result))))))
+
+;; =============================================================================
+;; answer-valid? Tests (Bug 3 regression tests)
+;; =============================================================================
+
+(deftest answer-valid-test
+  (testing "no answers is valid"
+    (is (validation/answer-valid? [(cards/make-card :hearts "Q")])))
+
+  (testing "single matching answer is valid"
+    (is (validation/answer-valid? [(cards/make-card :hearts "Q") (cards/make-card :hearts "5")])))
+
+  (testing "non-matching answer is rejected"
+    (is (not (validation/answer-valid?
+              [(cards/make-card :hearts "Q") (cards/make-card :clubs "7")]))))
+
+  (testing "multiple same-rank answers are valid"
+    (is (validation/answer-valid?
+         [(cards/make-card :hearts "Q") (cards/make-card :hearts "5") (cards/make-card :clubs "5")])))
+
+  (testing "multiple different-rank answers are rejected"
+    (is (not (validation/answer-valid?
+              [(cards/make-card :hearts "Q") (cards/make-card :hearts "5") (cards/make-card :hearts "6")]))))
+
+  (testing "answer must match last question"
+    (is (not (validation/answer-valid?
+              [(cards/make-card :hearts "Q") (cards/make-card :clubs "5")])))))
+
+;; =============================================================================
+;; question-sequence-valid? Additional Tests
+;; =============================================================================
+
+(deftest question-sequence-non-matching-test
+  (testing "Q+8 that don't match by suit or rank is rejected"
+    (is (not (validation/question-sequence-valid?
+              [(cards/make-card :hearts "Q") (cards/make-card :clubs "8")])))))

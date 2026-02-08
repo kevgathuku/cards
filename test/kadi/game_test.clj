@@ -629,6 +629,130 @@
           "no awaiting-answer when Q is played with an answer card"))))
 
 ;; =============================================================================
+;; Q+answer via play-cards-cmd Tests (Bug 1 regression)
+;; =============================================================================
+
+(deftest question-with-answer-via-cmd
+  (testing "Q + answer card via play-cards-cmd succeeds and advances turn"
+    (let [top {:suit :hearts :rank "9"}
+          q {:suit :hearts :rank "Q"}
+          answer {:suit :hearts :rank "5"}
+          game (-> (make-test-game)
+                   (set-top-card top)
+                   (clear-hand 1)
+                   (give-card 1 q)
+                   (give-card 1 answer))
+          result (game/play-cards-cmd game 1 [q answer])]
+      (is (:ok result) "Q+answer should succeed")
+      (is (not (game/has-effect? (:ok result) :awaiting-answer)))
+      (is (= 1 (game/current-player-index (:ok result)))
+          "turn should advance to next player")))
+
+  (testing "Q + penalty answer sets penalty effect"
+    (let [top {:suit :hearts :rank "9"}
+          q {:suit :hearts :rank "Q"}
+          two {:suit :hearts :rank "2"}
+          game (-> (make-test-game)
+                   (set-top-card top)
+                   (clear-hand 1)
+                   (give-card 1 q)
+                   (give-card 1 two))
+          result (game/play-cards-cmd game 1 [q two])]
+      (is (:ok result) "Q+penalty answer should succeed")
+      (is (game/has-effect? (:ok result) :penalty)
+          "penalty effect should be set from answer card")))
+
+  (testing "Q + Ace answer sets select-suit effect"
+    (let [top {:suit :hearts :rank "9"}
+          q {:suit :hearts :rank "Q"}
+          ace {:suit :hearts :rank "A"}
+          game (-> (make-test-game)
+                   (set-top-card top)
+                   (clear-hand 1)
+                   (give-card 1 q)
+                   (give-card 1 ace))
+          result (game/play-cards-cmd game 1 [q ace])]
+      (is (:ok result) "Q+Ace answer should succeed")
+      (is (game/has-effect? (:ok result) :select-suit)
+          "select-suit should be set from Ace answer")))
+
+  (testing "Q + King answer reverses direction"
+    (let [top {:suit :hearts :rank "9"}
+          q {:suit :hearts :rank "Q"}
+          king {:suit :hearts :rank "K"}
+          game (-> (make-test-game)
+                   (set-top-card top)
+                   (clear-hand 1)
+                   (give-card 1 q)
+                   (give-card 1 king))
+          result (game/play-cards-cmd game 1 [q king])]
+      (is (:ok result) "Q+King answer should succeed")
+      (is (= :counter-clockwise (get-in (:ok result) [:turn :direction]))
+          "direction should reverse from King answer"))))
+
+;; =============================================================================
+;; Answer-question deck exhaustion Tests (Bug 2)
+;; =============================================================================
+
+(deftest answer-question-empty-deck-recycles
+  (testing "answer-question with empty deck recycles played stack"
+    (let [game (-> (make-test-game)
+                   (assoc-in [:zones :deck] [])
+                   (assoc-in [:zones :played-stack]
+                             [{:suit :hearts :rank "5"}
+                              {:suit :clubs :rank "6"}
+                              {:suit :diamonds :rank "7"}])
+                   (update :effects conj {:type :awaiting-answer}))
+          player-id (game/current-player-id game)
+          hand-before (count (game/get-hand game player-id))
+          result (game/answer-question-cmd game player-id)]
+      (is (:ok result) "should succeed after recycling")
+      (is (= (inc hand-before) (count (game/get-hand (:ok result) player-id)))
+          "player should draw 1 card from recycled deck")
+      (is (not (game/has-effect? (:ok result) :awaiting-answer)))))
+
+  (testing "answer-question with empty deck AND empty played pile skips player"
+    (let [game (-> (make-test-game)
+                   (assoc-in [:zones :deck] [])
+                   (assoc-in [:zones :played-stack] [{:suit :hearts :rank "5"}])
+                   (update :effects conj {:type :awaiting-answer}))
+          player-id (game/current-player-id game)
+          hand-before (count (game/get-hand game player-id))
+          result (game/answer-question-cmd game player-id)]
+      (is (:ok result) "should succeed even with no cards to draw")
+      (is (= hand-before (count (game/get-hand (:ok result) player-id)))
+          "player should not draw any cards (skipped)")
+      (is (not (game/has-effect? (:ok result) :awaiting-answer))
+          "awaiting-answer should still be cleared"))))
+
+;; =============================================================================
+;; suit-selected clearing Tests (Bug 4)
+;; =============================================================================
+
+(deftest suit-selected-cleared-on-play
+  (testing "suit-selected is cleared when next card is played"
+    (let [game (-> (make-test-game)
+                   (set-top-card {:suit :clubs :rank "A"})
+                   (update :effects conj {:type :suit-selected :suit :hearts})
+                   (clear-hand 1)
+                   (give-card 1 {:suit :hearts :rank "5"}))
+          result (game/play-cards-cmd game 1 [{:suit :hearts :rank "5"}])]
+      (is (:ok result) "play should succeed matching action-suit")
+      (is (not (game/has-effect? (:ok result) :suit-selected))
+          "suit-selected should be cleared after play")))
+
+  (testing "suit-selected is cleared via apply-action :play-cards"
+    (let [game (-> (make-test-game)
+                   (set-top-card {:suit :clubs :rank "A"})
+                   (update :effects conj {:type :suit-selected :suit :hearts})
+                   (give-card 1 {:suit :hearts :rank "5"}))
+          result (game/apply-action game {:type :play-cards
+                                          :player-id 1
+                                          :cards [{:suit :hearts :rank "5"}]})]
+      (is (not (game/has-effect? result :suit-selected))
+          "suit-selected should be cleared after play via apply-action"))))
+
+;; =============================================================================
 ;; Schema Normalization Tests
 ;; =============================================================================
 
