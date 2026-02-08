@@ -153,6 +153,16 @@
        :body (views/lobby-status-fragment {:player player :game game})}
       {:status 404 :body "Game not found"})))
 
+(defn get-game-state-fragment [request]
+  "HTMX endpoint for polling game state updates - returns game-play-content fragment."
+  (let [short-code (get-in request [:path-params :code])
+        player (auth/current-player request)]
+    (if-let [game (db/get-game-by-code short-code)]
+      {:status 200
+       :headers {"Content-Type" "text/html; charset=utf-8"}
+       :body (views/game-play-content {:player player :game game})}
+      {:status 404 :body "Game not found"})))
+
 (defn join-game [request]
   (if-let [player (auth/current-player request)]
     (let [short-code (get-in request [:path-params :code])
