@@ -1015,9 +1015,9 @@
                    (give-card 1 {:suit :diamonds :rank "7"})
                    (give-card 1 {:suit :clubs :rank "7"})
                    (set-top-card {:suit :hearts :rank "5"}))
-          result (game/play-cards-cmd game 1 [{:suit :hearts :rank "7"
+          result (game/play-cards-cmd game 1 [{:suit :hearts :rank "7"}
                                                {:suit :diamonds :rank "7"}
-                                               {:suit :clubs :rank "7"}}]
+                                               {:suit :clubs :rank "7"}]
                                       :declare-kadi? true)
           final-state (:ok result)]
       (is (not (:error result)) "Combo play should succeed")
