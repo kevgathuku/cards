@@ -970,3 +970,127 @@
           result (game/play-cards-cmd after-block 2 [{:suit :diamonds :rank "3"}])]
       (is (:error result)
           "3♦ cannot be played when suit requirement is ♥ (blocked 2♥)"))))
+
+;; =============================================================================
+;; Kadi Finishing Tests
+;; =============================================================================
+
+(deftest kadi-finishing-feature
+  (testing "valid single card finish with Kadi declaration"
+    (let [game (-> (make-test-game)
+                   (clear-hand 1)
+                   (give-card 1 {:suit :hearts :rank "5"})
+                   (set-top-card {:suit :hearts :rank "7"}))
+          result (game/play-cards-cmd game 1 [{:suit :hearts :rank "5"}] :declare-kadi? true)
+          final-state (:ok result)]
+      (is (not (:error result)) "Play should succeed")
+      (is (= :finished (:status final-state)) "Game should be finished")
+      (is (= 1 (:winner final-state)) "Player 1 should be the winner")
+      (is (empty? (game/get-hand final-state 1)) "Player 1 should have empty hand")))
+
+  (testing "valid combo finish with Kadi declaration"
+    (let [game (-> (make-test-game)
+                   (clear-hand 1)
+                   (give-card 1 {:suit :hearts :rank "7"})
+                   (give-card 1 {:suit :diamonds :rank "7"})
+                   (give-card 1 {:suit :clubs :rank "7"})
+                   (set-top-card {:suit :hearts :rank "5"}))
+          result (game/play-cards-cmd game 1 [{:suit :hearts :rank "7"}
+                                               {:suit :diamonds :rank "7"}
+                                               {:suit :clubs :rank "7"}] 
+                                      :declare-kadi? true)
+          final-state (:ok result)]
+      (is (not (:error result)) "Combo play should succeed")
+      (is (= :finished (:status final-state)) "Game should be finished")
+      (is (= 1 (:winner final-state)) "Player 1 should be the winner")))
+
+  (testing "invalid finish with King as last card becomes cardless"
+    (let [game (-> (make-test-game)
+                   (clear-hand 1)
+                   (give-card 1 {:suit :hearts :rank "K"})
+                   (set-top-card {:suit :hearts :rank "7"}))
+          result (game/play-cards-cmd game 1 [{:suit :hearts :rank "K"}] :declare-kadi? true)
+          final-state (:ok result)
+          player (game/get-player final-state 1)]
+      (is (not (:error result)) "Play should succeed")
+      (is (= :cardless (:status player)) "Player should become cardless, not win")
+      (is (not= :finished (:status final-state)) "Game should not be finished")))
+
+  (testing "invalid finish with Jack as last card becomes cardless"
+    (let [game (-> (make-test-game)
+                   (clear-hand 1)
+                   (give-card 1 {:suit :hearts :rank "J"})
+                   (set-top-card {:suit :hearts :rank "7"}))
+          result (game/play-cards-cmd game 1 [{:suit :hearts :rank "J"}] :declare-kadi? true)
+          final-state (:ok result)
+          player (game/get-player final-state 1)]
+      (is (= :cardless (:status player)) "Playing Jack as last card should result in cardless")))
+
+  (testing "invalid finish with 2 as last card becomes cardless"
+    (let [game (-> (make-test-game)
+                   (clear-hand 1)
+                   (give-card 1 {:suit :hearts :rank "2"})
+                   (set-top-card {:suit :hearts :rank "7"}))
+          result (game/play-cards-cmd game 1 [{:suit :hearts :rank "2"}] :declare-kadi? true)
+          final-state (:ok result)
+          player (game/get-player final-state 1)]
+      (is (= :cardless (:status player)) "Playing 2 as last card should result in cardless")))
+
+  (testing "invalid finish with 3 as last card becomes cardless"
+    (let [game (-> (make-test-game)
+                   (clear-hand 1)
+                   (give-card 1 {:suit :hearts :rank "3"})
+                   (set-top-card {:suit :hearts :rank "7"}))
+          result (game/play-cards-cmd game 1 [{:suit :hearts :rank "3"}] :declare-kadi? true)
+          final-state (:ok result)
+          player (game/get-player final-state 1)]
+      (is (= :cardless (:status player)) "Playing 3 as last card should result in cardless")))
+
+  (testing "empty hand without Kadi declaration stays normal (no penalty)"
+    (let [game (-> (make-test-game)
+                   (clear-hand 1)
+                   (give-card 1 {:suit :hearts :rank "5"})
+                   (set-top-card {:suit :hearts :rank "7"}))
+          ;; Play without declare-kadi? (defaults to false)
+          result (game/play-cards-cmd game 1 [{:suit :hearts :rank "5"}])
+          final-state (:ok result)
+          player (game/get-player final-state 1)]
+      (is (not (:error result)) "Play should succeed")
+      (is (= :normal (:status player)) "Player stays normal (Kadi is optional, not required)")
+      (is (not= :finished (:status final-state)) "Game should not be finished (no win without Kadi)")))
+
+  (testing "voluntary draw with maintain-kadi keeps player in Kadi"
+    (let [game (-> (make-test-game)
+                   (clear-hand 1)
+                   (give-card 1 {:suit :hearts :rank "5"})
+                   (game/update-player 1 #(assoc % :status :kadi)))
+          result (game/draw-card-cmd game 1 :maintain-kadi? true)
+          final-state (:ok result)
+          player (game/get-player final-state 1)]
+      (is (not (:error result)) "Draw should succeed")
+      (is (= :kadi (:status player)) "Player should remain in Kadi status")
+      (is (= 2 (count (game/get-hand final-state 1))) "Player should now have 2 cards")))
+
+  (testing "voluntary draw without maintain-kadi resets to normal"
+    (let [game (-> (make-test-game)
+                   (clear-hand 1)
+                   (give-card 1 {:suit :hearts :rank "5"})
+                   (game/update-player 1 #(assoc % :status :kadi)))
+          result (game/draw-card-cmd game 1 :maintain-kadi? false)
+          final-state (:ok result)
+          player (game/get-player final-state 1)]
+      (is (not (:error result)) "Draw should succeed")
+      (is (= :normal (:status player)) "Player should be reset to normal status")))
+
+  (testing "accept penalty while in Kadi auto-resets to normal"
+    (let [game (-> (make-test-game)
+                   (set-top-card {:suit :hearts :rank "2"})
+                   (update :effects conj {:type :penalty :penalty-type :two})
+                   (game/update-player 2 #(assoc % :status :kadi))
+                   (game/advance-turn)) ;; Advance turn to player 2
+          ;; Player 2 is in Kadi and accepts penalty
+          result (game/accept-penalty-cmd game 2)
+          final-state (:ok result)
+          player (game/get-player final-state 2)]
+      (is (not (:error result)) "Accept penalty should succeed")
+      (is (= :normal (:status player)) "Player should be auto-reset to normal (miscalculated)"))))
