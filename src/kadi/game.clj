@@ -347,11 +347,18 @@
         penalty-type (:penalty-type penalty-effect)
         draw-count (case penalty-type :two 2 :three 3 0)]
     (-> state
-        (draw-card player-id)
-        (as-> s (if (> draw-count 1)
-                  (reduce (fn [st _] (draw-card st player-id))
-                          s (range (dec draw-count)))
-                  s))
+        ;; Draw cards one at a time, recycling if needed
+        (as-> s (reduce (fn [st _]
+                          (let [;; Recycle if deck is empty before drawing
+                                st' (cond-> st
+                                      (empty? (get-in st [:zones :deck]))
+                                      recycle-played-stack)]
+                            ;; Only draw if deck has cards after recycling
+                            (if (seq (get-in st' [:zones :deck]))
+                              (draw-card st' player-id)
+                              st')))
+                        s
+                        (range draw-count)))
         (update :effects #(remove (fn [e] (= :penalty (:type e))) %))
         (advance-turn))))
 
@@ -404,17 +411,22 @@
     (not= :live (game-status state)) {:error "Game is not live"}
     (not (get-player state player-id)) {:error "Player not in game"}
     (not= player-id (current-player-id state)) {:error "Not your turn"}
-    (empty? (get-in state [:zones :deck])) {:error "No cards in deck"}
     :else {:ok true}))
 
 (defn draw-card-cmd [state player-id & {:keys [maintain-kadi?] :or {maintain-kadi? false}}]
   (let [v (validate-draw state player-id)]
     (if (:error v)
       v
-      {:ok (-> state
-               (draw-card player-id :maintain-kadi? maintain-kadi?)
-               (advance-turn)
-               (update-in [:meta :updated-at] (constantly (java.time.Instant/now))))})))
+      (let [;; Recycle played stack if deck is empty
+            state' (cond-> state
+                     (empty? (get-in state [:zones :deck]))
+                     recycle-played-stack)
+            ;; If still empty after recycle, skip player (no draw)
+            can-draw? (seq (get-in state' [:zones :deck]))]
+        {:ok (-> state'
+                 (cond-> can-draw? (draw-card player-id :maintain-kadi? maintain-kadi?))
+                 (advance-turn)
+                 (update-in [:meta :updated-at] (constantly (java.time.Instant/now))))}))))
 
 (defn validate-play-cards [state player-id cards]
   (cond
@@ -560,10 +572,16 @@
       timestamp (update-in [:meta :updated-at] (constantly timestamp)))))
 
 (defmethod apply-action :draw-card [state {:keys [player-id maintain-kadi? timestamp]}]
-  (cond-> (-> state
-              (draw-card player-id :maintain-kadi? (boolean maintain-kadi?))
-              (advance-turn))
-    timestamp (update-in [:meta :updated-at] (constantly timestamp))))
+  (let [;; Recycle played stack if deck is empty
+        state' (cond-> state
+                 (empty? (get-in state [:zones :deck]))
+                 recycle-played-stack)
+        ;; If still empty after recycle, skip player (no draw)
+        can-draw? (seq (get-in state' [:zones :deck]))]
+    (cond-> (-> state'
+                (cond-> can-draw? (draw-card player-id :maintain-kadi? (boolean maintain-kadi?)))
+                (advance-turn))
+      timestamp (update-in [:meta :updated-at] (constantly timestamp)))))
 
 (defmethod apply-action :answer-question [state {:keys [player-id timestamp]}]
   (let [state' (cond-> state
