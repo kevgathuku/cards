@@ -341,3 +341,37 @@
                     (cards/make-card :diamonds "2")])]
       (is (:valid? result) 
           "8-diamonds + 2-diamonds should be valid with suit-selected diamonds"))))
+
+;; =============================================================================
+;; Cardless Player Tests (Phase 2)
+;; =============================================================================
+
+(deftest cardless-player-cannot-play
+  (testing "cardless player's play attempt is rejected"
+    (let [state {:status :live
+                 :players [{:id 1 :name "Alice" :status :cardless}
+                          {:id 2 :name "Bob" :status :normal}]
+                 :turn {:current-player-index 0 :direction :clockwise}
+                 :zones {:deck [(cards/make-card :spades "10")]
+                         :played-stack [(cards/make-card :hearts "9")]
+                         :hands {1 [(cards/make-card :hearts "5")]
+                                2 [(cards/make-card :diamonds "7")]}}
+                 :effects []}
+          result (validation/validate-play state 1 [(cards/make-card :hearts "5")])]
+      (is (not (:valid? result)) "Cardless player should not be able to play")
+      (is (= "You must draw a card first (cardless)" (:reason result))
+          "Error message should explain cardless restriction"))))
+
+(deftest cardless-player-normal-after-draw
+  (testing "player is no longer cardless after drawing"
+    (let [state {:status :live
+                 :players [{:id 1 :name "Alice" :status :normal}
+                          {:id 2 :name "Bob" :status :normal}]
+                 :turn {:current-player-index 0 :direction :clockwise}
+                 :zones {:deck [(cards/make-card :spades "10")]
+                         :played-stack [(cards/make-card :hearts "9")]
+                         :hands {1 [(cards/make-card :hearts "5")]
+                                2 [(cards/make-card :diamonds "7")]}}
+                 :effects []}
+          result (validation/validate-play state 1 [(cards/make-card :hearts "5")])]
+      (is (:valid? result) "Normal player can play cards"))))
