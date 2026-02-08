@@ -803,7 +803,7 @@
           "penalty-type should be a keyword, not a string")
       (is (= :two (:penalty-type penalty))
           "penalty-type should be keyword :two, not string \"two\"")))
-  
+
   (testing "draw-3 penalty-type converts from string to keyword"
     (let [game (-> (make-test-game)
                    (update :effects conj {:type :penalty :penalty-type :three}))
@@ -843,7 +843,7 @@
           draw-count (case (:penalty-type penalty-effect) :two 2 :three 3 0)]
       (is (= 2 draw-count)
           "draw count should be 2, not 0 (which happens when penalty-type is string)")))
-  
+
   (testing "draw-3 penalty draw count displays correctly after JSON roundtrip"
     (let [game (-> (make-test-game)
                    (update :effects conj {:type :penalty :penalty-type :three}))
@@ -869,15 +869,15 @@
           new-state (:ok result)]
       ;; Should succeed
       (is (some? new-state) "Ace should successfully block penalty")
-      
+
       ;; Penalty should be cleared
       (is (nil? (game/get-effect new-state :penalty))
           "Penalty should be cleared after Ace blocks")
-      
+
       ;; Should NOT have select-suit effect
       (is (nil? (game/get-effect new-state :select-suit))
           "Ace blocking penalty should NOT trigger suit selection")
-      
+
       ;; Should have suit-selected effect with blocked card's suit
       (let [suit-effect (game/get-effect new-state :suit-selected)]
         (is (some? suit-effect) "Should have suit-selected effect")
@@ -885,7 +885,7 @@
             "Should preserve suit of blocked card (2♥)")
         (is (true? (:blocked-penalty suit-effect))
             "Should flag that this came from blocking a penalty"))))
-  
+
   (testing "Ace blocks 3 penalty - preserves suit of blocked 3♦"
     (let [game (-> (make-test-game)
                    (set-top-card {:suit :diamonds :rank "3"})
@@ -900,7 +900,7 @@
         (is (= :diamonds (:suit suit-effect))
             "Should preserve suit of blocked 3♦")
         (is (true? (:blocked-penalty suit-effect))))))
-  
+
   (testing "Next player can match suit after Ace blocks penalty"
     (let [game (-> (make-3p-test-game)
                    (set-top-card {:suit :hearts :rank "2"})
@@ -912,7 +912,7 @@
           ;; Player 2 plays hearts (matching blocked card's suit)
           result (game/play-cards-cmd after-block 2 [{:suit :hearts :rank "5"}])]
       (is (:ok result) "Player 2 should be able to match blocked card's suit")))
-  
+
   (testing "Next player can play any 2 after Ace blocks 2 penalty (rank bypass)"
     (let [game (-> (make-3p-test-game)
                    (set-top-card {:suit :hearts :rank "2"})
@@ -921,9 +921,9 @@
                    (give-card 2 {:suit :spades :rank "2"})) ;; Different suit!
           after-block (:ok (game/play-cards-cmd game 1 [{:suit :clubs :rank "A"}]))
           result (game/play-cards-cmd after-block 2 [{:suit :spades :rank "2"}])]
-      (is (:ok result) 
+      (is (:ok result)
           "Player 2 should be able to play any 2 regardless of suit (rank bypass)")))
-  
+
   (testing "Next player can play any 3 after Ace blocks 3 penalty (rank bypass)"
     (let [game (-> (make-3p-test-game)
                    (set-top-card {:suit :diamonds :rank "3"})
@@ -934,7 +934,7 @@
           result (game/play-cards-cmd after-block 2 [{:suit :hearts :rank "3"}])]
       (is (:ok result)
           "Player 2 should be able to play any 3 regardless of suit (rank bypass)")))
-  
+
   (testing "Next player CANNOT play non-matching card after Ace blocks"
     (let [game (-> (make-3p-test-game)
                    (set-top-card {:suit :hearts :rank "2"})
@@ -943,9 +943,9 @@
                    (give-card 2 {:suit :spades :rank "7"})) ;; Wrong suit and rank!
           after-block (:ok (game/play-cards-cmd game 1 [{:suit :clubs :rank "A"}]))
           result (game/play-cards-cmd after-block 2 [{:suit :spades :rank "7"}])]
-      (is (:error result) 
+      (is (:error result)
           "Player 2 should NOT be able to play card that doesn't match suit or rank")))
-  
+
   (testing "Ace without active penalty still triggers suit selection (normal behavior)"
     (let [game (-> (make-test-game)
                    (set-top-card {:suit :hearts :rank "5"})
@@ -959,7 +959,7 @@
       ;; Should NOT have suit-selected effect
       (is (nil? (game/get-effect new-state :suit-selected))
           "Should not auto-select suit for normal Ace play")))
-  
+
   (testing "3 cannot be played when blocking 2 penalty (cross-blocking still prevented)"
     (let [game (-> (make-3p-test-game)
                    (set-top-card {:suit :hearts :rank "2"})
@@ -995,9 +995,9 @@
                    (give-card 1 {:suit :diamonds :rank "7"})
                    (give-card 1 {:suit :clubs :rank "7"})
                    (set-top-card {:suit :hearts :rank "5"}))
-          result (game/play-cards-cmd game 1 [{:suit :hearts :rank "7"}
+          result (game/play-cards-cmd game 1 [{:suit :hearts :rank "7"
                                                {:suit :diamonds :rank "7"}
-                                               {:suit :clubs :rank "7"}] 
+                                               {:suit :clubs :rank "7"}}]
                                       :declare-kadi? true)
           final-state (:ok result)]
       (is (not (:error result)) "Combo play should succeed")
@@ -1094,3 +1094,118 @@
           player (game/get-player final-state 2)]
       (is (not (:error result)) "Accept penalty should succeed")
       (is (= :normal (:status player)) "Player should be auto-reset to normal (miscalculated)"))))
+
+;; =============================================================================
+;; Deck Recycling and Anomaly Skip Tests (Phase 1)
+;; =============================================================================
+
+(deftest draw-card-empty-deck-recycles
+  (testing "draw from empty deck triggers recycle and succeeds"
+    (let [game (-> (make-test-game)
+                   (assoc-in [:zones :deck] [])
+                   (assoc-in [:zones :played-stack]
+                             [{:suit :hearts :rank "5"}
+                              {:suit :clubs :rank "6"}
+                              {:suit :diamonds :rank "7"}]))
+          player-id (game/current-player-id game)
+          hand-before (count (game/get-hand game player-id))
+          result (game/draw-card-cmd game player-id)]
+      (is (:ok result) "Draw should succeed after recycling")
+      (is (= (inc hand-before) (count (game/get-hand (:ok result) player-id)))
+          "Player should draw 1 card from recycled deck")
+      ;; Verify deck was recycled (should have 2 cards, played stack keeps top card)
+      (is (pos? (count (get-in (:ok result) [:zones :deck])))
+          "Deck should have cards after recycling"))))
+
+(deftest draw-card-empty-deck-and-stack-anomaly-skip
+  (testing "draw when deck empty AND played stack has only 1 card → anomaly skip"
+    (let [game (-> (make-test-game)
+                   (assoc-in [:zones :deck] [])
+                   (assoc-in [:zones :played-stack] [{:suit :hearts :rank "5"}]))
+          player-id (game/current-player-id game)
+          hand-before (count (game/get-hand game player-id))
+          idx-before (game/current-player-index game)
+          result (game/draw-card-cmd game player-id)]
+      (is (:ok result) "Should succeed even with no cards to draw")
+      (is (= hand-before (count (game/get-hand (:ok result) player-id)))
+          "Player should not draw any cards (anomaly skip)")
+      (is (not= idx-before (game/current-player-index (:ok result)))
+          "Turn should still advance to next player"))))
+
+(deftest accept-penalty-recycles-mid-draw
+  (testing "accept-penalty recycles deck mid-draw if needed"
+    (let [game (-> (make-test-game)
+                   ;; Set up deck with only 1 card (penalty requires 2)
+                   (assoc-in [:zones :deck] [{:suit :spades :rank "10"}])
+                   (assoc-in [:zones :played-stack]
+                             [{:suit :hearts :rank "5"}
+                              {:suit :clubs :rank "6"}
+                              {:suit :diamonds :rank "7"}])
+                   (update :effects conj {:type :penalty :penalty-type :two}))
+          player-id (game/current-player-id game)
+          hand-before (count (game/get-hand game player-id))
+          result (game/accept-penalty-cmd game player-id)]
+      (is (:ok result) "Accept penalty should succeed")
+      ;; Player should draw 2 cards (1 from original deck, 1 from recycled)
+      (is (= (+ hand-before 2) (count (game/get-hand (:ok result) player-id)))
+          "Player should draw 2 cards despite deck running out mid-draw"))))
+
+(deftest apply-action-draw-card-recycles
+  (testing "apply-action :draw-card recycles when deck is empty (event replay)"
+    (let [game (-> (make-test-game)
+                   (assoc-in [:zones :deck] [])
+                   (assoc-in [:zones :played-stack]
+                             [{:suit :hearts :rank "5"}
+                              {:suit :clubs :rank "6"}]))
+          player-id (game/current-player-id game)
+          hand-before (count (game/get-hand game player-id))
+          result (game/apply-action game {:type :draw-card
+                                          :player-id player-id})]
+      (is (= (inc hand-before) (count (game/get-hand result player-id)))
+          "Player should draw from recycled deck during event replay"))))
+
+(deftest apply-action-draw-card-anomaly-skip
+  (testing "apply-action :draw-card skips when deck cannot be recycled (event replay)"
+    (let [game (-> (make-test-game)
+                   (assoc-in [:zones :deck] [])
+                   (assoc-in [:zones :played-stack] [{:suit :hearts :rank "5"}]))
+          player-id (game/current-player-id game)
+          hand-before (count (game/get-hand game player-id))
+          idx-before (game/current-player-index game)
+          result (game/apply-action game {:type :draw-card
+                                          :player-id player-id})]
+      (is (= hand-before (count (game/get-hand result player-id)))
+          "Player should not draw (anomaly skip)")
+      (is (not= idx-before (game/current-player-index result))
+          "Turn should advance even with no draw"))))
+
+;; =============================================================================
+;; Cardless Player Tests (Phase 2)
+;; =============================================================================
+
+(deftest cardless-player-forced-to-draw
+  (testing "cardless player cannot play cards"
+    (let [game (-> (make-test-game)
+                   (set-top-card {:suit :hearts :rank "5"})
+                   (game/update-player 1 #(assoc % :status :cardless))
+                   (give-card 1 {:suit :hearts :rank "9"}))
+          result (game/play-cards-cmd game 1 [{:suit :hearts :rank "9"}])]
+      (is (:error result) "Cardless player should not be able to play")
+      (is (= "You must draw a card first (cardless)" (:error result)))))
+
+  (testing "cardless player can draw and returns to normal"
+    (let [game (-> (make-test-game)
+                   (game/update-player 1 #(assoc % :status :cardless)))
+          result (game/draw-card-cmd game 1)
+          final-state (:ok result)
+          player (game/get-player final-state 1)]
+      (is (:ok result) "Cardless player should be able to draw")
+      (is (= :normal (:status player)) "Player should return to normal after drawing")
+      (is (= 5 (count (game/get-hand final-state 1))) "Player should have 5 cards (4 + 1 drawn)")))
+
+  (testing "cardless player draw via apply-action returns to normal"
+    (let [game (-> (make-test-game)
+                   (game/update-player 1 #(assoc % :status :cardless)))
+          result (game/apply-action game {:type :draw-card :player-id 1})
+          player (game/get-player result 1)]
+      (is (= :normal (:status player)) "Player should return to normal after drawing (event replay)"))))
