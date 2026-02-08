@@ -9,7 +9,8 @@
   - Hands are stored in zones: :zones/:hands {player-id [cards...]}
   - Side effects (persistence, broadcasting) happen at the edges"
   (:require [kadi.cards :as cards]
-            [kadi.validation :as validation]))
+            [kadi.validation :as validation]
+            [kadi.schema :as schema]))
 
 ;; =============================================================================
 ;; Game State Shape (hierarchical)
@@ -397,6 +398,7 @@
       v
       (if (:valid? v)
         {:ok (-> state
+                 (update :effects #(remove (fn [e] (= :suit-selected (:type e))) %))
                  (remove-cards-from-hand player-id cards)
                  (add-to-played-stack cards)
                  (apply-card-effects cards)
@@ -427,18 +429,23 @@
     (not (get-player state player-id)) {:error "Player not in game"}
     (not= player-id (current-player-id state)) {:error "Not your turn"}
     (not (has-effect? state :awaiting-answer)) {:error "Not awaiting answer"}
-    (empty? (get-in state [:zones :deck])) {:error "No cards in deck"}
     :else {:ok true}))
 
 (defn answer-question-cmd [state player-id]
   (let [v (validate-answer state player-id)]
     (if (:error v)
       v
-      {:ok (-> state
-               (draw-card player-id)
-               (update :effects #(remove (fn [e] (= :awaiting-answer (:type e))) %))
-               (advance-turn)
-               (update-in [:meta :updated-at] (constantly (java.time.Instant/now))))})))
+      (let [;; Recycle played stack if deck is empty
+            state' (cond-> state
+                     (empty? (get-in state [:zones :deck]))
+                     recycle-played-stack)
+            ;; If still empty after recycle, skip player (no draw)
+            can-draw? (seq (get-in state' [:zones :deck]))]
+        {:ok (-> state'
+                 (cond-> can-draw? (draw-card player-id))
+                 (update :effects #(remove (fn [e] (= :awaiting-answer (:type e))) %))
+                 (advance-turn)
+                 (update-in [:meta :updated-at] (constantly (java.time.Instant/now))))}))))
 
 (defn validate-accept-penalty [state player-id]
   (cond
@@ -478,13 +485,15 @@
     timestamp (update-in [:meta :updated-at] (constantly timestamp))))
 
 (defmethod apply-action :play-cards [state {:keys [player-id cards timestamp]}]
-  (cond-> (-> state
-              (remove-cards-from-hand player-id cards)
-              (add-to-played-stack cards)
-              (apply-card-effects cards)
-              (check-cardless player-id cards)
-              (maybe-advance-turn cards))
-    timestamp (update-in [:meta :updated-at] (constantly timestamp))))
+  (let [normalized-cards (schema/normalize-cards cards)]
+    (cond-> (-> state
+                (update :effects #(remove (fn [e] (= :suit-selected (:type e))) %))
+                (remove-cards-from-hand player-id normalized-cards)
+                (add-to-played-stack normalized-cards)
+                (apply-card-effects normalized-cards)
+                (check-cardless player-id normalized-cards)
+                (maybe-advance-turn normalized-cards))
+      timestamp (update-in [:meta :updated-at] (constantly timestamp)))))
 
 (defmethod apply-action :draw-card [state {:keys [player-id timestamp]}]
   (cond-> (-> state
@@ -493,11 +502,15 @@
     timestamp (update-in [:meta :updated-at] (constantly timestamp))))
 
 (defmethod apply-action :answer-question [state {:keys [player-id timestamp]}]
-  (cond-> (-> state
-              (draw-card player-id)
-              (update :effects #(remove (fn [e] (= :awaiting-answer (:type e))) %))
-              (advance-turn))
-    timestamp (update-in [:meta :updated-at] (constantly timestamp))))
+  (let [state' (cond-> state
+                 (empty? (get-in state [:zones :deck]))
+                 recycle-played-stack)
+        can-draw? (seq (get-in state' [:zones :deck]))]
+    (cond-> (-> state'
+                (cond-> can-draw? (draw-card player-id))
+                (update :effects #(remove (fn [e] (= :awaiting-answer (:type e))) %))
+                (advance-turn))
+      timestamp (update-in [:meta :updated-at] (constantly timestamp)))))
 
 (defmethod apply-action :select-suit [state {:keys [suit timestamp]}]
   (cond-> (-> state
