@@ -9,20 +9,21 @@
 ;; =============================================================================
 
 (def string->keyword-transformer
-  "Transformer that coerces strings to keywords for enum-like fields."
+  "Transformer that coerces strings to keywords for keyword fields."
   (mt/transformer
    {:name :string->keyword
-    :decoders {:keyword (fn [schema]
-                          (fn [value]
-                            (cond
-                              (keyword? value) value
-                              (string? value) (keyword value)
-                              :else value)))}}))
+    :decoders {:keyword? (fn [_schema]
+                            (fn [value]
+                              (cond
+                                (keyword? value) value
+                                (string? value) (keyword value)
+                                :else value)))}}))
 
 (def json-transformer
-  "Transformer for JSON roundtrip normalization (strings -> keywords, etc)."
+  "Transformer for JSON roundtrip normalization.
+   Uses string-transformer (which handles enums) + custom keyword converter.
+   Note: NOT using strip-extra-keys since :or schemas may incorrectly strip fields."
   (mt/transformer
-   mt/strip-extra-keys-transformer
    mt/string-transformer
    string->keyword-transformer))
 
@@ -47,6 +48,10 @@
 
 (def Rank
   [:enum "2" "3" "4" "5" "6" "7" "8" "9" "10" "J" "Q" "K" "A"])
+
+(def PenaltyType
+  "Type of penalty: draw-2 or draw-3"
+  [:enum :two :three])
 
 (def Card
   [:map
@@ -75,9 +80,39 @@
    [:created-at inst?]
    [:updated-at inst?]])
 
-(def Effect
-  [:map {:closed false}
+;; Effect schemas - each effect type has properly typed fields
+;; that will be normalized from strings to keywords via json-transformer
+
+(def SelectSuitEffect
+  "Effect when Ace is played - player must select a suit"
+  [:map
    [:type keyword?]])
+
+(def SuitSelectedEffect
+  "Effect after suit is selected - stores the required suit"
+  [:map
+   [:type keyword?]
+   [:suit Suit]])
+
+(def PenaltyEffect
+  "Effect when 2 or 3 is played - penalty draw"
+  [:map
+   [:type keyword?]
+   [:penalty-type PenaltyType]])
+
+(def AwaitingAnswerEffect
+  "Effect when question card (Q/8) is played without answer"
+  [:map
+   [:type keyword?]])
+
+(def Effect
+  "Game effect - each effect type has properly typed fields.
+   Uses :or schema for simpler transformation compatibility."
+  [:or
+   SelectSuitEffect
+   SuitSelectedEffect
+   PenaltyEffect
+   AwaitingAnswerEffect])
 
 (def Game
   "Core game state schema. Represents both in-memory and persisted game state."
@@ -123,13 +158,25 @@
                             hands)))
     game))
 
+(defn- normalize-effect
+  "Normalize a single effect - convert enum string values to keywords.
+   Handles :penalty-type and :suit fields that may be strings after JSON parse."
+  [effect]
+  (cond-> effect
+    (:penalty-type effect) (update :penalty-type keyword)
+    (:suit effect) (update :suit keyword)))
+
 (defn normalize-game
   "Normalize a game state to ensure consistent types (keywords, etc).
    Useful after JSON deserialization or event sourcing."
   [game]
   (when game
-    (let [fixed (fix-hands-keys game)]
-      (m/decode Game fixed json-transformer))))
+    (let [fixed (fix-hands-keys game)
+          decoded (m/decode Game fixed json-transformer)
+          ;; Manually normalize effect enum fields (penalty-type, suit)
+          ;; because multi-schema transformers are complex
+          normalized-effects (mapv normalize-effect (:effects decoded))]
+      (assoc decoded :effects normalized-effects))))
 
 (defn normalize-game-row
   "Normalize a database game row, ensuring state is properly typed."

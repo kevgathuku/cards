@@ -2,7 +2,8 @@
   (:require [clojure.test :refer [deftest testing is]]
             [kadi.game :as game]
             [kadi.cards :as cards]
-            [kadi.schema :as schema]))
+            [kadi.schema :as schema]
+            [jsonista.core :as json]))
 
 ;; =============================================================================
 ;; Test Helpers
@@ -782,3 +783,74 @@
           penalty (game/get-effect normalized :penalty)]
       (is (= :three (:penalty-type penalty))
           "penalty-type :three should survive normalization"))))
+
+;; =============================================================================
+;; JSON Roundtrip Tests (Bug Fix: String to Keyword Conversion)
+;; =============================================================================
+
+(deftest penalty-effect-json-roundtrip
+  (testing "penalty-type converts from string to keyword after JSON roundtrip"
+    (let [game (-> (make-test-game)
+                   (update :effects conj {:type :penalty :penalty-type :two}))
+          ;; Simulate JSON roundtrip (what happens when saved to DB)
+          json-str (json/write-value-as-string game)
+          parsed (json/read-value json-str json/keyword-keys-object-mapper)
+          ;; Normalize the parsed data
+          normalized (schema/normalize-game parsed)
+          penalty (game/get-effect normalized :penalty)]
+      (is (some? penalty) "penalty effect should exist after roundtrip")
+      (is (keyword? (:penalty-type penalty))
+          "penalty-type should be a keyword, not a string")
+      (is (= :two (:penalty-type penalty))
+          "penalty-type should be keyword :two, not string \"two\"")))
+  
+  (testing "draw-3 penalty-type converts from string to keyword"
+    (let [game (-> (make-test-game)
+                   (update :effects conj {:type :penalty :penalty-type :three}))
+          json-str (json/write-value-as-string game)
+          parsed (json/read-value json-str json/keyword-keys-object-mapper)
+          normalized (schema/normalize-game parsed)
+          penalty (game/get-effect normalized :penalty)]
+      (is (keyword? (:penalty-type penalty))
+          "penalty-type should be a keyword")
+      (is (= :three (:penalty-type penalty))
+          "penalty-type should be keyword :three, not string \"three\""))))
+
+(deftest suit-selected-effect-json-roundtrip
+  (testing "suit converts from string to keyword after JSON roundtrip"
+    (let [game (-> (make-test-game)
+                   (update :effects conj {:type :suit-selected :suit :hearts}))
+          json-str (json/write-value-as-string game)
+          parsed (json/read-value json-str json/keyword-keys-object-mapper)
+          normalized (schema/normalize-game parsed)
+          suit-effect (game/get-effect normalized :suit-selected)]
+      (is (some? suit-effect) "suit-selected effect should exist")
+      (is (keyword? (:suit suit-effect))
+          "suit should be a keyword, not a string")
+      (is (= :hearts (:suit suit-effect))
+          "suit should be keyword :hearts, not string \"hearts\""))))
+
+(deftest penalty-draw-count-after-reload
+  (testing "penalty draw count displays correctly after JSON roundtrip"
+    (let [game (-> (make-test-game)
+                   (update :effects conj {:type :penalty :penalty-type :two}))
+          ;; Simulate save/reload cycle
+          json-str (json/write-value-as-string game)
+          parsed (json/read-value json-str json/keyword-keys-object-mapper)
+          normalized (schema/normalize-game parsed)
+          penalty-effect (game/get-effect normalized :penalty)
+          ;; This is what views.clj does to calculate draw count
+          draw-count (case (:penalty-type penalty-effect) :two 2 :three 3 0)]
+      (is (= 2 draw-count)
+          "draw count should be 2, not 0 (which happens when penalty-type is string)")))
+  
+  (testing "draw-3 penalty draw count displays correctly after JSON roundtrip"
+    (let [game (-> (make-test-game)
+                   (update :effects conj {:type :penalty :penalty-type :three}))
+          json-str (json/write-value-as-string game)
+          parsed (json/read-value json-str json/keyword-keys-object-mapper)
+          normalized (schema/normalize-game parsed)
+          penalty-effect (game/get-effect normalized :penalty)
+          draw-count (case (:penalty-type penalty-effect) :two 2 :three 3 0)]
+      (is (= 3 draw-count)
+          "draw count should be 3, not 0"))))
