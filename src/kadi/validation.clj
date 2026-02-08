@@ -83,14 +83,19 @@
               (partition 2 1 questions)))))
 
 (defn answer-valid?
-  "Check if answer cards are valid for the question."
+  "Check if answer cards are valid for the question.
+  - No answer cards is valid (question-only play)
+  - All answer cards must NOT be question cards
+  - First answer must match last question by suit or rank
+  - Multiple answers must all share the same rank"
   [card-list]
   (let [questions (take-while cards/question-card? card-list)
         answers (drop (count questions) card-list)
         last-question (last questions)]
     (or (empty? answers)
-        (and (not (cards/question-card? (first answers)))
-             (cards/matches? (first answers) last-question)))))
+        (and (every? (complement cards/question-card?) answers)
+             (cards/matches? (first answers) last-question)
+             (or (< (count answers) 2) (all-same-rank? answers))))))
 
 (defn player-has-cards?
   "Check if player has all the cards in their hand."
@@ -139,10 +144,6 @@
       (not (player-has-cards? player card-list))
       {:valid? false :reason "You don't have those cards"}
 
-      ;; Valid combo check
-      (not (valid-combo? card-list))
-      {:valid? false :reason "Invalid card combination"}
-
       ;; Must answer question before playing
       (some #(= :awaiting-answer (:type %)) (:effects state))
       {:valid? false :reason "Must draw to answer the question first"}
@@ -157,6 +158,25 @@
       (all-aces? card-list)
       {:valid? true}
 
+      ;; Question card play (Q or 8 as first card) — uses question-specific validation
+      ;; instead of valid-combo?, allowing Q+answer plays like [Q-hearts 5-hearts]
+      (cards/question-card? (first card-list))
+      (cond
+        (not (first-card-matches-top? card-list top-card action-suit))
+        {:valid? false :reason "Card does not match top card"}
+
+        (not (question-sequence-valid? card-list))
+        {:valid? false :reason "Question cards must match each other"}
+
+        (not (answer-valid? card-list))
+        {:valid? false :reason "Answer must match the question"}
+
+        :else {:valid? true})
+
+      ;; Valid combo check (non-question cards)
+      (not (valid-combo? card-list))
+      {:valid? false :reason "Invalid card combination"}
+
       ;; King cannot be combined
       (and (cards/king? (first card-list))
            (> (count card-list) 1))
@@ -165,16 +185,6 @@
       ;; First card must match top card
       (not (first-card-matches-top? card-list top-card action-suit))
       {:valid? false :reason "Card does not match top card"}
-
-      ;; Question card sequence validation
-      (and (cards/question-card? (first card-list))
-           (not (question-sequence-valid? card-list)))
-      {:valid? false :reason "Question cards must match each other"}
-
-      ;; Answer validation for question combos
-      (and (cards/question-card? (first card-list))
-           (not (answer-valid? card-list)))
-      {:valid? false :reason "Answer must match the question"}
 
       ;; All checks passed
       :else {:valid? true})))
