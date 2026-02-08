@@ -1228,4 +1228,13 @@
                    (game/update-player 1 #(assoc % :status :cardless)))
           result (game/apply-action game {:type :draw-card :player-id 1})
           player (game/get-player result 1)]
-      (is (= :normal (:status player)) "Player should return to normal after drawing (event replay)"))))
+      (is (= :normal (:status player)) "Player should return to normal after drawing (event replay)")))
+
+  (testing "cardless player facing penalty cannot draw (must accept penalty)"
+    (let [game (-> (make-test-game)
+                   (set-top-card {:suit :hearts :rank "3"})
+                   (game/update-player 1 #(assoc % :status :cardless))
+                   (update :effects conj {:type :penalty :penalty-type :three}))
+          result (game/draw-card-cmd game 1)]
+      (is (:error result) "Cardless player should not be able to draw when penalty is active")
+      (is (= "Must accept penalty first" (:error result))))))

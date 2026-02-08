@@ -414,6 +414,7 @@
     (not= :live (game-status state)) {:error "Game is not live"}
     (not (get-player state player-id)) {:error "Player not in game"}
     (not= player-id (current-player-id state)) {:error "Not your turn"}
+    (has-effect? state :penalty) {:error "Must accept penalty first"}
     :else {:ok true}))
 
 (defn draw-card-cmd [state player-id & {:keys [maintain-kadi?] :or {maintain-kadi? false}}]

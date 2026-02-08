@@ -499,12 +499,16 @@
                   [:button.btn.btn-primary {:type "submit"} "Play Selected"]]))])
 
           ;; Draw button - show for cardless OR normal voluntary draw
-          ;; For cardless: always show (mandatory draw)
+          ;; For cardless: only show if NOT facing penalty (penalty takes priority)
           ;; For normal: show if not in special states
           (when (and is-my-turn?
                      (not game-finished?))
             (cond
-              ;; Cardless: MUST draw, show only draw button
+              ;; Cardless + Penalty: Don't show draw button (accept-penalty shown below)
+              (and (= :cardless (:status my-player)) has-penalty?)
+              nil
+
+              ;; Cardless (no penalty): MUST draw, show only draw button
               (= :cardless (:status my-player))
               [:form {:method "post" :action (str "/games/" (:short_code game) "/draw") :id "draw-form" :style "margin-top: 0.5rem;"}
                [:button.btn.btn-primary {:type "submit"} "Draw Card (Required)"]]
@@ -527,22 +531,21 @@
                [:button.btn.btn-secondary {:type "submit"} "Draw Card"]]))
 
           ;; Separate forms OUTSIDE the play form for special actions
-          ;; Don't show these for cardless players (they must draw first)
+          ;; Note: Penalty acceptance is available to ALL players (including cardless)
           (when (and is-my-turn?
-                     (not game-finished?)
-                     (not= :cardless (:status my-player)))
+                     (not game-finished?))
             (cond
-              ;; Suit selection: each suit is its own form
-              has-select-suit?
+              ;; Suit selection: only for non-cardless players
+              (and has-select-suit? (not= :cardless (:status my-player)))
               (suit-picker (:short_code game))
 
-              ;; Awaiting answer: separate form
-              has-awaiting-answer?
+              ;; Awaiting answer: only for non-cardless players
+              (and has-awaiting-answer? (not= :cardless (:status my-player)))
               [:form {:method "post" :action (str "/games/" (:short_code game) "/answer-question")
                       :style "margin-top: 1rem;"}
                [:button.btn.btn-primary {:type "submit"} "Draw to Answer"]]
 
-              ;; Penalty active: accept-penalty is a separate form
+              ;; Penalty active: ALL players (including cardless) can accept
               has-penalty?
               [:form {:method "post" :action (str "/games/" (:short_code game) "/accept-penalty")
                       :style "margin-top: 1rem;"}
