@@ -150,6 +150,7 @@
   [state player-id card-list]
   (let [hand (get-in state [:zones :hands player-id] [])
         player {:id player-id :hand hand}  ; Create temporary player with embedded hand
+        current-player (first (filter #(= player-id (:id %)) (:players state)))
         top-card (last (get-in state [:zones :played-stack]))
         penalty (active-penalty state)
         action-suit (action-suit state)]
@@ -158,6 +159,10 @@
       ;; Must be player's turn
       (not (is-players-turn? state player-id))
       {:valid? false :reason "Not your turn"}
+
+      ;; Cardless players must draw first
+      (= :cardless (:status current-player))
+      {:valid? false :reason "You must draw a card first (cardless)"}
 
       ;; Must play at least one card
       (empty? card-list)
