@@ -72,3 +72,15 @@
   [deck]
   (or (first (filter valid-starting-card? deck))
       (first deck)))
+
+;; Suit normalization
+
+(defn normalize-suit
+  "Normalize a suit value to a keyword.
+  Handles string suits from JSON database, keyword suits from code,
+  and passes through nil/invalid values for validation to catch."
+  [suit]
+  (cond
+    (keyword? suit) suit
+    (string? suit) (keyword suit)
+    :else suit))
