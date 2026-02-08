@@ -61,7 +61,7 @@
          .htmx-request.htmx-indicator { display: inline; }
          .loading { opacity: 0.5; }"]
        ;; Card selection order tracking
-       [:script
+       [:script (raw-string
         "document.addEventListener('DOMContentLoaded', function() {
            // Track selected cards in order
            const selectedCards = [];
@@ -101,7 +101,7 @@
                // Form will submit with current ordered-cards value
              }
            });
-         });"]]
+         });")]]
      [:body
       [:nav
        [:div {:style "display: flex; gap: 1rem; align-items: center;"}
