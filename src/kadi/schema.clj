@@ -89,10 +89,14 @@
    [:type keyword?]])
 
 (def SuitSelectedEffect
-  "Effect after suit is selected - stores the required suit"
+  "Effect after suit is selected - stores the required suit.
+   Optional :blocked-penalty flag indicates Ace blocked a penalty.
+   Optional :blocked-card-rank stores rank of blocked penalty card."
   [:map
    [:type keyword?]
-   [:suit Suit]])
+   [:suit Suit]
+   [:blocked-penalty {:optional true} boolean?]
+   [:blocked-card-rank {:optional true} string?]])
 
 (def PenaltyEffect
   "Effect when 2 or 3 is played - penalty draw"

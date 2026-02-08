@@ -66,39 +66,47 @@
 ;; =============================================================================
 
 (deftest first-card-matches-top-test
-  (testing "ace always matches"
-    (is (validation/first-card-matches-top?
-         [(cards/make-card :clubs "A")]
-         (cards/make-card :hearts "5")
-         nil)))
+  (let [;; Mock state with no active effects for standard matching tests
+        empty-state {:effects []}]
+    (testing "ace always matches"
+      (is (validation/first-card-matches-top?
+           [(cards/make-card :clubs "A")]
+           (cards/make-card :hearts "5")
+           nil
+           empty-state)))
 
-  (testing "action-suit enforcement"
-    (is (validation/first-card-matches-top?
-         [(cards/make-card :hearts "5")]
-         (cards/make-card :clubs "A")
-         :hearts))
-    (is (not (validation/first-card-matches-top?
-              [(cards/make-card :clubs "5")]
-              (cards/make-card :clubs "A")
-              :hearts))))
+    (testing "action-suit enforcement"
+      (is (validation/first-card-matches-top?
+           [(cards/make-card :hearts "5")]
+           (cards/make-card :clubs "A")
+           :hearts
+           empty-state))
+      (is (not (validation/first-card-matches-top?
+                [(cards/make-card :clubs "5")]
+                (cards/make-card :clubs "A")
+                :hearts
+                empty-state))))
 
-  (testing "suit matching"
-    (is (validation/first-card-matches-top?
-         [(cards/make-card :hearts "9")]
-         (cards/make-card :hearts "5")
-         nil)))
+    (testing "suit matching"
+      (is (validation/first-card-matches-top?
+           [(cards/make-card :hearts "9")]
+           (cards/make-card :hearts "5")
+           nil
+           empty-state)))
 
-  (testing "rank matching"
-    (is (validation/first-card-matches-top?
-         [(cards/make-card :clubs "5")]
-         (cards/make-card :hearts "5")
-         nil)))
+    (testing "rank matching"
+      (is (validation/first-card-matches-top?
+           [(cards/make-card :clubs "5")]
+           (cards/make-card :hearts "5")
+           nil
+           empty-state)))
 
-  (testing "no match"
-    (is (not (validation/first-card-matches-top?
-              [(cards/make-card :clubs "9")]
-              (cards/make-card :hearts "5")
-              nil)))))
+    (testing "no match"
+      (is (not (validation/first-card-matches-top?
+                [(cards/make-card :clubs "9")]
+                (cards/make-card :hearts "5")
+                nil
+                empty-state))))))
 
 ;; =============================================================================
 ;; question-sequence-valid? Tests

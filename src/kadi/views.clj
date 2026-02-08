@@ -60,9 +60,9 @@
          .htmx-request .htmx-indicator { display: inline; }
          .htmx-request.htmx-indicator { display: inline; }
          .loading { opacity: 0.5; }"]
-       ;; Card selection order tracking
-       [:script (raw-string
-        "document.addEventListener('DOMContentLoaded', function() {
+      ;; Card selection order tracking
+      [:script (raw-string
+                "document.addEventListener('DOMContentLoaded', function() {
            // Track selected cards in order
            const selectedCards = [];
            
@@ -299,13 +299,18 @@
 (defn card-class [card]
   (str "playing-card " (name (:suit card))))
 
+(defn- suit-symbol
+  "Get suit symbol for a given suit keyword."
+  [suit]
+  (case suit
+    :hearts "♥"
+    :diamonds "♦"
+    :clubs "♣"
+    :spades "♠"
+    ""))
+
 (defn card-display [card]
-  (let [suit-symbol (case (:suit card)
-                      :hearts "♥"
-                      :diamonds "♦"
-                      :clubs "♣"
-                      :spades "♠")]
-    (str (:rank card) suit-symbol)))
+  (str (:rank card) (suit-symbol (:suit card))))
 
 (defn- effect-banner
   "Render a banner for active game effects."
@@ -324,8 +329,30 @@
        [:div {:style "background: #fffbeb; border: 1px solid #fde68a; padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 0.5rem;"}
         "Waiting for suit selection (Ace played)."])
      (when suit-selected
-       [:div {:style "background: #f0fdf4; border: 1px solid #bbf7d0; padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 0.5rem;"}
-        (str "Required suit: " (name (:suit suit-selected)))])
+       (let [blocked-penalty? (:blocked-penalty suit-selected false)
+             suit (:suit suit-selected)]
+         [:div {:style (str "padding: 1rem; "
+                           "background-color: #f3e8ff; "
+                           "border: 2px solid #9333ea; "
+                           "border-radius: 0.5rem; "
+                           "margin-bottom: 0.5rem; "
+                           "text-align: center;")}
+          ;; Special message when Ace blocked penalty
+          (when blocked-penalty?
+            [:p {:style "font-size: 1.125rem; font-weight: 600; color: #7c3aed; margin: 0 0 0.5rem 0;"}
+             "🛡️ Ace blocked penalty!"])
+          
+          ;; Active suit display
+          [:p {:style (str "font-size: 0.875rem; color: #6b21a8; margin: "
+                          (if blocked-penalty? "0;" "0;"))}
+           "Active suit: "
+           [:span {:style "font-size: 1.25rem; font-weight: 600;"}
+            (suit-symbol suit) " " (clojure.string/capitalize (name suit))]]
+          
+          ;; Hint about rank bypass when penalty was blocked
+          (when blocked-penalty?
+            [:p {:style "font-size: 0.75rem; color: #9333ea; margin: 0.5rem 0 0 0; font-style: italic;"}
+             "You can match this suit OR play any 2/3 to continue the chain"])]))
      (when awaiting-answer
        [:div {:style "background: #eff6ff; border: 1px solid #bfdbfe; padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 0.5rem;"}
         (if is-my-turn?

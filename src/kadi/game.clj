@@ -234,32 +234,54 @@
 ;; =============================================================================
 
 (defn apply-card-effects
-  "Apply special card effects after playing cards."
-  [state cards]
+  "Apply special card effects after playing cards.
+   Special case: When Ace blocks a penalty, it clears the penalty and
+   sets the blocked card's suit as the active suit (not suit selection).
+   
+   prev-top-card: The card that was on top BEFORE these cards were played."
+  [state cards prev-top-card]
   (let [ranks (map :rank cards)
-        jack-count (count (filter #{"J"} ranks))]
+        jack-count (count (filter #{"J"} ranks))
+        has-ace? (some #{"A"} ranks)
+        active-penalty (first (filter #(= :penalty (:type %)) (:effects state)))
+        has-active-penalty? (some? active-penalty)
+        
+        ;; Use the previous top card (before Ace was played) as the blocked card
+        ;; This is the penalty card (2 or 3) that the Ace is blocking
+        blocked-card (when (and has-ace? has-active-penalty?)
+                       prev-top-card)]
+    
     (cond-> state
       ;; King reverses direction
       (some #{"K"} ranks)
       reverse-direction
 
-      ;; Ace triggers suit selection
-      (some #{"A"} ranks)
+      ;; Ace blocks penalty: clear penalty + set suit from blocked card
+      ;; (NO suit selection when blocking)
+      (and has-ace? has-active-penalty? blocked-card)
+      (-> (update :effects #(remove (fn [e] (= :penalty (:type e))) %))
+          (update :effects conj {:type :suit-selected 
+                                  :suit (:suit blocked-card)
+                                  :blocked-penalty true
+                                  :blocked-card-rank (:rank blocked-card)}))
+
+      ;; Ace without penalty: trigger suit selection (normal behavior)
+      (and has-ace? (not has-active-penalty?))
       (update :effects conj {:type :select-suit})
 
-      ;; 2 creates draw-2 penalty
-      (some #{"2"} ranks)
+      ;; 2 creates draw-2 penalty (only if not blocking an existing penalty)
+      (and (some #{"2"} ranks) (not has-active-penalty?))
       (update :effects conj {:type :penalty :penalty-type :two})
 
-      ;; 3 creates draw-3 penalty
-      (some #{"3"} ranks)
+      ;; 3 creates draw-3 penalty (only if not blocking an existing penalty)
+      (and (some #{"3"} ranks) (not has-active-penalty?))
       (update :effects conj {:type :penalty :penalty-type :three})
 
       ;; Jack skips players
       (pos? jack-count)
       (assoc ::skip-count (inc jack-count))
 
-        ;; Question without answer
+      ;; Question without answer
       (and (every? cards/question-card? cards)
            (not (empty? cards)))
       (update :effects conj {:type :awaiting-answer}))))
@@ -393,7 +415,9 @@
     :else (validation/validate-play (with-embedded-hands state) player-id cards)))
 
 (defn play-cards-cmd [state player-id cards]
-  (let [v (validate-play-cards state player-id cards)]
+  (let [v (validate-play-cards state player-id cards)
+        ;; Capture the top card BEFORE adding new cards to played stack
+        prev-top-card (last (get-in state [:zones :played-stack]))]
     (if (:error v)
       v
       (if (:valid? v)
@@ -401,7 +425,7 @@
                  (update :effects #(remove (fn [e] (= :suit-selected (:type e))) %))
                  (remove-cards-from-hand player-id cards)
                  (add-to-played-stack cards)
-                 (apply-card-effects cards)
+                 (apply-card-effects cards prev-top-card)
                  (check-cardless player-id cards)
                  (maybe-advance-turn cards)
                  (update-in [:meta :updated-at] (constantly (java.time.Instant/now))))}
@@ -487,12 +511,14 @@
     timestamp (update-in [:meta :updated-at] (constantly timestamp))))
 
 (defmethod apply-action :play-cards [state {:keys [player-id cards timestamp]}]
-  (let [normalized-cards (schema/normalize-cards cards)]
+  (let [normalized-cards (schema/normalize-cards cards)
+        ;; Capture the top card BEFORE adding new cards
+        prev-top-card (last (get-in state [:zones :played-stack]))]
     (cond-> (-> state
                 (update :effects #(remove (fn [e] (= :suit-selected (:type e))) %))
                 (remove-cards-from-hand player-id normalized-cards)
                 (add-to-played-stack normalized-cards)
-                (apply-card-effects normalized-cards)
+                (apply-card-effects normalized-cards prev-top-card)
                 (check-cardless player-id normalized-cards)
                 (maybe-advance-turn normalized-cards))
       timestamp (update-in [:meta :updated-at] (constantly timestamp)))))

@@ -854,3 +854,119 @@
           draw-count (case (:penalty-type penalty-effect) :two 2 :three 3 0)]
       (is (= 3 draw-count)
           "draw count should be 3, not 0"))))
+
+;; =============================================================================
+;; Ace Blocks Penalty Tests (Bug Fix: No Suit Selection When Blocking)
+;; =============================================================================
+
+(deftest ace-blocks-penalty-correctly
+  (testing "Ace blocks 2 penalty - clears penalty, sets suit, no suit selection"
+    (let [game (-> (make-test-game)
+                   (set-top-card {:suit :hearts :rank "2"})
+                   (update :effects conj {:type :penalty :penalty-type :two})
+                   (give-card 1 {:suit :clubs :rank "A"}))
+          result (game/play-cards-cmd game 1 [{:suit :clubs :rank "A"}])
+          new-state (:ok result)]
+      ;; Should succeed
+      (is (some? new-state) "Ace should successfully block penalty")
+      
+      ;; Penalty should be cleared
+      (is (nil? (game/get-effect new-state :penalty))
+          "Penalty should be cleared after Ace blocks")
+      
+      ;; Should NOT have select-suit effect
+      (is (nil? (game/get-effect new-state :select-suit))
+          "Ace blocking penalty should NOT trigger suit selection")
+      
+      ;; Should have suit-selected effect with blocked card's suit
+      (let [suit-effect (game/get-effect new-state :suit-selected)]
+        (is (some? suit-effect) "Should have suit-selected effect")
+        (is (= :hearts (:suit suit-effect))
+            "Should preserve suit of blocked card (2♥)")
+        (is (true? (:blocked-penalty suit-effect))
+            "Should flag that this came from blocking a penalty"))))
+  
+  (testing "Ace blocks 3 penalty - preserves suit of blocked 3♦"
+    (let [game (-> (make-test-game)
+                   (set-top-card {:suit :diamonds :rank "3"})
+                   (update :effects conj {:type :penalty :penalty-type :three})
+                   (give-card 1 {:suit :spades :rank "A"}))
+          result (game/play-cards-cmd game 1 [{:suit :spades :rank "A"}])
+          new-state (:ok result)]
+      (is (some? new-state))
+      (is (nil? (game/get-effect new-state :penalty)))
+      (is (nil? (game/get-effect new-state :select-suit)))
+      (let [suit-effect (game/get-effect new-state :suit-selected)]
+        (is (= :diamonds (:suit suit-effect))
+            "Should preserve suit of blocked 3♦")
+        (is (true? (:blocked-penalty suit-effect))))))
+  
+  (testing "Next player can match suit after Ace blocks penalty"
+    (let [game (-> (make-3p-test-game)
+                   (set-top-card {:suit :hearts :rank "2"})
+                   (update :effects conj {:type :penalty :penalty-type :two})
+                   (give-card 1 {:suit :clubs :rank "A"})
+                   (give-card 2 {:suit :hearts :rank "5"}))
+          ;; Player 1 blocks with Ace
+          after-block (:ok (game/play-cards-cmd game 1 [{:suit :clubs :rank "A"}]))
+          ;; Player 2 plays hearts (matching blocked card's suit)
+          result (game/play-cards-cmd after-block 2 [{:suit :hearts :rank "5"}])]
+      (is (:ok result) "Player 2 should be able to match blocked card's suit")))
+  
+  (testing "Next player can play any 2 after Ace blocks 2 penalty (rank bypass)"
+    (let [game (-> (make-3p-test-game)
+                   (set-top-card {:suit :hearts :rank "2"})
+                   (update :effects conj {:type :penalty :penalty-type :two})
+                   (give-card 1 {:suit :clubs :rank "A"})
+                   (give-card 2 {:suit :spades :rank "2"})) ;; Different suit!
+          after-block (:ok (game/play-cards-cmd game 1 [{:suit :clubs :rank "A"}]))
+          result (game/play-cards-cmd after-block 2 [{:suit :spades :rank "2"}])]
+      (is (:ok result) 
+          "Player 2 should be able to play any 2 regardless of suit (rank bypass)")))
+  
+  (testing "Next player can play any 3 after Ace blocks 3 penalty (rank bypass)"
+    (let [game (-> (make-3p-test-game)
+                   (set-top-card {:suit :diamonds :rank "3"})
+                   (update :effects conj {:type :penalty :penalty-type :three})
+                   (give-card 1 {:suit :clubs :rank "A"})
+                   (give-card 2 {:suit :hearts :rank "3"})) ;; Different suit!
+          after-block (:ok (game/play-cards-cmd game 1 [{:suit :clubs :rank "A"}]))
+          result (game/play-cards-cmd after-block 2 [{:suit :hearts :rank "3"}])]
+      (is (:ok result)
+          "Player 2 should be able to play any 3 regardless of suit (rank bypass)")))
+  
+  (testing "Next player CANNOT play non-matching card after Ace blocks"
+    (let [game (-> (make-3p-test-game)
+                   (set-top-card {:suit :hearts :rank "2"})
+                   (update :effects conj {:type :penalty :penalty-type :two})
+                   (give-card 1 {:suit :clubs :rank "A"})
+                   (give-card 2 {:suit :spades :rank "7"})) ;; Wrong suit and rank!
+          after-block (:ok (game/play-cards-cmd game 1 [{:suit :clubs :rank "A"}]))
+          result (game/play-cards-cmd after-block 2 [{:suit :spades :rank "7"}])]
+      (is (:error result) 
+          "Player 2 should NOT be able to play card that doesn't match suit or rank")))
+  
+  (testing "Ace without active penalty still triggers suit selection (normal behavior)"
+    (let [game (-> (make-test-game)
+                   (set-top-card {:suit :hearts :rank "5"})
+                   (give-card 1 {:suit :hearts :rank "A"}))
+          result (game/play-cards-cmd game 1 [{:suit :hearts :rank "A"}])
+          new-state (:ok result)]
+      (is (some? new-state))
+      ;; Should have select-suit effect (normal Ace behavior)
+      (is (some? (game/get-effect new-state :select-suit))
+          "Ace without penalty should trigger suit selection")
+      ;; Should NOT have suit-selected effect
+      (is (nil? (game/get-effect new-state :suit-selected))
+          "Should not auto-select suit for normal Ace play")))
+  
+  (testing "3 cannot be played when blocking 2 penalty (cross-blocking still prevented)"
+    (let [game (-> (make-3p-test-game)
+                   (set-top-card {:suit :hearts :rank "2"})
+                   (update :effects conj {:type :penalty :penalty-type :two})
+                   (give-card 1 {:suit :clubs :rank "A"})
+                   (give-card 2 {:suit :diamonds :rank "3"})) ;; 3 doesn't match!
+          after-block (:ok (game/play-cards-cmd game 1 [{:suit :clubs :rank "A"}]))
+          result (game/play-cards-cmd after-block 2 [{:suit :diamonds :rank "3"}])]
+      (is (:error result)
+          "3♦ cannot be played when suit requirement is ♥ (blocked 2♥)"))))

@@ -60,16 +60,36 @@
     false))
 
 (defn first-card-matches-top?
-  "Check if first card matches top card by suit or rank."
-  [card-list top-card action-suit]
-  (let [first-card (first card-list)]
+  "Check if first card matches top card by suit or rank.
+   
+   Special case: When action-suit is set from Ace blocking a penalty,
+   penalty cards (2/3) can bypass suit requirement by matching rank WITH the blocked card.
+   This enables penalty chaining: 2♥ blocked by A♣ → next player can play any 2 (not 3)."
+  [card-list top-card action-suit state]
+  (let [first-card (first card-list)
+        ;; Get the suit-selected effect to check for blocked penalty
+        suit-effect (first (filter #(= :suit-selected (:type %)) (:effects state)))
+        blocked-card-rank (:blocked-card-rank suit-effect)
+        ;; Check if this is a penalty-blocked scenario
+        ;; (Ace blocked a penalty, setting action-suit to blocked card's suit)
+        penalty-blocked? (and action-suit 
+                             (cards/ace? top-card)
+                             blocked-card-rank)]
     (cond
       ;; Aces always match
       (cards/ace? first-card) true
-
-      ;; If action-suit is set, must match that suit
-      action-suit (= (:suit first-card) action-suit)
-
+      
+      ;; With action-suit from Ace blocking penalty:
+      ;; Allow suit match OR rank match with the BLOCKED card rank (2 blocks 2, 3 blocks 3)
+      penalty-blocked?
+      (or (= (:suit first-card) action-suit)
+          (= (:rank first-card) blocked-card-rank))
+      
+      ;; With action-suit from normal Ace play:
+      ;; ALL cards must match suit (no bypass)
+      action-suit
+      (= (:suit first-card) action-suit)
+      
       ;; Otherwise standard matching
       :else (cards/matches? first-card top-card))))
 
@@ -165,7 +185,7 @@
       ;; instead of valid-combo?, allowing Q+answer plays like [Q-hearts 5-hearts]
       (cards/question-card? (first card-list))
       (cond
-        (not (first-card-matches-top? card-list top-card action-suit))
+        (not (first-card-matches-top? card-list top-card action-suit state))
         {:valid? false :reason "Card does not match top card"}
 
         (not (question-sequence-valid? card-list))
@@ -186,7 +206,7 @@
       {:valid? false :reason "Kings cannot be combined"}
 
       ;; First card must match top card
-      (not (first-card-matches-top? card-list top-card action-suit))
+      (not (first-card-matches-top? card-list top-card action-suit state))
       {:valid? false :reason "Card does not match top card"}
 
       ;; All checks passed
