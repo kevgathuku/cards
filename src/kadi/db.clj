@@ -215,12 +215,14 @@
    Ensures fresh state via event replay so newly-created games are included."
   ([] (list-games nil))
   ([status]
-   (let [query ["SELECT * FROM games ORDER BY created_at DESC"]]
-     (->> (jdbc/execute! (datasource) query {:builder-fn rs/as-unqualified-lower-maps})
-          (map #(update % :state <-json))
-          (map ensure-fresh-state)
-          (map schema/normalize-game-row)
-          (cond->> status (filter #(= status (get-in % [:state :status]))))))))
+   (let [query ["SELECT * FROM games ORDER BY created_at DESC"]
+         games (->> (jdbc/execute! (datasource) query {:builder-fn rs/as-unqualified-lower-maps})
+                    (map #(update % :state <-json))
+                    (map ensure-fresh-state)
+                    (map schema/normalize-game-row))]
+     (if status
+       (filter #(= status (get-in % [:state :status])) games)
+       games))))
 
 (defn create-game!
   "Create a new game from an action. Persists event and game_player in a transaction,
