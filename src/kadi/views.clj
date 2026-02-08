@@ -330,6 +330,7 @@
   (let [effects (:effects state)
         penalty (first (filter #(= :penalty (:type %)) effects))
         select-suit (first (filter #(= :select-suit (:type %)) effects))
+        suit-selected (first (filter #(= :suit-selected (:type %)) effects))
         awaiting-answer (first (filter #(= :awaiting-answer (:type %)) effects))]
     (cond
       penalty
@@ -345,6 +346,12 @@
        (if is-my-turn?
          "Ace played! Select a suit below."
          (str "Waiting for " current-player-name " to select a suit."))]
+
+      suit-selected
+      (let [required-suit (:suit suit-selected)
+            suit-display (str (suit-symbol required-suit) " " (clojure.string/capitalize (name required-suit)))]
+        [:div {:style "background: #dbeafe; border: 1px solid #3b82f6; padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 0.5rem;"}
+         (str "🎴 Required suit: " suit-display)])
 
       awaiting-answer
       [:div {:style "background: #eff6ff; border: 1px solid #bfdbfe; padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 0.5rem;"}
