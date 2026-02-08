@@ -408,18 +408,20 @@
         {:error (:reason v)}))))
 
 (defn validate-select-suit [state suit]
-  (cond
-    (not (has-effect? state :select-suit)) {:error "No suit selection in progress"}
-    (not (contains? #{:clubs :diamonds :hearts :spades} suit)) {:error "Invalid suit"}
-    :else {:ok true}))
+  (let [normalized-suit (cards/normalize-suit suit)]
+    (cond
+      (not (has-effect? state :select-suit)) {:error "No suit selection in progress"}
+      (not (contains? #{:clubs :diamonds :hearts :spades} normalized-suit)) {:error "Invalid suit"}
+      :else {:ok true})))
 
 (defn select-suit-cmd [state suit]
-  (let [v (validate-select-suit state suit)]
+  (let [normalized-suit (cards/normalize-suit suit)
+        v (validate-select-suit state normalized-suit)]
     (if (:error v)
       v
       {:ok (-> state
                (update :effects #(remove (fn [e] (= :select-suit (:type e))) %))
-               (update :effects conj {:type :suit-selected :suit suit})
+               (update :effects conj {:type :suit-selected :suit normalized-suit})
                (advance-turn)
                (update-in [:meta :updated-at] (constantly (java.time.Instant/now))))})))
 
@@ -513,11 +515,12 @@
       timestamp (update-in [:meta :updated-at] (constantly timestamp)))))
 
 (defmethod apply-action :select-suit [state {:keys [suit timestamp]}]
-  (cond-> (-> state
-              (update :effects #(remove (fn [e] (= :select-suit (:type e))) %))
-              (update :effects conj {:type :suit-selected :suit suit})
-              (advance-turn))
-    timestamp (update-in [:meta :updated-at] (constantly timestamp))))
+  (let [normalized-suit (cards/normalize-suit suit)]
+    (cond-> (-> state
+                (update :effects #(remove (fn [e] (= :select-suit (:type e))) %))
+                (update :effects conj {:type :suit-selected :suit normalized-suit})
+                (advance-turn))
+      timestamp (update-in [:meta :updated-at] (constantly timestamp)))))
 
 (defmethod apply-action :accept-penalty [state {:keys [player-id timestamp]}]
   (cond-> (accept-penalty state player-id)
