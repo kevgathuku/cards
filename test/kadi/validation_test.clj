@@ -259,3 +259,77 @@
   (testing "Q+8 that don't match by suit or rank is rejected"
     (is (not (validation/question-sequence-valid?
               [(cards/make-card :hearts "Q") (cards/make-card :clubs "8")])))))
+
+;; =============================================================================
+;; Bug Regression Tests - suit-selected with hands in :zones (Bug #1 + Bug #2)
+;; =============================================================================
+
+(deftest validate-play-with-zones-hands-test
+  (testing "Bug #1: validate-play should work with hands in :zones (no :hand on player)"
+    (let [state {:status :live
+                 :players [{:id 1 :name "Alice" :status :normal}]
+                 :turn {:current-player-index 0 :direction :clockwise}
+                 :zones {:deck []
+                         :played-stack [(cards/make-card :hearts "9")]
+                         :hands {1 [(cards/make-card :hearts "5")]}}
+                 :effects []}
+          result (validation/validate-play state 1 [(cards/make-card :hearts "5")])]
+      (is (:valid? result) "Should validate cards from :zones/:hands")))
+
+  (testing "Bug #2: action-suit as string should work (from JSON database)"
+    (let [state {:status :live
+                 :players [{:id 1 :name "Alice" :status :normal}]
+                 :turn {:current-player-index 0 :direction :clockwise}
+                 :zones {:deck []
+                         :played-stack [(cards/make-card :spades "A")]
+                         :hands {1 [(cards/make-card :diamonds "5")]}}
+                 :effects [{:type :suit-selected :suit "diamonds"}]}
+          result (validation/validate-play state 1 [(cards/make-card :diamonds "5")])]
+      (is (:valid? result) "Should handle string suit from database")))
+
+  (testing "Bug #1 + Bug #2: Combined - 8+2 with string suit and zones hands"
+    (let [state {:status :live
+                 :players [{:id 1 :name "Alice" :status :normal}]
+                 :turn {:current-player-index 0 :direction :clockwise}
+                 :zones {:deck []
+                         :played-stack [(cards/make-card :spades "A")]
+                         :hands {1 [(cards/make-card :diamonds "8") 
+                                    (cards/make-card :diamonds "2")]}}
+                 :effects [{:type :suit-selected :suit "diamonds"}]}
+          result (validation/validate-play state 1 
+                   [(cards/make-card :diamonds "8") 
+                    (cards/make-card :diamonds "2")])]
+      (is (:valid? result) "8+2 should work with string suit and zones hands")))
+
+  (testing "action-suit as keyword still works (backward compat)"
+    (let [state {:status :live
+                 :players [{:id 1 :name "Alice" :status :normal}]
+                 :turn {:current-player-index 0 :direction :clockwise}
+                 :zones {:deck []
+                         :played-stack [(cards/make-card :spades "A")]
+                         :hands {1 [(cards/make-card :diamonds "5")]}}
+                 :effects [{:type :suit-selected :suit :diamonds}]}
+          result (validation/validate-play state 1 [(cards/make-card :diamonds "5")])]
+      (is (:valid? result) "Should still work with keyword suit"))))
+
+(deftest game-86AYWN-regression-test
+  (testing "Real-world regression: 8-diamonds + 2-diamonds with suit-selected effect"
+    (let [;; Simulates actual game state from DB after JSON deserialization
+          state {:status :live
+                 :players [{:id 2 :name "mo" :status :normal}
+                          {:id 1 :name "kevin" :status :normal}]
+                 :turn {:current-player-index 0 :direction :clockwise}
+                 :zones {:deck [(cards/make-card :spades "8")]
+                         :played-stack [(cards/make-card :spades "A")]
+                         :hands {2 [(cards/make-card :diamonds "J")
+                                    (cards/make-card :diamonds "8")
+                                    (cards/make-card :diamonds "2")
+                                    (cards/make-card :hearts "A")]
+                                1 [(cards/make-card :clubs "J")]}}
+                 :effects [{:type :suit-selected :suit "diamonds"}]}
+          ;; Player 2 (mo) tries to play 8-diamonds + 2-diamonds
+          result (validation/validate-play state 2
+                   [(cards/make-card :diamonds "8")
+                    (cards/make-card :diamonds "2")])]
+      (is (:valid? result) 
+          "8-diamonds + 2-diamonds should be valid with suit-selected diamonds"))))
