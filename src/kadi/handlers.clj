@@ -97,9 +97,9 @@
   (if-let [player (auth/current-player request)]
     (let [games (db/get-player-games (:id player))]
       (html-response
-       (views/home-page {:player player :games games})))
+       (views/home-page {:player player :games games :flash (:flash request)})))
     (html-response
-     (views/guest-home-page))))
+     (views/guest-home-page {:flash (:flash request)}))))
 
 ;; =============================================================================
 ;; Game Handlers
@@ -109,7 +109,7 @@
   (if-let [player (auth/current-player request)]
     (let [games (db/list-games :lobby)]
       (html-response
-       (views/games-list-page {:player player :games games})))
+       (views/games-list-page {:player player :games games :flash (:flash request)})))
     (redirect "/auth/signin")))
 
 (defn create-game [request]
@@ -127,11 +127,12 @@
   (let [short-code (get-in request [:path-params :code])
         player (auth/current-player request)]
     (if-let [game (db/get-game-by-code short-code)]
-      (let [status (game/game-status (:state game))]
+      (let [status (game/game-status (:state game))
+            flash (:flash request)]
         (html-response
          (if (= :lobby status)
-           (views/game-lobby-page {:player player :game game})
-           (views/game-play-page {:player player :game game}))))
+           (views/game-lobby-page {:player player :game game :flash flash})
+           (views/game-play-page {:player player :game game :flash flash}))))
       (redirect "/games" {:type :error :message "Game not found"}))))
 
 (defn get-players-fragment [request]
@@ -167,9 +168,8 @@
 
 (defn join-page [request]
   "Display the join game page with code input."
-  (let [player (auth/current-player request)
-        flash (get-in request [:session :flash])]
-    (html-response (views/join-page {:player player :flash flash}))))
+  (let [player (auth/current-player request)]
+    (html-response (views/join-page {:player player :flash (:flash request)}))))
 
 (defn join-game-by-code [request]
   "Join a game by short code from the join form."
@@ -227,26 +227,26 @@
                 ;; Use ordered-cards parameter which preserves selection order
                 ordered-cards-str (get params "ordered-cards")
                 card-ids (if (and ordered-cards-str (not= ordered-cards-str ""))
-                          (clojure.string/split ordered-cards-str #",")
-                          [])
+                           (clojure.string/split ordered-cards-str #",")
+                           [])
                 parsed-cards (keep cards/id->card card-ids)
                 ;; Parse declare-kadi checkbox (will be "on" if checked)
                 declare-kadi? (= "on" (get params "declare-kadi"))
                 ;; Capture hand size before play (for event tracking)
                 hand-size-before (count (game/get-hand (:state game) (:id player)))
-                result (game/play-cards-cmd (:state game) (:id player) parsed-cards 
-                                           :declare-kadi? declare-kadi?)]
+                result (game/play-cards-cmd (:state game) (:id player) parsed-cards
+                                            :declare-kadi? declare-kadi?)]
             (if (:error result)
               (redirect (str "/games/" short-code) {:type :error :message (:error result)})
               (do
-                 (let [event-id (str (java.util.UUID/randomUUID))
-                       timestamp (java.time.Instant/now)]
-                   (db/append-event! (:id game) event-id :play-cards timestamp
-                                     {:player-id (:id player)
-                                      :cards parsed-cards
-                                      :declare-kadi? declare-kadi?
-                                      :hand-size-before hand-size-before
-                                      :timestamp timestamp}))
+                (let [event-id (str (java.util.UUID/randomUUID))
+                      timestamp (java.time.Instant/now)]
+                  (db/append-event! (:id game) event-id :play-cards timestamp
+                                    {:player-id (:id player)
+                                     :cards parsed-cards
+                                     :declare-kadi? declare-kadi?
+                                     :hand-size-before hand-size-before
+                                     :timestamp timestamp}))
                 (redirect (str "/games/" short-code))))))))
     (redirect "/auth/signin")))
 
@@ -261,8 +261,8 @@
           (let [params (parse-form request)
                 ;; Parse maintain-kadi checkbox (will be "on" if checked)
                 maintain-kadi? (= "on" (get params "maintain-kadi"))
-                result (game/draw-card-cmd (:state game) (:id player) 
-                                          :maintain-kadi? maintain-kadi?)]
+                result (game/draw-card-cmd (:state game) (:id player)
+                                           :maintain-kadi? maintain-kadi?)]
             (if (:error result)
               (redirect (str "/games/" short-code) {:type :error :message (:error result)})
               (do
