@@ -32,7 +32,7 @@
 ;; =============================================================================
 
 (def PlayerStatus
-  [:enum :normal :penalty :skip :selecting-suit])
+  [:enum :normal :penalty :skip :selecting-suit :kadi])
 
 (def GameStatus
   [:enum :lobby :live :finished])
@@ -129,7 +129,8 @@
    [:short-code string?]
    [:meta GameMeta]
    [:game/ruleset Ruleset]
-   [:game/version int?]])
+   [:game/version int?]
+   [:winner {:optional true} [:maybe int?]]])
 
 (def GameRow
   "Database row schema with additional metadata."
