@@ -1,4 +1,4 @@
-FROM cimg/clojure:1.11.2-openjdk-21.0-node
+FROM cimg/clojure:1.11.2-openjdk-21.0
 
 WORKDIR /app
 
