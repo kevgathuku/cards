@@ -9,7 +9,7 @@
     "restartPolicyMaxRetries": 10,
     "volumeMounts": [
       {
-        "mountPath": "/app",
+        "mountPath": "/app/data",
         "name": "kadi-data"
       }
     ]

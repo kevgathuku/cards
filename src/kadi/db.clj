@@ -6,7 +6,7 @@
             [kadi.game :as game]
             [kadi.schema :as schema]))
 
-(def ^:dynamic *db-spec* {:dbtype "sqlite" :dbname "kadi.db"})
+(def ^:dynamic *db-spec* {:dbtype "sqlite" :dbname (or (System/getenv "DATABASE_PATH") "kadi.db")})
 
 (defn datasource []
   "Get or create a datasource for the current *db-spec*.

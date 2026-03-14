@@ -8,6 +8,8 @@ RUN clojure -P
 COPY src src
 COPY resources resources
 
+ENV DATABASE_PATH=data/kadi.db
+
 EXPOSE 3000
 
 CMD ["clojure", "-J-Xmx384m", "-M:run"]
