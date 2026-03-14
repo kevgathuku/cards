@@ -104,10 +104,10 @@
       (throw (ex-info "RESEND_API_KEY environment variable not set" {})))
     (let [result (postal/send-message
                   {:host "smtp.resend.com"
-                   :port 587
+                   :port 465
                    :user "resend"
                    :pass smtp-pass
-                   :tls true}
+                   :ssl true}
                   {:from (str "Kadi <" from-email ">")
                    :to to
                    :subject subject
