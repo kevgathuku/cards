@@ -112,8 +112,10 @@
   "Send a sign-in email with the magic link.
    In dev mode, prints to console instead of sending."
   [{:keys [email token]}]
-  (let [url (signin-url token)]
-    (if (dev-mode?)
+  (let [url (signin-url token)
+        is-dev (dev-mode?)]
+    (log/info "Sending sign-in email to" email "dev-mode?" is-dev)
+    (if is-dev
       (printf "\n== SIGN-IN LINK (dev) ==\nEmail: %s\nURL:   %s\n\n" email url)
       (let [html (str "<p>Click the link below to sign in to Kadi:</p>"
                       "<p><a href=\"" url "\">" url "</a></p>"
