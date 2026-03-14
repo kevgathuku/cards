@@ -3,6 +3,7 @@
   (:require [kadi.db :as db]
             [crypto.random :as random]
             [clojure.string :as str]
+            [clojure.tools.logging :as log]
             [clj-http.client :as http])
   (:import [java.time Instant Duration]))
 
@@ -119,9 +120,9 @@
                       "<p>This link expires in 30 minutes.</p>")]
         (try
           (send-email! email "Sign in to Kadi" html)
-          (println "Sign-in email sent to" email)
+          (log/info "Sign-in email sent to" email)
           (catch Exception e
-            (println "Failed to send email:" (.getMessage e))))))))
+            (log/error e "Failed to send email to" email)))))))
 
 ;; =============================================================================
 ;; Email Validation
