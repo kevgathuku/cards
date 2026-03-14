@@ -444,9 +444,11 @@
           ;; Draw button next to the deck
           (when (and is-my-turn? my-player (not game-finished?))
             (cond
-              ;; Cardless + Penalty: Don't show draw (accept-penalty shown elsewhere)
-              (and (= :cardless (:status my-player)) has-penalty?)
-              nil
+              ;; Penalty active: show accept-penalty button next to deck
+              has-penalty?
+              [:form {:method "post" :action (str "/games/" (:short_code game) "/accept-penalty") :style "margin-top: 0.5rem;"}
+               [:button.btn.btn-secondary {:type "submit"}
+                (str "Accept Penalty (Draw " penalty-draw-count ")")]]
 
               ;; Cardless (no penalty): MUST draw
               (= :cardless (:status my-player))
@@ -455,8 +457,7 @@
 
               ;; Normal voluntary draw
               (and (not has-select-suit?)
-                   (not has-awaiting-answer?)
-                   (not has-penalty?))
+                   (not has-awaiting-answer?))
               [:form {:method "post" :action (str "/games/" (:short_code game) "/draw") :id "draw-form" :style "margin-top: 0.5rem;"}
                (when (= :kadi (:status my-player))
                  [:div {:style "background: #fef3c7; border: 1px solid #fbbf24; padding: 0.75rem; border-radius: 4px; margin-bottom: 0.5rem;"}
@@ -552,13 +553,6 @@
               [:form {:method "post" :action (str "/games/" (:short_code game) "/answer-question")
                       :style "margin-top: 1rem;"}
                [:button.btn.btn-primary {:type "submit"} "Draw to Answer"]]
-
-              ;; Penalty active: ALL players (including cardless) can accept
-              has-penalty?
-              [:form {:method "post" :action (str "/games/" (:short_code game) "/accept-penalty")
-                      :style "margin-top: 1rem;"}
-               [:button.btn.btn-secondary {:type "submit"}
-                (str "Accept Penalty (Draw " penalty-draw-count ")")]]
 
               :else nil))])]))))
 
