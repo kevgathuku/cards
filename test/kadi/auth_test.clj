@@ -61,7 +61,11 @@
     (is (false? (auth/valid-email? "@missing-local.com")))
     (is (false? (auth/valid-email? "missing-domain@")))
     (is (false? (auth/valid-email? nil)))
-    (is (false? (auth/valid-email? 42)))))
+    (is (false? (auth/valid-email? 42))))
+
+  (testing "rejects emails with surrounding whitespace"
+    (is (false? (auth/valid-email? " test@example.com")))
+    (is (false? (auth/valid-email? "test@example.com ")))))
 
 (deftest email->display-name-test
   (testing "extracts local part before @"
@@ -90,6 +94,22 @@
           (is (= "test@example.com" (:email @created-args)))
           (is (string? (:token @created-args)))
           (is (string? (:expires-at @created-args))))))))
+
+(deftest find-or-create-player!-test
+  (testing "returns existing player when found"
+    (with-redefs [db/get-player-by-email (fn [_] {:id 1 :name "alice"})]
+      (is (= {:id 1 :name "alice"}
+             (#'auth/find-or-create-player! "alice@test.com")))))
+
+  (testing "creates player when none exists"
+    (let [created (atom nil)]
+      (with-redefs [db/get-player-by-email (fn [_] nil)
+                    db/create-player!      (fn [args] (reset! created args)
+                                             {:id 99 :name "bob"})]
+        (let [result (#'auth/find-or-create-player! "bob@test.com")]
+          (is (= {:id 99 :name "bob"} result))
+          (is (= "bob" (:name @created)))
+          (is (= "bob@test.com" (:email @created))))))))
 
 (deftest verify-token!-test
   (testing "returns player for valid unused token"
@@ -138,8 +158,8 @@
     (let [output (with-out-str
                    (auth/send-signin-email! {:email "dev@test.com" :token "tok123"}))]
       (is (.contains output "SIGN-IN LINK"))
-      (is (.contains output "dev@test.com"))
-      (is (.contains output "tok123")))))
+      (is (.contains output "Email: dev@test.com"))
+      (is (.contains output "/auth/verify/tok123")))))
 
 (deftest current-player-test
   (testing "returns player when session has player-id"

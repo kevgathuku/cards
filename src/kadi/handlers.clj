@@ -5,6 +5,7 @@
             [kadi.auth :as auth]
             [kadi.views :as views]
             [kadi.cards :as cards]
+            [clojure.string :as str]
             [ring.util.response :as resp]))
 
 ;; =============================================================================
@@ -65,7 +66,7 @@
 
 (defn send-signin-link [request]
   (let [params (parse-form request)
-        email (get params "email")]
+        email (some-> (get params "email") str/trim)]
     (if (auth/valid-email? email)
       (let [token (auth/create-signin-token! email)]
         (auth/send-signin-email! {:email email :token token})

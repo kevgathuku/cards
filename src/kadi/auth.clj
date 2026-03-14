@@ -67,6 +67,13 @@
   [email]
   (first (str/split email #"@")))
 
+(defn- find-or-create-player!
+  "Look up a player by email, creating one if none exists."
+  [email]
+  (or (db/get-player-by-email email)
+      (db/create-player! {:name (email->display-name email)
+                          :email email})))
+
 (defn verify-token!
   "Verify a token and return the player if valid.
    Creates a new player if one doesn't exist for the email.
@@ -75,10 +82,7 @@
   (when-let [record (db/get-auth-token token)]
     (when (valid-token? record)
       (db/mark-token-used! token)
-      (let [email (:email record)]
-        (or (db/get-player-by-email email)
-            (db/create-player! {:name (email->display-name email)
-                                :email email}))))))
+      (find-or-create-player! (:email record)))))
 
 ;; =============================================================================
 ;; Email Sending
@@ -95,26 +99,8 @@
   [{:keys [email token]}]
   (let [url (signin-url token)]
     (if (dev-mode?)
-      (do
-        (println)
-        (println "========================================")
-        (println "SIGN-IN LINK (dev mode)")
-        (println "Email:" email)
-        (println "URL:" url)
-        (println "========================================")
-        (println))
-      ;; In production, integrate with email service
-      ;; For now, just log - you'd replace this with actual email sending
-      (do
-        (println "TODO: Send email to" email "with link" url)
-        ;; Example with postal:
-        ;; (postal/send-message
-        ;;   {:host (System/getenv "SMTP_HOST")}
-        ;;   {:from "noreply@kadi.example.com"
-        ;;    :to email
-        ;;    :subject "Sign in to Kadi"
-        ;;    :body (str "Click to sign in: " url "\n\nThis link expires in 30 minutes.")})
-        ))))
+      (printf "\n== SIGN-IN LINK (dev) ==\nEmail: %s\nURL:   %s\n\n" email url)
+      (println "TODO: Send email to" email "with link" url))))
 
 ;; =============================================================================
 ;; Email Validation
@@ -124,12 +110,12 @@
   #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 (defn valid-email?
-  "Check if an email address is valid."
+  "Check if an email address is valid. Does not trim — callers should
+   normalize input before validation so the validated value is what gets stored."
   [email]
   (boolean
    (and (string? email)
-        (not (str/blank? email))
-        (re-matches email-pattern (str/trim email)))))
+        (re-matches email-pattern email))))
 
 ;; =============================================================================
 ;; Session Helpers
