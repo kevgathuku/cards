@@ -416,7 +416,7 @@
           [:p (str "Direction: " (name direction))])
         (effect-banner state {:is-my-turn? is-my-turn?
                               :current-player-name (:name current-player)})
-        [:div {:style "display: flex; gap: 2rem;"}
+        [:div {:style "display: flex; gap: 2rem; align-items: flex-start;"}
          [:div
           [:h3 "Top Card"]
           (when top-card
@@ -424,7 +424,33 @@
              (card-display top-card)])]
          [:div
           [:h3 "Deck"]
-          [:p (str deck-count " cards")]]]]
+          [:p (str deck-count " cards")]
+          ;; Draw button next to the deck
+          (when (and is-my-turn? my-player (not game-finished?))
+            (cond
+              ;; Cardless + Penalty: Don't show draw (accept-penalty shown elsewhere)
+              (and (= :cardless (:status my-player)) has-penalty?)
+              nil
+
+              ;; Cardless (no penalty): MUST draw
+              (= :cardless (:status my-player))
+              [:form {:method "post" :action (str "/games/" (:short_code game) "/draw") :id "draw-form" :style "margin-top: 0.5rem;"}
+               [:button.btn.btn-primary {:type "submit"} "Draw Card (Required)"]]
+
+              ;; Normal voluntary draw
+              (and (not has-select-suit?)
+                   (not has-awaiting-answer?)
+                   (not has-penalty?))
+              [:form {:method "post" :action (str "/games/" (:short_code game) "/draw") :id "draw-form" :style "margin-top: 0.5rem;"}
+               (when (= :kadi (:status my-player))
+                 [:div {:style "background: #fef3c7; border: 1px solid #fbbf24; padding: 0.75rem; border-radius: 4px; margin-bottom: 0.5rem;"}
+                  [:label {:style "display: flex; align-items: center; gap: 0.5rem; cursor: pointer;"}
+                   [:input {:type "checkbox" :name "maintain-kadi" :id "maintain-kadi" :checked true}]
+                   [:span {:style "font-weight: 500; font-size: 0.875rem;"}
+                    "Stay in Kadi after drawing"]
+                   [:span {:style "font-size: 0.75rem; color: #78350f;" :title "Keep this checked to maintain your Kadi declaration after voluntary draw. Uncheck to exit Kadi status."}
+                    "ℹ️"]]])
+               [:button.btn.btn-secondary {:type "submit"} "Draw Card"]]))]]]
 
        [:div.card
         [:h3 "Players"]
@@ -495,38 +521,6 @@
                  :else
                  [:div {:style "margin-top: 1rem;"}
                   [:button.btn.btn-primary {:type "submit"} "Play Selected"]]))])
-
-          ;; Draw button - show for cardless OR normal voluntary draw
-          ;; For cardless: only show if NOT facing penalty (penalty takes priority)
-          ;; For normal: show if not in special states
-          (when (and is-my-turn?
-                     (not game-finished?))
-            (cond
-              ;; Cardless + Penalty: Don't show draw button (accept-penalty shown below)
-              (and (= :cardless (:status my-player)) has-penalty?)
-              nil
-
-              ;; Cardless (no penalty): MUST draw, show only draw button
-              (= :cardless (:status my-player))
-              [:form {:method "post" :action (str "/games/" (:short_code game) "/draw") :id "draw-form" :style "margin-top: 0.5rem;"}
-               [:button.btn.btn-primary {:type "submit"} "Draw Card (Required)"]]
-
-              ;; Normal voluntary draw
-              (and (not has-select-suit?)
-                   (not has-awaiting-answer?)
-                   (not has-penalty?))
-              ;; Draw button form
-              [:form {:method "post" :action (str "/games/" (:short_code game) "/draw") :id "draw-form" :style "margin-top: 0.5rem;"}
-               ;; Maintain Kadi checkbox (only show if player is in :kadi status)
-               (when (= :kadi (:status my-player))
-                 [:div {:style "background: #fef3c7; border: 1px solid #fbbf24; padding: 0.75rem; border-radius: 4px; margin-bottom: 0.5rem;"}
-                  [:label {:style "display: flex; align-items: center; gap: 0.5rem; cursor: pointer;"}
-                   [:input {:type "checkbox" :name "maintain-kadi" :id "maintain-kadi" :checked true}]
-                   [:span {:style "font-weight: 500; font-size: 0.875rem;"}
-                    "Stay in Kadi after drawing"]
-                   [:span {:style "font-size: 0.75rem; color: #78350f;" :title "Keep this checked to maintain your Kadi declaration after voluntary draw. Uncheck to exit Kadi status."}
-                    "ℹ️"]]])
-               [:button.btn.btn-secondary {:type "submit"} "Draw Card"]]))
 
           ;; Separate forms OUTSIDE the play form for special actions
           ;; Note: Penalty acceptance is available to ALL players (including cardless)
