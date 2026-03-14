@@ -1,0 +1,23 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "Dockerfile"
+  },
+  "deploy": {
+    "numReplicas": 1,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10,
+    "volumeMounts": [
+      {
+        "mountPath": "/app",
+        "name": "kadi-data"
+      }
+    ]
+  },
+  "volumes": [
+    {
+      "name": "kadi-data",
+      "size": "100MiB"
+    }
+  ]
+}
