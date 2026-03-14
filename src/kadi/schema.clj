@@ -219,6 +219,38 @@
   []
   Game)
 
+;; =============================================================================
+;; Auth Schemas
+;; =============================================================================
+
+(def Email
+  "Email address validated by regex pattern."
+  [:re #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"])
+
+(def AuthToken
+  "Auth token record as returned by db/get-auth-token."
+  [:map
+   [:id int?]
+   [:email Email]
+   [:token string?]
+   [:expires_at string?]
+   [:used int?]
+   [:created_at string?]])
+
+(def DbPlayer
+  "Database-level player record with email (superset of game Player)."
+  [:map
+   [:id int?]
+   [:name string?]
+   [:email Email]
+   [:created_at string?]])
+
+(def SigninEmailRequest
+  "Input for send-signin-email!."
+  [:map
+   [:email Email]
+   [:token string?]])
+
 (comment
   ;; Test normalization
   (normalize-game {:status "live"
