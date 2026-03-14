@@ -109,12 +109,16 @@
                                            :subject subject
                                            :html html}
                              :basic-auth [api-key ""]
-                             :throw-entire-message? true})]
-        (log/info "Resend API response:" (:status resp) (:body resp)))
+                             :throw-entire-message? true
+                             :socket-timeout 10000
+                             :conn-timeout 10000})]
+        (log/info "Resend response:" (:status resp) (pr-str (:body resp))))
       (catch Exception e
-        (let [resp (:response (ex-data e))]
-          (log/error "Resend API error:" (:status resp) (:body resp)))
-        (throw e)))))
+        (let [data (ex-data e)
+              status (:status data)
+              body (:body data)]
+          (log/error "Resend error:" status (type body) (pr-str body))
+          (throw e))))))
 
 (defn send-signin-email!
   "Send a sign-in email with the magic link.
