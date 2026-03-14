@@ -213,6 +213,38 @@ clj -M:lint
 
 ---
 
+## Production Deployment
+
+### Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `ENV` | Yes | — | Set to `production` to enable real email sending (otherwise prints sign-in links to console) |
+| `SESSION_SECRET` | Yes | `kadi-dev-secret!` | Cookie encryption key. Must be 16+ bytes. Generate with `openssl rand -base64 24` |
+| `BASE_URL` | Yes | `http://localhost:3000` | Public URL for sign-in links (e.g., `https://your-app.up.railway.app`) |
+| `RESEND_API_KEY` | Yes | — | [Resend](https://resend.com) API key for sending sign-in emails |
+| `FROM_EMAIL` | No | `onboarding@resend.dev` | Sender email address for sign-in emails |
+| `DATABASE_PATH` | No | `kadi.db` | Path to SQLite database file (e.g., `data/kadi.db` when using a persistent volume) |
+| `HOST` | No | `0.0.0.0` | Server bind address |
+| `PORT` | No | `3000` | Server port (passed as first CLI arg, not env var) |
+
+### Railway
+
+The app is configured for Railway via `railway.json` and `Dockerfile`. A persistent volume is mounted at `/app/data` for the SQLite database.
+
+```bash
+# Set required variables
+railway variables set ENV=production
+railway variables set SESSION_SECRET="$(openssl rand -base64 24)"
+railway variables set BASE_URL="https://your-app.up.railway.app"
+railway variables set RESEND_API_KEY="re_..."
+
+# Ensure volume exists
+railway volume add --mount-path /app/data
+```
+
+---
+
 ## Previous Implementation
 
 The Elixir/Phoenix implementation is preserved:
