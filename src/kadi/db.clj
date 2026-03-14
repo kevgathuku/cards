@@ -84,6 +84,10 @@
 (defn init!
   "Initialize the database with schema and pragmas."
   []
+  (let [db-file (:dbname *db-spec*)
+        parent (.getParentFile (java.io.File. db-file))]
+    (when (and parent (not (.exists parent)))
+      (.mkdirs parent)))
   (let [ds (datasource)]
     ;; Enable foreign keys and WAL mode
     (jdbc/execute! ds ["PRAGMA foreign_keys=ON"])
