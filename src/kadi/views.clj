@@ -507,11 +507,10 @@
                  [:div {:class (card-class card)}
                   (card-display card)]])]
 
-             ;; Declare Kadi checkbox (only during normal play, not penalty/suit-select/question)
+             ;; Declare Kadi checkbox (only during normal play or penalty blocking, not suit-select/question)
              (when (and is-my-turn?
                         (not has-select-suit?)
                         (not has-awaiting-answer?)
-                        (not has-penalty?)
                         (not game-finished?))
                [:div {:style "background: #fef3c7; border: 1px solid #fbbf24; padding: 0.75rem; border-radius: 4px; margin-top: 1rem;"}
                 [:label {:style "display: flex; align-items: center; gap: 0.5rem; cursor: pointer;"}

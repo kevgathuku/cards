@@ -992,6 +992,40 @@
           "3♦ cannot be played when suit requirement is ♥ (blocked 2♥)"))))
 
 ;; =============================================================================
+;; Kadi + Penalty Blocking Tests
+;; =============================================================================
+
+(deftest declare-kadi-while-blocking-penalty
+  (testing "declare kadi while blocking a 2-penalty with Ace"
+    (let [game (-> (make-test-game)
+                   (clear-hand 1)
+                   (give-card 1 {:suit :hearts :rank "5"})
+                   (give-card 1 {:suit :clubs :rank "A"})
+                   (set-top-card {:suit :hearts :rank "2"})
+                   (update :effects conj {:type :penalty :penalty-type :two}))
+          result (game/play-cards-cmd game 1 [{:suit :clubs :rank "A"}] :declare-kadi? true)
+          new-state (:ok result)
+          player (game/get-player new-state 1)]
+      (is (not (:error result)) "Blocking with Ace while declaring kadi should succeed")
+      (is (= :kadi (:status player)) "Player should have kadi status")
+      (is (= 1 (count (game/get-hand new-state 1))) "Player should have 1 card remaining")
+      (is (nil? (game/get-effect new-state :penalty)) "Penalty should be cleared")))
+
+  (testing "blocking penalty with last Ace and kadi becomes cardless (Ace is special)"
+    (let [game (-> (make-test-game)
+                   (clear-hand 1)
+                   (give-card 1 {:suit :clubs :rank "A"})
+                   (set-top-card {:suit :hearts :rank "2"})
+                   (update :effects conj {:type :penalty :penalty-type :two}))
+          result (game/play-cards-cmd game 1 [{:suit :clubs :rank "A"}] :declare-kadi? true)
+          new-state (:ok result)
+          player (game/get-player new-state 1)]
+      (is (not (:error result)) "Blocking with last Ace while declaring kadi should succeed")
+      (is (= :cardless (:status player)) "Player should become cardless (Ace triggers cardless)")
+      (is (empty? (game/get-hand new-state 1)) "Player should have no cards")
+      (is (nil? (game/get-effect new-state :penalty)) "Penalty should be cleared"))))
+
+;; =============================================================================
 ;; Kadi Finishing Tests
 ;; =============================================================================
 
@@ -1016,8 +1050,8 @@
                    (give-card 1 {:suit :clubs :rank "7"})
                    (set-top-card {:suit :hearts :rank "5"}))
           result (game/play-cards-cmd game 1 [{:suit :hearts :rank "7"}
-                                               {:suit :diamonds :rank "7"}
-                                               {:suit :clubs :rank "7"}]
+                                              {:suit :diamonds :rank "7"}
+                                              {:suit :clubs :rank "7"}]
                                       :declare-kadi? true)
           final-state (:ok result)]
       (is (not (:error result)) "Combo play should succeed")
