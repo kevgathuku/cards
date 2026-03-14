@@ -145,8 +145,7 @@
   (layout {:title "Check Your Email"}
           [:div.card
            [:h2 "Check your email"]
-           [:p (str "We sent a sign-in link to " [:strong email] ".")]
-           [:p "Click the link in the email to sign in. The link expires in 30 minutes."]
+           [:p "We sent a sign-in link to " [:strong email] ". Click the link in the email to sign in. The link expires in 30 minutes."]
            [:p [:a {:href "/auth/signin"} "Didn't receive it? Try again"]]]))
 
 ;; =============================================================================
