@@ -102,12 +102,19 @@
         from-email (or (System/getenv "FROM_EMAIL") "onboarding@resend.dev")]
     (when-not api-key
       (throw (ex-info "RESEND_API_KEY environment variable not set" {})))
-    (http/post "https://api.resend.com/emails"
-               {:form-params {:from (str "Kadi <" from-email ">")
-                              :to to
-                              :subject subject
-                              :html html}
-                :basic-auth [api-key ""]})))
+    (try
+      (let [resp (http/post "https://api.resend.com/emails"
+                            {:form-params {:from (str "Kadi <" from-email ">")
+                                           :to to
+                                           :subject subject
+                                           :html html}
+                             :basic-auth [api-key ""]
+                             :throw-entire-message? true})]
+        (log/info "Resend API response:" (:status resp) (:body resp)))
+      (catch Exception e
+        (let [resp (:response (ex-data e))]
+          (log/error "Resend API error:" (:status resp) (:body resp)))
+        (throw e)))))
 
 (defn send-signin-email!
   "Send a sign-in email with the magic link.
