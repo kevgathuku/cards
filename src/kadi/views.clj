@@ -244,7 +244,10 @@
         short-code (:short_code game)]
     (str
      (h/html
-      [:div {:id "lobby-status"}
+      [:div {:id "lobby-status"
+             :hx-get (str "/games/" short-code "/lobby-status")
+             :hx-trigger "every 3s"
+             :hx-swap "outerHTML"}
        [:div.card
         [:div {:style "display: flex; justify-content: space-between; align-items: center;"}
          [:h3 "Players in this game"]
