@@ -2,7 +2,8 @@
   "Email-based authentication."
   (:require [kadi.db :as db]
             [crypto.random :as random]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [clj-http.client :as http])
   (:import [java.time Instant Duration]))
 
 (def ^:private token-expiry-minutes 30)
@@ -93,6 +94,19 @@
   [token]
   (str (base-url) "/auth/verify/" token))
 
+(defn- send-email!
+  "Send an email using Resend API."
+  [to subject html]
+  (let [api-key (System/getenv "RESEND_API_KEY")]
+    (when-not api-key
+      (throw (ex-info "RESEND_API_KEY environment variable not set" {})))
+    (http/post "https://api.resend.com/emails"
+               {:form-params {:from "Kadi <kevgathuku@gmail.com>"
+                              :to to
+                              :subject subject
+                              :html html}
+                :basic-auth [api-key ""]})))
+
 (defn send-signin-email!
   "Send a sign-in email with the magic link.
    In dev mode, prints to console instead of sending."
@@ -100,7 +114,14 @@
   (let [url (signin-url token)]
     (if (dev-mode?)
       (printf "\n== SIGN-IN LINK (dev) ==\nEmail: %s\nURL:   %s\n\n" email url)
-      (println "TODO: Send email to" email "with link" url))))
+      (let [html (str "<p>Click the link below to sign in to Kadi:</p>"
+                      "<p><a href=\"" url "\">" url "</a></p>"
+                      "<p>This link expires in 30 minutes.</p>")]
+        (try
+          (send-email! email "Sign in to Kadi" html)
+          (println "Sign-in email sent to" email)
+          (catch Exception e
+            (println "Failed to send email:" (.getMessage e))))))))
 
 ;; =============================================================================
 ;; Email Validation
