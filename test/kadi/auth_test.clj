@@ -212,8 +212,13 @@
     (is (nil? (auth/current-player {:session {}})))))
 
 (deftest authenticated?-test
-  (testing "true when session has player-id"
-    (is (true? (auth/authenticated? {:session {:player-id 1}}))))
+  (testing "true when session has valid player"
+    (with-redefs [db/get-player (fn [id] {:id id :name "Alice"})]
+      (is (true? (auth/authenticated? {:session {:player-id 1}})))))
+
+  (testing "false when player not found in DB"
+    (with-redefs [db/get-player (fn [_] nil)]
+      (is (false? (auth/authenticated? {:session {:player-id 999}})))))
 
   (testing "false when no session"
     (is (false? (auth/authenticated? {}))))

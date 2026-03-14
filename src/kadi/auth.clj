@@ -161,6 +161,6 @@
     (db/get-player player-id)))
 
 (defn authenticated?
-  "Check if the request has an authenticated session."
+  "Check if the request has an authenticated session with a valid player."
   [request]
-  (some? (get-in request [:session :player-id])))
+  (some? (current-player request)))
