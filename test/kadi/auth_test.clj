@@ -28,8 +28,14 @@
   (testing "returns true when used=1"
     (is (true? (#'auth/token-used? {:used 1}))))
 
+  (testing "returns true for any positive value"
+    (is (true? (#'auth/token-used? {:used 2}))))
+
   (testing "returns false when used=0"
-    (is (false? (#'auth/token-used? {:used 0})))))
+    (is (false? (#'auth/token-used? {:used 0}))))
+
+  (testing "returns false when used key is missing"
+    (is (false? (#'auth/token-used? {})))))
 
 (deftest valid-token?-test
   (testing "returns true when not expired and not used"
@@ -56,6 +62,13 @@
     (is (false? (auth/valid-email? "missing-domain@")))
     (is (false? (auth/valid-email? nil)))
     (is (false? (auth/valid-email? 42)))))
+
+(deftest email->display-name-test
+  (testing "extracts local part before @"
+    (is (= "alice" (#'auth/email->display-name "alice@example.com"))))
+
+  (testing "preserves dots and plus tags"
+    (is (= "user.name+tag" (#'auth/email->display-name "user.name+tag@domain.com")))))
 
 (deftest signin-url-test
   (testing "generates URL with token"

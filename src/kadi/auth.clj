@@ -6,11 +6,12 @@
   (:import [java.time Instant Duration]))
 
 (def ^:private token-expiry-minutes 30)
+(def ^:private token-byte-length 32)
 
-(def ^:private base-url
+(defn- base-url []
   (or (System/getenv "BASE_URL") "http://localhost:3000"))
 
-(def ^:private dev-mode?
+(defn- dev-mode? []
   (not= "production" (System/getenv "ENV")))
 
 ;; =============================================================================
@@ -20,7 +21,7 @@
 (defn- generate-token
   "Generate a cryptographically secure URL-safe token."
   []
-  (random/url-part 32))
+  (random/url-part token-byte-length))
 
 (defn- expires-at
   "Calculate expiration time from now."
@@ -51,7 +52,7 @@
 (defn- token-used?
   "Check if a token has been used."
   [token-record]
-  (= 1 (:used token-record)))
+  (pos? (long (:used token-record 0))))
 
 (defn- valid-token?
   "Check if a token record is valid (not expired, not used)."
@@ -60,6 +61,11 @@
    (and token-record
         (not (token-used? token-record))
         (not (token-expired? token-record)))))
+
+(defn- email->display-name
+  "Derive a display name from an email address (local part before @)."
+  [email]
+  (first (str/split email #"@")))
 
 (defn verify-token!
   "Verify a token and return the player if valid.
@@ -71,7 +77,7 @@
       (db/mark-token-used! token)
       (let [email (:email record)]
         (or (db/get-player-by-email email)
-            (db/create-player! {:name (first (str/split email #"@"))
+            (db/create-player! {:name (email->display-name email)
                                 :email email}))))))
 
 ;; =============================================================================
@@ -81,14 +87,14 @@
 (defn- signin-url
   "Generate the full sign-in URL for a token."
   [token]
-  (str base-url "/auth/verify/" token))
+  (str (base-url) "/auth/verify/" token))
 
 (defn send-signin-email!
   "Send a sign-in email with the magic link.
    In dev mode, prints to console instead of sending."
   [{:keys [email token]}]
   (let [url (signin-url token)]
-    (if dev-mode?
+    (if (dev-mode?)
       (do
         (println)
         (println "========================================")
