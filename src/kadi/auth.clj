@@ -17,7 +17,7 @@
 ;; Token Generation
 ;; =============================================================================
 
-(defn generate-token
+(defn- generate-token
   "Generate a cryptographically secure URL-safe token."
   []
   (random/url-part 32))
@@ -46,24 +46,20 @@
 (defn- token-expired?
   "Check if a token has expired."
   [token-record]
-  (let [exp (Instant/parse (:expires_at token-record))
-        result (.isBefore exp (Instant/now))]
-    (println "DEBUG: token-expired? - expires_at=" (:expires_at token-record) "now=" (Instant/now) "result=" result)
-    result))
+  (.isBefore (Instant/parse (:expires_at token-record)) (Instant/now)))
 
 (defn- token-used?
   "Check if a token has been used."
   [token-record]
-  (let [result (= 1 (:used token-record))]
-    (println "DEBUG: token-used? - (:used token-record)=" (:used token-record) "type=" (type (:used token-record)) "result=" result)
-    result))
+  (= 1 (:used token-record)))
 
-(defn valid-token?
+(defn- valid-token?
   "Check if a token record is valid (not expired, not used)."
   [token-record]
-  (and token-record
-       (not (token-used? token-record))
-       (not (token-expired? token-record))))
+  (boolean
+   (and token-record
+        (not (token-used? token-record))
+        (not (token-expired? token-record)))))
 
 (defn verify-token!
   "Verify a token and return the player if valid.
@@ -71,9 +67,6 @@
    Returns nil if token is invalid."
   [token]
   (when-let [record (db/get-auth-token token)]
-    (println "DEBUG: Token record=" record)
-    (println "DEBUG: Token record keys=" (keys record))
-    (println "DEBUG: valid-token? result=" (valid-token? record))
     (when (valid-token? record)
       (db/mark-token-used! token)
       (let [email (:email record)]
@@ -85,7 +78,7 @@
 ;; Email Sending
 ;; =============================================================================
 
-(defn signin-url
+(defn- signin-url
   "Generate the full sign-in URL for a token."
   [token]
   (str base-url "/auth/verify/" token))
@@ -127,9 +120,10 @@
 (defn valid-email?
   "Check if an email address is valid."
   [email]
-  (and (string? email)
-       (not (str/blank? email))
-       (re-matches email-pattern (str/trim email))))
+  (boolean
+   (and (string? email)
+        (not (str/blank? email))
+        (re-matches email-pattern (str/trim email)))))
 
 ;; =============================================================================
 ;; Session Helpers
