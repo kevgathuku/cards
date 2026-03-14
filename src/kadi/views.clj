@@ -108,7 +108,7 @@
         [:a {:href "/"} [:strong "Kadi"]]
         (when player
           (list
-           [:a {:href "/games"} "Games"]
+           [:a {:href "/games"} "My Games"]
            [:a {:href "/join"} "Join Game"]))]
        (if player
          [:div
@@ -168,9 +168,7 @@
                       :autofocus true
                       :maxlength "6"
                       :style "text-transform: uppercase;"}]]
-            [:button.btn.btn-primary {:type "submit"} "Join Game"]]
-           [:p {:style "margin-top: 1.5rem;"}
-            [:a {:href "/games"} "← Browse available games instead"]]]))
+            [:button.btn.btn-primary {:type "submit"} "Join Game"]]]))
 
 (defn auth-error-page
   "Auth error page."
@@ -195,7 +193,7 @@
            [:div {:style "display: flex; gap: 1rem; align-items: center;"}
             [:form {:method "post" :action "/games"}
              [:button.btn.btn-primary {:type "submit"} "Create Game"]]
-            [:a.btn.btn-secondary {:href "/games"} "Browse Games"]]]
+            [:a.btn.btn-secondary {:href "/games"} "My Games"]]]
           (when (seq games)
             [:div.card
              [:h3 "Your Active Games"]

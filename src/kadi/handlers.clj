@@ -108,13 +108,13 @@
 
 (defn list-games [request]
   (if-let [player (auth/current-player request)]
-    (let [lobby-games (db/list-games :lobby)
-          my-games (->> (db/get-player-games (:id player))
-                        (filter #(= :live (get-in % [:state :status]))))]
+    (let [all-games (db/get-player-games (:id player))
+          active-games (remove #(= :finished (get-in % [:state :status])) all-games)
+          finished-games (filter #(= :finished (get-in % [:state :status])) all-games)]
       (html-response
        (views/games-list-page {:player player
-                               :games lobby-games
-                               :my-games my-games
+                               :games active-games
+                               :finished-games finished-games
                                :flash (:flash request)})))
     (redirect "/auth/signin")))
 
