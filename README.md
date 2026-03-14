@@ -85,21 +85,40 @@ Side effects (persistence, broadcasting) happen at the edges.
 ### Project Structure
 
 ```
-src/kadi/
-├── core.clj        # Application entry point
-├── game.clj        # Pure game state & transitions
-├── cards.clj       # Card representation & utilities
-├── validation.clj  # Play validation (pure)
-├── db.clj          # SQLite persistence
-├── server.clj      # HTTP server
-├── routes.clj      # API routes
-└── handlers.clj    # Request handlers
-
-test/kadi/
-└── game_test.clj   # Pure function tests (no DB needed)
-
-docs/
-└── CLOJURE_BOOTSTRAP_BRIEF.md  # Complete game specification
+├── deps.edn                        # Project dependencies & aliases
+├── tests.edn                       # Kaocha test runner config
+│
+├── src/kadi/
+│   ├── core.clj                    # Application entry point
+│   ├── game.clj                    # Pure game state & transitions (apply-action multimethod)
+│   ├── cards.clj                   # Card representation & utilities
+│   ├── validation.clj              # Play validation rules (pure)
+│   ├── schema.clj                  # Malli schemas for game state
+│   ├── db.clj                      # SQLite persistence & event sourcing
+│   ├── auth.clj                    # Email magic-link authentication
+│   ├── server.clj                  # HTTP server (Ring)
+│   ├── routes.clj                  # Route definitions (Reitit)
+│   ├── handlers.clj                # Request handlers
+│   └── views.clj                   # Server-rendered HTML (Hiccup + HTMX)
+│
+├── test/kadi/
+│   ├── game_test.clj               # Core game logic tests
+│   ├── play_actions_test.clj       # Card play action tests
+│   ├── validation_test.clj         # Validation rule tests
+│   ├── db_test.clj                 # Database integration tests
+│   └── routes_auth_test.clj        # Auth route tests
+│
+├── dev/
+│   └── user.clj                    # REPL development helpers (start/stop/restart-server)
+│
+├── resources/
+│   └── migrations/
+│       └── 001_initial.sql         # Database schema
+│
+└── docs/
+    ├── CLOJURE_BOOTSTRAP_BRIEF.md  # Complete game specification & Elixir lessons
+    ├── ARCHITECTURE_PLAN.md        # Architecture decisions
+    └── ...                         # Feature specs (ace, jack, king, kadi-finishing, etc.)
 ```
 
 ### Database
