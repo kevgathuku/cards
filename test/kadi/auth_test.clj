@@ -1,6 +1,8 @@
 (ns kadi.auth-test
   (:require [clojure.test :refer [deftest testing is]]
             [kadi.auth :as auth]
+            [kadi.schema :as schema]
+            [malli.core :as m]
             [kadi.db :as db]))
 
 ;; =============================================================================
@@ -37,18 +39,29 @@
   (testing "returns false when nil"
     (is (false? (#'auth/used? nil)))))
 
+(def ^:private valid-token-record
+  {:id 1
+   :email "test@example.com"
+   :token "abc123"
+   :expires_at "2099-01-01T00:00:00Z"
+   :used 0
+   :created_at "2024-01-01T00:00:00Z"})
+
 (deftest valid-token?-test
   (testing "returns true when not expired and not used"
-    (is (true? (#'auth/valid-token? {:expires_at "2099-01-01T00:00:00Z" :used 0}))))
+    (is (true? (#'auth/valid-token? valid-token-record))))
 
   (testing "returns false when expired"
-    (is (false? (#'auth/valid-token? {:expires_at "2020-01-01T00:00:00Z" :used 0}))))
+    (is (false? (#'auth/valid-token? (assoc valid-token-record :expires_at "2020-01-01T00:00:00Z")))))
 
   (testing "returns false when used"
-    (is (false? (#'auth/valid-token? {:expires_at "2099-01-01T00:00:00Z" :used 1}))))
+    (is (false? (#'auth/valid-token? (assoc valid-token-record :used 1)))))
 
   (testing "returns false when nil"
-    (is (false? (#'auth/valid-token? nil)))))
+    (is (false? (#'auth/valid-token? nil))))
+
+  (testing "returns false when record doesn't match schema"
+    (is (false? (#'auth/valid-token? {:expires_at "2099-01-01T00:00:00Z" :used 0})))))
 
 (deftest valid-email?-test
   (testing "accepts valid emails"
@@ -114,9 +127,11 @@
 (deftest verify-token!-test
   (testing "returns player for valid unused token"
     (let [marked-used (atom false)]
-      (with-redefs [db/get-auth-token    (fn [_] {:email "alice@test.com"
+      (with-redefs [db/get-auth-token    (fn [_] {:id 1 :email "alice@test.com"
+                                                  :token "valid-token"
                                                   :expires_at "2099-01-01T00:00:00Z"
-                                                  :used 0})
+                                                  :used 0
+                                                  :created_at "2024-01-01T00:00:00Z"})
                     db/mark-token-used!  (fn [_] (reset! marked-used true))
                     db/get-player-by-email (fn [_] {:id 1 :name "alice"})]
         (let [result (auth/verify-token! "valid-token")]
@@ -125,9 +140,11 @@
 
   (testing "creates new player when none exists for email"
     (let [created-player (atom nil)]
-      (with-redefs [db/get-auth-token      (fn [_] {:email "new@test.com"
+      (with-redefs [db/get-auth-token      (fn [_] {:id 2 :email "new@test.com"
+                                                    :token "new-token"
                                                     :expires_at "2099-01-01T00:00:00Z"
-                                                    :used 0})
+                                                    :used 0
+                                                    :created_at "2024-01-01T00:00:00Z"})
                     db/mark-token-used!    (fn [_] nil)
                     db/get-player-by-email (fn [_] nil)
                     db/create-player!      (fn [args] (reset! created-player args)
@@ -142,15 +159,19 @@
       (is (nil? (auth/verify-token! "unknown-token")))))
 
   (testing "returns nil for expired token"
-    (with-redefs [db/get-auth-token (fn [_] {:email "x@test.com"
+    (with-redefs [db/get-auth-token (fn [_] {:id 3 :email "x@test.com"
+                                             :token "expired-token"
                                              :expires_at "2020-01-01T00:00:00Z"
-                                             :used 0})]
+                                             :used 0
+                                             :created_at "2024-01-01T00:00:00Z"})]
       (is (nil? (auth/verify-token! "expired-token")))))
 
   (testing "returns nil for used token"
-    (with-redefs [db/get-auth-token (fn [_] {:email "x@test.com"
+    (with-redefs [db/get-auth-token (fn [_] {:id 4 :email "x@test.com"
+                                             :token "used-token"
                                              :expires_at "2099-01-01T00:00:00Z"
-                                             :used 1})]
+                                             :used 1
+                                             :created_at "2024-01-01T00:00:00Z"})]
       (is (nil? (auth/verify-token! "used-token"))))))
 
 (deftest send-signin-email!-test
@@ -182,3 +203,37 @@
 
   (testing "false when no player-id"
     (is (false? (auth/authenticated? {:session {}})))))
+
+;; =============================================================================
+;; Schema validation
+;; =============================================================================
+
+(deftest email-schema-test
+  (testing "validates correct emails"
+    (is (true? (m/validate schema/Email "test@example.com")))
+    (is (true? (m/validate schema/Email "user.name+tag@domain.co.uk"))))
+
+  (testing "rejects invalid emails"
+    (is (false? (m/validate schema/Email "")))
+    (is (false? (m/validate schema/Email "not-an-email")))
+    (is (false? (m/validate schema/Email "@missing-local.com")))))
+
+(deftest auth-token-schema-test
+  (testing "validates a complete token record"
+    (is (true? (m/validate schema/AuthToken valid-token-record))))
+
+  (testing "rejects record with missing fields"
+    (is (false? (m/validate schema/AuthToken (dissoc valid-token-record :email)))))
+
+  (testing "rejects record with invalid email"
+    (is (false? (m/validate schema/AuthToken (assoc valid-token-record :email "bad"))))))
+
+(deftest signin-email-request-schema-test
+  (testing "validates correct request"
+    (is (true? (m/validate schema/SigninEmailRequest {:email "test@example.com" :token "abc"}))))
+
+  (testing "rejects request with invalid email"
+    (is (false? (m/validate schema/SigninEmailRequest {:email "bad" :token "abc"}))))
+
+  (testing "rejects request with missing token"
+    (is (false? (m/validate schema/SigninEmailRequest {:email "test@example.com"})))))

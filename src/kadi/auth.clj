@@ -1,6 +1,8 @@
 (ns kadi.auth
   "Email-based authentication."
   (:require [kadi.db :as db]
+            [kadi.schema :as schema]
+            [malli.core :as m]
             [crypto.random :as random]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
@@ -58,10 +60,11 @@
   (pos? (long (or used-flag 0))))
 
 (defn- valid-token?
-  "Check if a token record is valid (not expired, not used)."
+  "Check if a token record is valid (matches schema, not expired, not used)."
   [{:keys [expires_at used] :as token-record}]
   (boolean
    (and token-record
+        (m/validate schema/AuthToken token-record)
         (not (used? used))
         (not (expired? expires_at)))))
 
@@ -117,7 +120,10 @@
 (defn send-signin-email!
   "Send a sign-in email with the magic link.
    In dev mode, prints to console instead of sending."
-  [{:keys [email token]}]
+  [{:keys [email token] :as request}]
+  (when-not (m/validate schema/SigninEmailRequest request)
+    (throw (ex-info "Invalid signin email request"
+                    {:errors (m/explain schema/SigninEmailRequest request)})))
   (let [url (signin-url token)
         is-dev (dev-mode?)]
     (log/info "Sending sign-in email to" email "dev-mode?" is-dev)
@@ -136,16 +142,13 @@
 ;; Email Validation
 ;; =============================================================================
 
-(def ^:private email-pattern
-  #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
-
 (defn valid-email?
   "Check if an email address is valid. Does not trim — callers should
    normalize input before validation so the validated value is what gets stored."
   [email]
   (boolean
    (and (string? email)
-        (re-matches email-pattern email))))
+        (m/validate schema/Email email))))
 
 ;; =============================================================================
 ;; Session Helpers
