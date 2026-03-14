@@ -108,9 +108,14 @@
 
 (defn list-games [request]
   (if-let [player (auth/current-player request)]
-    (let [games (db/list-games :lobby)]
+    (let [lobby-games (db/list-games :lobby)
+          my-games (->> (db/get-player-games (:id player))
+                        (filter #(= :live (get-in % [:state :status]))))]
       (html-response
-       (views/games-list-page {:player player :games games :flash (:flash request)})))
+       (views/games-list-page {:player player
+                               :games lobby-games
+                               :my-games my-games
+                               :flash (:flash request)})))
     (redirect "/auth/signin")))
 
 (defn create-game [request]
@@ -145,13 +150,17 @@
       {:status 404 :body "Game not found"})))
 
 (defn get-lobby-status-fragment [request]
-  "HTMX endpoint for refreshing lobby status - includes player list and action buttons."
+  "HTMX endpoint for refreshing lobby status - includes player list and action buttons.
+   When the game has started, responds with HX-Redirect to send players to the game page."
   (let [short-code (get-in request [:path-params :code])
         player (auth/current-player request)]
     (if-let [game (db/get-game-by-code short-code)]
-      {:status 200
-       :headers {"Content-Type" "text/html; charset=utf-8"}
-       :body (views/lobby-status-fragment {:player player :game game})}
+      (if (not= :lobby (game/game-status (:state game)))
+        {:status 200
+         :headers {"HX-Redirect" (str "/games/" short-code)}}
+        {:status 200
+         :headers {"Content-Type" "text/html; charset=utf-8"}
+         :body (views/lobby-status-fragment {:player player :game game})})
       {:status 404 :body "Game not found"})))
 
 (defn get-game-state-fragment [request]
@@ -183,9 +192,9 @@
                               :timestamp timestamp}]
                   (db/append-event! (:id game) event-id :join-game timestamp action)
                   (db/add-player-to-game! (:id game) (:id player))))
-              (redirect (str "/games/" short-code))))
-          (redirect "/games" {:type :error :message "Game not found"})))
-      (redirect "/auth/signin"))))
+              (redirect (str "/games/" short-code)))))
+        (redirect "/games" {:type :error :message "Game not found"})))
+    (redirect "/auth/signin")))
 
 (defn join-page [request]
   "Display the join game page with code input."
