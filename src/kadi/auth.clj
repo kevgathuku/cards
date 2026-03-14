@@ -4,7 +4,7 @@
             [crypto.random :as random]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [clj-http.client :as http])
+            [postal.core :as postal])
   (:import [java.time Instant Duration]))
 
 (def ^:private token-expiry-minutes 30)
@@ -96,29 +96,26 @@
   (str (base-url) "/auth/verify/" token))
 
 (defn- send-email!
-  "Send an email using Resend API."
+  "Send an email using Resend SMTP."
   [to subject html]
-  (let [api-key (System/getenv "RESEND_API_KEY")
-        from-email (or (System/getenv "FROM_EMAIL") "onboarding@resend.dev")]
-    (when-not api-key
+  (let [smtp-pass (System/getenv "RESEND_API_KEY")
+        from-email (or (System/getenv "FROM_EMAIL") "kadi@resend.dev")]
+    (when-not smtp-pass
       (throw (ex-info "RESEND_API_KEY environment variable not set" {})))
-    (try
-      (let [resp (http/post "https://api.resend.com/emails"
-                            {:form-params {:from (str "Kadi <" from-email ">")
-                                           :to to
-                                           :subject subject
-                                           :html html}
-                             :basic-auth [api-key ""]
-                             :throw-entire-message? true
-                             :socket-timeout 10000
-                             :conn-timeout 10000})]
-        (log/info "Resend response:" (:status resp) (pr-str (:body resp))))
-      (catch Exception e
-        (let [data (ex-data e)
-              status (:status data)
-              body (:body data)]
-          (log/error "Resend error:" status (type body) (pr-str body))
-          (throw e))))))
+    (let [result (postal/send-message
+                  {:host "smtp.resend.com"
+                   :port 587
+                   :user "resend"
+                   :pass smtp-pass
+                   :tls true}
+                  {:from (str "Kadi <" from-email ">")
+                   :to to
+                   :subject subject
+                   :body [{:type "text/html"
+                           :content html}]})]
+      (if (= 0 (:code result))
+        (log/info "Email sent successfully to" to)
+        (throw (ex-info "Failed to send email" {:result result}))))))
 
 (defn send-signin-email!
   "Send a sign-in email with the magic link.
