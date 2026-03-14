@@ -98,11 +98,12 @@
 (defn- send-email!
   "Send an email using Resend API."
   [to subject html]
-  (let [api-key (System/getenv "RESEND_API_KEY")]
+  (let [api-key (System/getenv "RESEND_API_KEY")
+        from-email (or (System/getenv "FROM_EMAIL") "onboarding@resend.dev")]
     (when-not api-key
       (throw (ex-info "RESEND_API_KEY environment variable not set" {})))
     (http/post "https://api.resend.com/emails"
-               {:form-params {:from "Kadi <kevgathuku@gmail.com>"
+               {:form-params {:from (str "Kadi <" from-email ">")
                               :to to
                               :subject subject
                               :html html}
