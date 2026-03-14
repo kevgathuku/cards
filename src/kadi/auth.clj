@@ -111,7 +111,7 @@
                           {:headers {"Authorization" (str "Bearer " api-key)
                                      "Content-Type" "application/json"
                                      "User-Agent" "resend-lib/clojure-0.1.0"}
-                           :body (json/write-str-as-bytes payload)})]
+                           :body (.getBytes (json/write-value-as-string payload))})]
       (log/info "Resend response:" (:status resp) (:body resp)))))
 
 (defn send-signin-email!
