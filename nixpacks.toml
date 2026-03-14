@@ -1,5 +1,8 @@
 [build]
 cmd = "clj -P"
 
+[runtime]
+java = "21"
+
 [start]
-cmd = "clj -M:run"
+script = "./start.sh"
