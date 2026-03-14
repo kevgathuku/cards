@@ -96,9 +96,10 @@
 
 (defn index [request]
   (if-let [player (auth/current-player request)]
-    (let [games (db/get-player-games (:id player))]
+    (let [all-games (db/get-player-games (:id player))
+          active-games (remove #(= :finished (get-in % [:state :status])) all-games)]
       (html-response
-       (views/home-page {:player player :games games :flash (:flash request)})))
+       (views/home-page {:player player :games active-games :flash (:flash request)})))
     (html-response
      (views/guest-home-page {:flash (:flash request)}))))
 

@@ -273,24 +273,12 @@
 ;; =============================================================================
 
 (defn games-list-page
-  "List of available games in lobby, plus player's active games."
-  [{:keys [player games my-games flash]}]
+  "List of player's active and finished games."
+  [{:keys [player games finished-games flash]}]
   (layout {:title "Games" :player player :flash flash}
-          ;; My active games
-          (when (seq my-games)
-            (list
-             [:div {:style "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;"}
-              [:h2 {:style "margin: 0;"} "My Games"]]
-             [:div.card {:style "margin-bottom: 2rem;"}
-              [:ul.game-list
-               (for [game my-games]
-                 [:li {:style "display: flex; justify-content: space-between; align-items: center;"}
-                  [:span (str "Game " (:short_code game)
-                              " (" (count (get-in game [:state :players])) " players)")]
-                  [:a.btn.btn-primary {:href (str "/games/" (:short_code game))} "Continue"]])]]))
-          ;; Lobby games
+          ;; Active games
           [:div {:style "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;"}
-           [:h2 {:style "margin: 0;"} "Available Games"]
+           [:h2 {:style "margin: 0;"} "Active Games"]
            [:a.btn.btn-primary {:href "/join"} "Join with Code"]]
           [:div.card
            [:form {:method "post" :action "/games" :style "margin-bottom: 1rem;"}
@@ -300,9 +288,27 @@
               (for [game games]
                 [:li {:style "display: flex; justify-content: space-between; align-items: center;"}
                  [:span (str "Game " (:short_code game)
-                             " (" (count (get-in game [:state :players])) " players)")]
-                 [:a.btn.btn-secondary {:href (str "/games/" (:short_code game))} "Join"]])]
-             [:p "No games available. Create one!"])]))
+                             " (" (count (get-in game [:state :players])) " players)"
+                             (when-let [status (get-in game [:state :status])]
+                               (str " - " (name status))))]
+                 [:a.btn.btn-primary {:href (str "/games/" (:short_code game))} "Continue"]])]
+             [:p "No active games. Create one!"])]
+          ;; Finished games
+          (when (seq finished-games)
+            (list
+             [:div {:style "margin-top: 2rem; margin-bottom: 1rem;"}
+              [:h2 {:style "margin: 0;"} "Past Games"]]
+             [:div.card
+              [:ul.game-list
+               (for [game finished-games]
+                 (let [winner-id (get-in game [:state :winner])
+                       players (get-in game [:state :players])
+                       winner-name (some #(when (= (:id %) winner-id) (:name %)) players)]
+                   [:li {:style "display: flex; justify-content: space-between; align-items: center;"}
+                    [:span (str "Game " (:short_code game)
+                                " (" (count players) " players)"
+                                (when winner-name (str " - Won by " winner-name)))]
+                    [:a.btn.btn-secondary {:href (str "/games/" (:short_code game))} "View"]]))]]))))
 
 (defn game-lobby-page
   "Game lobby - waiting for players."
