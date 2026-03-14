@@ -1,0 +1,5 @@
+[build]
+cmd = "clj -P"
+
+[start]
+cmd = "clj -M:run"
