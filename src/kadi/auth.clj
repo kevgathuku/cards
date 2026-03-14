@@ -4,7 +4,8 @@
             [crypto.random :as random]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [postal.core :as postal])
+            [clj-http.client :as http]
+            [jsonista.core :as json])
   (:import [java.time Instant Duration]))
 
 (def ^:private token-expiry-minutes 30)
@@ -96,26 +97,22 @@
   (str (base-url) "/auth/verify/" token))
 
 (defn- send-email!
-  "Send an email using Resend SMTP."
+  "Send an email using Resend API."
   [to subject html]
-  (let [smtp-pass (System/getenv "RESEND_API_KEY")
-        from-email (or (System/getenv "FROM_EMAIL") "kadi@resend.dev")]
-    (when-not smtp-pass
+  (let [api-key (System/getenv "RESEND_API_KEY")
+        from-email (or (System/getenv "FROM_EMAIL") "onboarding@resend.dev")
+        payload {:from (str "Kadi <" from-email ">")
+                 :to to
+                 :subject subject
+                 :html html}]
+    (when-not api-key
       (throw (ex-info "RESEND_API_KEY environment variable not set" {})))
-    (let [result (postal/send-message
-                  {:host "smtp.resend.com"
-                   :port 465
-                   :user "resend"
-                   :pass smtp-pass
-                   :ssl true}
-                  {:from (str "Kadi <" from-email ">")
-                   :to to
-                   :subject subject
-                   :body [{:type "text/html"
-                           :content html}]})]
-      (if (= 0 (:code result))
-        (log/info "Email sent successfully to" to)
-        (throw (ex-info "Failed to send email" {:result result}))))))
+    (let [resp (http/post "https://api.resend.com/emails"
+                          {:headers {"Authorization" (str "Bearer " api-key)
+                                     "Content-Type" "application/json"
+                                     "User-Agent" "resend-lib/clojure-0.1.0"}
+                           :body (json/write-str-as-bytes payload)})]
+      (log/info "Resend response:" (:status resp) (:body resp)))))
 
 (defn send-signin-email!
   "Send a sign-in email with the magic link.
