@@ -34,6 +34,16 @@ clj -M:run
 
 Visit [`localhost:3000`](http://localhost:3000) in your browser.
 
+### Docker
+
+```bash
+# Build the image
+docker build -t kadi .
+
+# Run the container (with persistent database)
+docker run -p 3000:3000 -v $(pwd)/kadi.db:/app/kadi.db kadi
+```
+
 ### REPL Development
 
 For the best development experience, start the REPL with the `:dev` alias to include development tools and the `user` namespace:
