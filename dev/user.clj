@@ -11,11 +11,13 @@
   "Start the development server and initialize the database."
   ([] (start-server 3000))
   ([port]
+   (start-server port "127.0.0.1"))
+  ([port host]
    (println "Initializing database...")
    (db/init!)
    (println (str "Starting Kadi server on port " port "..."))
-   (server/start! {:port port})
-   (println (str "✓ Kadi is running at http://localhost:" port))
+   (server/start! {:port port :host host})
+   (println (str "✓ Kadi is running at http://" host ":" port))
    (println "\nDevelopment REPL started!")
    (println "Available functions: (start-server port), (stop-server), (restart-server)")))
 
@@ -30,9 +32,11 @@
   "Restart the development server."
   ([] (restart-server 3000))
   ([port]
+   (restart-server port "127.0.0.1"))
+  ([port host]
    (stop-server)
    (Thread/sleep 500)
-   (start-server port)))
+   (start-server port host)))
 
 (defn help
   "Display available development commands."

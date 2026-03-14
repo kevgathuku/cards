@@ -30,7 +30,7 @@
 
 (defn start!
   "Start the HTTP server."
-  [{:keys [port] :or {port 3000}}]
+  [{:keys [port host] :or {port 3000 host "0.0.0.0"}}]
   (when @server
     (.stop @server))
   (reset! server
@@ -42,8 +42,8 @@
                                               :cookie-attrs {:http-only true
                                                              :same-site :lax
                                                              :max-age 604800}})) ;; 7 days
-                           {:port port :join? false}))
-  (println (str "Server started on http://localhost:" port)))
+                           {:port port :host host :join? false}))
+  (println (str "Server started on http://" host ":" port)))
 
 (defn stop!
   "Stop the HTTP server."
