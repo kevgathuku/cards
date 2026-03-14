@@ -276,9 +276,22 @@
 ;; =============================================================================
 
 (defn games-list-page
-  "List of available games in lobby."
-  [{:keys [player games flash]}]
+  "List of available games in lobby, plus player's active games."
+  [{:keys [player games my-games flash]}]
   (layout {:title "Games" :player player :flash flash}
+          ;; My active games
+          (when (seq my-games)
+            (list
+             [:div {:style "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;"}
+              [:h2 {:style "margin: 0;"} "My Games"]]
+             [:div.card {:style "margin-bottom: 2rem;"}
+              [:ul.game-list
+               (for [game my-games]
+                 [:li {:style "display: flex; justify-content: space-between; align-items: center;"}
+                  [:span (str "Game " (:short_code game)
+                              " (" (count (get-in game [:state :players])) " players)")]
+                  [:a.btn.btn-primary {:href (str "/games/" (:short_code game))} "Continue"]])]]))
+          ;; Lobby games
           [:div {:style "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;"}
            [:h2 {:style "margin: 0;"} "Available Games"]
            [:a.btn.btn-primary {:href "/join"} "Join with Code"]]
