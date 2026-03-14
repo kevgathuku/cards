@@ -10,4 +10,4 @@ COPY resources resources
 
 EXPOSE 3000
 
-CMD ["clojure", "-M:run"]
+CMD ["clojure", "-J-Xmx384m", "-M:run"]
