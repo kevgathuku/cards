@@ -50,9 +50,9 @@
 ;; =============================================================================
 
 (defn- expired?
-  "Check if an expiration timestamp (ISO-8601 string) is in the past."
-  [expires-at]
-  (.isBefore (Instant/parse expires-at) (Instant/now)))
+  "Check if an expiration timestamp (ISO-8601 string) is before the given instant."
+  [expires-at now]
+  (.isBefore (Instant/parse expires-at) now))
 
 (defn- used?
   "Check if a used flag (integer) indicates the token has been consumed."
@@ -61,12 +61,12 @@
 
 (defn- valid-token?
   "Check if a token record is valid (matches schema, not expired, not used)."
-  [{:keys [expires_at used] :as token-record}]
+  [{:keys [expires_at used] :as token-record} now]
   (boolean
    (and token-record
         (m/validate schema/AuthToken token-record)
         (not (used? used))
-        (not (expired? expires_at)))))
+        (not (expired? expires_at now)))))
 
 (defn- email->display-name
   "Derive a display name from an email address (local part before @)."
@@ -86,7 +86,7 @@
    Returns nil if token is invalid."
   [token]
   (when-let [record (db/get-auth-token token)]
-    (when (valid-token? record)
+    (when (valid-token? record (Instant/now))
       (db/mark-token-used! token)
       (find-or-create-player! (:email record)))))
 

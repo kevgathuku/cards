@@ -3,7 +3,8 @@
             [kadi.auth :as auth]
             [kadi.schema :as schema]
             [malli.core :as m]
-            [kadi.db :as db]))
+            [kadi.db :as db])
+  (:import [java.time Instant]))
 
 ;; =============================================================================
 ;; Pure functions (no DB, no side effects)
@@ -19,12 +20,14 @@
     (let [tokens (repeatedly 10 #'auth/generate-token)]
       (is (= 10 (count (set tokens)))))))
 
-(deftest expired?-test
-  (testing "returns true for past timestamp"
-    (is (true? (#'auth/expired? "2020-01-01T00:00:00Z"))))
+(def ^:private test-now (Instant/parse "2024-06-01T12:00:00Z"))
 
-  (testing "returns false for future timestamp"
-    (is (false? (#'auth/expired? "2099-01-01T00:00:00Z")))))
+(deftest expired?-test
+  (testing "returns true for timestamp before now"
+    (is (true? (#'auth/expired? "2024-06-01T11:00:00Z" test-now))))
+
+  (testing "returns false for timestamp after now"
+    (is (false? (#'auth/expired? "2024-06-01T13:00:00Z" test-now)))))
 
 (deftest used?-test
   (testing "returns true when 1"
@@ -43,25 +46,29 @@
   {:id 1
    :email "test@example.com"
    :token "abc123"
-   :expires_at "2099-01-01T00:00:00Z"
+   :expires_at "2024-06-01T13:00:00Z"
    :used 0
    :created_at "2024-01-01T00:00:00Z"})
 
 (deftest valid-token?-test
   (testing "returns true when not expired and not used"
-    (is (true? (#'auth/valid-token? valid-token-record))))
+    (is (true? (#'auth/valid-token? valid-token-record test-now))))
 
   (testing "returns false when expired"
-    (is (false? (#'auth/valid-token? (assoc valid-token-record :expires_at "2020-01-01T00:00:00Z")))))
+    (is (false? (#'auth/valid-token?
+                 (assoc valid-token-record :expires_at "2024-06-01T11:00:00Z")
+                 test-now))))
 
   (testing "returns false when used"
-    (is (false? (#'auth/valid-token? (assoc valid-token-record :used 1)))))
+    (is (false? (#'auth/valid-token? (assoc valid-token-record :used 1) test-now))))
 
   (testing "returns false when nil"
-    (is (false? (#'auth/valid-token? nil))))
+    (is (false? (#'auth/valid-token? nil test-now))))
 
   (testing "returns false when record doesn't match schema"
-    (is (false? (#'auth/valid-token? {:expires_at "2099-01-01T00:00:00Z" :used 0})))))
+    (is (false? (#'auth/valid-token?
+                 {:expires_at "2024-06-01T13:00:00Z" :used 0}
+                 test-now)))))
 
 (deftest valid-email?-test
   (testing "accepts valid emails"
@@ -124,12 +131,22 @@
           (is (= "bob" (:name @created)))
           (is (= "bob@test.com" (:email @created))))))))
 
+(defn- future-timestamp
+  "Return an ISO-8601 timestamp 1 hour from now."
+  []
+  (str (.plusSeconds (Instant/now) 3600)))
+
+(defn- past-timestamp
+  "Return an ISO-8601 timestamp 1 hour ago."
+  []
+  (str (.minusSeconds (Instant/now) 3600)))
+
 (deftest verify-token!-test
   (testing "returns player for valid unused token"
     (let [marked-used (atom false)]
       (with-redefs [db/get-auth-token    (fn [_] {:id 1 :email "alice@test.com"
                                                   :token "valid-token"
-                                                  :expires_at "2099-01-01T00:00:00Z"
+                                                  :expires_at (future-timestamp)
                                                   :used 0
                                                   :created_at "2024-01-01T00:00:00Z"})
                     db/mark-token-used!  (fn [_] (reset! marked-used true))
@@ -142,7 +159,7 @@
     (let [created-player (atom nil)]
       (with-redefs [db/get-auth-token      (fn [_] {:id 2 :email "new@test.com"
                                                     :token "new-token"
-                                                    :expires_at "2099-01-01T00:00:00Z"
+                                                    :expires_at (future-timestamp)
                                                     :used 0
                                                     :created_at "2024-01-01T00:00:00Z"})
                     db/mark-token-used!    (fn [_] nil)
@@ -161,7 +178,7 @@
   (testing "returns nil for expired token"
     (with-redefs [db/get-auth-token (fn [_] {:id 3 :email "x@test.com"
                                              :token "expired-token"
-                                             :expires_at "2020-01-01T00:00:00Z"
+                                             :expires_at (past-timestamp)
                                              :used 0
                                              :created_at "2024-01-01T00:00:00Z"})]
       (is (nil? (auth/verify-token! "expired-token")))))
@@ -169,7 +186,7 @@
   (testing "returns nil for used token"
     (with-redefs [db/get-auth-token (fn [_] {:id 4 :email "x@test.com"
                                              :token "used-token"
-                                             :expires_at "2099-01-01T00:00:00Z"
+                                             :expires_at (future-timestamp)
                                              :used 1
                                              :created_at "2024-01-01T00:00:00Z"})]
       (is (nil? (auth/verify-token! "used-token"))))))
