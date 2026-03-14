@@ -17,25 +17,25 @@
     (let [tokens (repeatedly 10 #'auth/generate-token)]
       (is (= 10 (count (set tokens)))))))
 
-(deftest token-expired?-test
-  (testing "returns true for expired token"
-    (is (true? (#'auth/token-expired? {:expires_at "2020-01-01T00:00:00Z" :used 0}))))
+(deftest expired?-test
+  (testing "returns true for past timestamp"
+    (is (true? (#'auth/expired? "2020-01-01T00:00:00Z"))))
 
-  (testing "returns false for future token"
-    (is (false? (#'auth/token-expired? {:expires_at "2099-01-01T00:00:00Z" :used 0})))))
+  (testing "returns false for future timestamp"
+    (is (false? (#'auth/expired? "2099-01-01T00:00:00Z")))))
 
-(deftest token-used?-test
-  (testing "returns true when used=1"
-    (is (true? (#'auth/token-used? {:used 1}))))
+(deftest used?-test
+  (testing "returns true when 1"
+    (is (true? (#'auth/used? 1))))
 
   (testing "returns true for any positive value"
-    (is (true? (#'auth/token-used? {:used 2}))))
+    (is (true? (#'auth/used? 2))))
 
-  (testing "returns false when used=0"
-    (is (false? (#'auth/token-used? {:used 0}))))
+  (testing "returns false when 0"
+    (is (false? (#'auth/used? 0))))
 
-  (testing "returns false when used key is missing"
-    (is (false? (#'auth/token-used? {})))))
+  (testing "returns false when nil"
+    (is (false? (#'auth/used? nil)))))
 
 (deftest valid-token?-test
   (testing "returns true when not expired and not used"

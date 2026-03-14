@@ -44,23 +44,23 @@
 ;; Token Validation
 ;; =============================================================================
 
-(defn- token-expired?
-  "Check if a token has expired."
-  [token-record]
-  (.isBefore (Instant/parse (:expires_at token-record)) (Instant/now)))
+(defn- expired?
+  "Check if an expiration timestamp (ISO-8601 string) is in the past."
+  [expires-at]
+  (.isBefore (Instant/parse expires-at) (Instant/now)))
 
-(defn- token-used?
-  "Check if a token has been used."
-  [token-record]
-  (pos? (long (:used token-record 0))))
+(defn- used?
+  "Check if a used flag (integer) indicates the token has been consumed."
+  [used-flag]
+  (pos? (long (or used-flag 0))))
 
 (defn- valid-token?
   "Check if a token record is valid (not expired, not used)."
-  [token-record]
+  [{:keys [expires_at used] :as token-record}]
   (boolean
    (and token-record
-        (not (token-used? token-record))
-        (not (token-expired? token-record)))))
+        (not (used? used))
+        (not (expired? expires_at)))))
 
 (defn- email->display-name
   "Derive a display name from an email address (local part before @)."
