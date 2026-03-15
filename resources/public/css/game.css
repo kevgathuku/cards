@@ -1,0 +1,345 @@
+/* =============================================================================
+   Kadi Card Game Styles
+   ============================================================================= */
+
+/* --- Reset & Base --- */
+* { box-sizing: border-box; }
+
+body {
+  font-family: system-ui, sans-serif;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+/* --- Flash Messages --- */
+.flash { padding: 0.75rem 1rem; margin-bottom: 1rem; border-radius: 4px; }
+.flash-info { background: #e0f2fe; color: #0369a1; }
+.flash-error { background: #fee2e2; color: #dc2626; }
+
+/* --- Buttons --- */
+.btn {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 1rem;
+}
+.btn-primary { background: #2563eb; color: white; }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-secondary { background: #e5e7eb; color: #374151; }
+.btn-secondary:hover { background: #d1d5db; }
+
+.btn-action {
+  width: 100%;
+  padding: 0.75rem 1.5rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+/* --- Forms --- */
+input[type=email], input[type=text] {
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 1rem;
+  width: 100%;
+}
+.form-group { margin-bottom: 1rem; }
+label { display: block; margin-bottom: 0.25rem; font-weight: 500; }
+
+/* --- Card (container) --- */
+.card {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+.card h2 { margin-top: 0; }
+
+/* --- Navigation --- */
+nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 0;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 1.5rem;
+}
+nav a { text-decoration: none; color: #2563eb; }
+
+/* --- Game List --- */
+.game-list { list-style: none; padding: 0; }
+.game-list li {
+  padding: 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+/* --- Hand & Playing Cards --- */
+.hand { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.playing-card {
+  width: 60px;
+  height: 84px;
+  border: 2px solid #333;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  cursor: pointer;
+  font-size: 1.25rem;
+  transition: transform 0.15s ease, border-color 0.15s, box-shadow 0.15s;
+}
+.playing-card:hover {
+  transform: translateY(-4px);
+  border-color: #6b7280;
+}
+.playing-card.selected,
+input:checked + .playing-card {
+  transform: translateY(-8px);
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+  background: #e0f2fe;
+}
+.playing-card.hearts, .playing-card.diamonds { color: #dc2626; }
+.playing-card.clubs, .playing-card.spades { color: #1f2937; }
+
+/* --- Top Card (larger) --- */
+.top-card {
+  width: 100px;
+  height: 140px;
+  font-size: 2rem;
+  border: 3px solid #333;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+}
+.top-card.hearts, .top-card.diamonds { color: #dc2626; }
+.top-card.clubs, .top-card.spades { color: #1f2937; }
+
+/* --- HTMX Indicators --- */
+.htmx-indicator { display: none; }
+.htmx-request .htmx-indicator { display: inline; }
+.htmx-request.htmx-indicator { display: inline; }
+.loading { opacity: 0.5; }
+
+/* =============================================================================
+   Turn-Based State Styles
+   ============================================================================= */
+
+.game-content.is-active-turn {
+  border-left: 4px solid #2563eb;
+  padding-left: 0.5rem;
+}
+
+.game-content.is-waiting .hand {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.waiting-label {
+  text-align: center;
+  color: #6b7280;
+  font-size: 1rem;
+  padding: 0.5rem 0;
+}
+
+/* --- Your Turn Indicator --- */
+.your-turn {
+  font-size: 1.25rem;
+  color: #2563eb;
+  font-weight: 700;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.02); }
+}
+
+/* =============================================================================
+   Player List Styles
+   ============================================================================= */
+
+.player-current {
+  background: #166534;
+  color: white;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.player-warning {
+  background: #fffbeb;
+  border-color: #f59e0b;
+}
+
+.player-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  margin-left: 0.5rem;
+}
+.player-badge.kadi { background: #fef3c7; color: #92400e; }
+.player-badge.cardless { background: #fee2e2; color: #991b1b; }
+
+/* =============================================================================
+   Effect Banners
+   ============================================================================= */
+
+.effect-banner {
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+.effect-banner.penalty { background: #fee2e2; border: 1px solid #dc2626; }
+.effect-banner.select-suit { background: #fef3c7; border: 1px solid #fbbf24; }
+.effect-banner.suit-selected { background: #dbeafe; border: 1px solid #3b82f6; }
+.effect-banner.awaiting-answer { background: #eff6ff; border: 1px solid #bfdbfe; }
+.effect-banner.cardless-warning { background: #fee2e2; border: 1px solid #dc2626; color: #991b1b; }
+
+/* =============================================================================
+   Declare Kadi Toggle
+   ============================================================================= */
+
+.kadi-section {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #fef3c7;
+  border: 1px solid #fbbf24;
+  border-radius: 4px;
+}
+
+.kadi-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+}
+
+.kadi-toggle input[type="checkbox"] {
+  display: none;
+}
+
+.kadi-toggle .toggle-slider {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: #d1d5db;
+  border-radius: 12px;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.kadi-toggle .toggle-slider::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.kadi-toggle input:checked + .toggle-slider {
+  background: #f59e0b;
+}
+
+.kadi-toggle input:checked + .toggle-slider::after {
+  transform: translateX(20px);
+}
+
+.kadi-toggle-text {
+  font-weight: 500;
+}
+
+.kadi-toggle-help {
+  font-size: 0.875rem;
+  color: #78350f;
+}
+
+/* --- Maintain Kadi Section (draw form) --- */
+.maintain-kadi-section {
+  background: #fef3c7;
+  border: 1px solid #fbbf24;
+  padding: 0.75rem;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+/* =============================================================================
+   Game Finished Banner
+   ============================================================================= */
+
+.game-finished-banner {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border: 2px solid #047857;
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+.game-finished-banner h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 0.5rem 0;
+}
+.game-finished-banner p {
+  font-size: 1.125rem;
+  color: #d1fae5;
+  margin: 0 0 1rem 0;
+}
+.game-finished-banner .btn {
+  background: white;
+  color: #047857;
+  font-weight: 600;
+}
+
+/* =============================================================================
+   Layout Helpers
+   ============================================================================= */
+
+.flex-row { display: flex; gap: 1rem; align-items: center; }
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.mt-1 { margin-top: 0.5rem; }
+.mt-2 { margin-top: 1rem; }
+.mt-4 { margin-top: 2rem; }
+.mb-2 { margin-bottom: 1rem; }
+.inline { display: inline; }
+
+/* --- Suit Picker --- */
+.suit-picker { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+.suit-picker form { display: inline; }
+
+/* --- Game Code Display --- */
+.game-code {
+  background: #f3f4f6;
+  padding: 1rem;
+  border-radius: 4px;
+  text-align: center;
+  margin: 1rem 0;
+}
+.game-code code {
+  font-size: 2rem;
+  font-weight: bold;
+  letter-spacing: 0.2em;
+}
+
+/* --- Top Area Layout --- */
+.top-area { display: flex; gap: 2rem; align-items: flex-start; }
