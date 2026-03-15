@@ -39,11 +39,34 @@
              }
            }
            
+           const suitSymbols = {hearts:'♥', diamonds:'♦', clubs:'♣', spades:'♠'};
+
+           function cardLabel(cardId) {
+             const parts = cardId.split('-');
+             const rank = parts[0];
+             const suit = parts[1];
+             return rank + (suitSymbols[suit] || '');
+           }
+
+           function updatePlayButton() {
+             const btn = document.getElementById('play-btn');
+             if (!btn) return;
+             const isPenalty = btn.hasAttribute('data-penalty');
+             if (selectedCards.length === 0) {
+               btn.textContent = isPenalty ? 'Select a Card to Block' : 'Play Selected';
+               btn.disabled = isPenalty;
+             } else {
+               const labels = selectedCards.map(cardLabel).join(', ');
+               btn.textContent = isPenalty ? 'Play ' + labels + ' to Block' : 'Play ' + labels;
+               btn.disabled = false;
+             }
+           }
+
            // Listen for checkbox changes
            document.addEventListener('change', function(e) {
              if (e.target.classList.contains('card-checkbox')) {
                const cardId = e.target.dataset.cardId;
-               
+
                if (e.target.checked) {
                  // Add to selection order if not already there
                  if (!selectedCards.includes(cardId)) {
@@ -56,8 +79,9 @@
                    selectedCards.splice(index, 1);
                  }
                }
-               
+
                updateOrderedCardsInput();
+               updatePlayButton();
              }
            });
            
@@ -355,6 +379,14 @@
        [:button.btn.btn-secondary {:type "submit"}
         (str (suit-symbol suit) " " (clojure.string/capitalize (name suit)))]])]])
 
+(defn- kadi-toggle-inline
+  "Quiet inline Kadi toggle - no yellow background."
+  []
+  [:label.kadi-toggle-inline
+   [:input {:type "checkbox" :name "declare-kadi" :id "declare-kadi"}]
+   [:span.toggle-slider-sm]
+   [:span.kadi-toggle-text-sm "Declare Kadi"]])
+
 (defn game-play-content
   "Game play content fragment - used for initial render and HTMX polling updates.
    Returns HTML string with HTMX attributes for auto-refresh when not player's turn."
@@ -394,95 +426,87 @@
             [:h2 "🎉 Game Finished! 🎉"]
             [:p "Winner: " (:name winner-player)]
             [:a.btn {:href "/games"} "Back to Games"]]))
-       [:div.card
-        [:h2 (str "Game: " (:short_code game))]
-        (when direction
-          [:p (str "Direction: " (name direction))])
+       [:div.game-state-zone
+        [:div.game-code-chip (:short_code game)]
         (effect-banner state {:is-my-turn? is-my-turn?
                               :current-player-name (:name current-player)})
-        [:div.top-area
-         [:div
-          [:h3 "Top Card"]
-          (when top-card
-            [:div {:class (str "top-card " (name (:suit top-card)))}
-             (card-display top-card)])]
-         [:div
-          [:h3 "Deck"]
-          [:p (str deck-count " cards")]
-          ;; Draw button next to the deck
-          (when (and is-my-turn? my-player (not game-finished?))
-            (cond
-              ;; Penalty active: show accept-penalty button next to deck
-              has-penalty?
-              [:form.mt-1 {:method "post" :action (str "/games/" (:short_code game) "/accept-penalty")}
-               [:button.btn.btn-danger {:type "submit"}
-                (str "Accept Penalty (Draw " penalty-draw-count ")")]]
+        (when top-card
+          [:div.hero-card-area
+           [:div {:class (str "top-card " (name (:suit top-card)))}
+            (card-display top-card)]])
+        [:p.game-meta
+         (str deck-count " cards in deck")
+         (when direction
+           (str " • " (clojure.string/capitalize (name direction))))]]
 
-              ;; Awaiting answer: draw to answer
-              (and has-awaiting-answer? (not= :cardless (:status my-player)))
-              [:form.mt-1 {:method "post" :action (str "/games/" (:short_code game) "/answer-question")}
-               [:button.btn.btn-primary {:type "submit"} "Draw to Answer"]]
-
-              ;; Cardless (no penalty): MUST draw
-              (= :cardless (:status my-player))
-              [:form.mt-1 {:method "post" :action (str "/games/" (:short_code game) "/draw") :id "draw-form"}
-               [:button.btn.btn-primary {:type "submit"} "Draw Card (Required)"]]
-
-              ;; Normal voluntary draw
-              (and (not has-select-suit?)
-                   (not has-awaiting-answer?))
-              [:form.mt-1 {:method "post" :action (str "/games/" (:short_code game) "/draw") :id "draw-form"}
-               (when (= :kadi (:status my-player))
-                 [:div.maintain-kadi-section
-                  [:label.kadi-toggle
-                   [:input {:type "checkbox" :name "maintain-kadi" :id "maintain-kadi" :checked true}]
-                   [:span.toggle-slider]
-                   [:span.kadi-toggle-text "Stay in Kadi after drawing"]
-                   [:span.kadi-toggle-help {:title "Keep this checked to maintain your Kadi declaration after voluntary draw. Uncheck to exit Kadi status."}
-                    "ℹ️"]]])
-               [:button.btn.btn-secondary {:type "submit"} "Draw Card"]]))]]]
-
-       [:div.player-cards
+       [:div.scoreboard
         (for [[idx p] (map-indexed vector players)]
           (let [is-current (= idx current-player-idx)
                 is-kadi (= :kadi (:status p))
                 is-me (= (:id p) (:id player))
-                hand-count (count (game/get-hand state (:id p)))
-                initial (-> (:name p) first str clojure.string/upper-case)]
-            [:div {:class (str "player-card"
-                               (when is-current " player-card--active")
-                               (when is-kadi " player-card--kadi"))}
-             [:div.player-card__avatar initial]
-             [:div.player-card__name (:name p)]
-             [:div.player-card__count (str hand-count)]
-             [:div.player-card__pills
-              (when is-kadi
-                [:span.player-pill.player-pill--kadi "Kadi"])
-              (when (and is-current is-me)
-                [:span.player-pill.player-pill--turn "your turn"])]]))]
+                hand-count (count (game/get-hand state (:id p)))]
+            [:div {:class (str "scoreboard__row"
+                               (when is-current " scoreboard__row--active")
+                               (when is-kadi " scoreboard__row--kadi"))}
+             [:span.scoreboard__name (:name p)]
+             [:span.scoreboard__cards
+              (for [_ (range hand-count)]
+                [:span.scoreboard__mini-card])]
+             [:span.scoreboard__status
+              (cond
+                (and is-current is-me) "your turn"
+                is-kadi "Kadi"
+                :else (str hand-count " cards"))]]))]
 
        (when my-player
          [:div.card {:id "my-hand"}
-          (if is-my-turn?
-            [:h3.your-turn "Your Turn!"]
-            [:h3 "Your Hand"])
+          [:h3 "Your Hand"]
           (when (and (not is-my-turn?) (not game-finished?))
             [:p.waiting-label (str "Waiting for " (:name current-player) "...")])
 
-          ;; Cardless warning message
-          (when (and is-my-turn? (= :cardless (:status my-player)))
-            [:div.effect-banner.cardless-warning
-             [:p {:style "margin: 0; font-weight: bold;"}
-              "⚠️ You are CARDLESS — you must draw a card first!"]])
+          (cond
+            ;; Cardless: must draw, no hand to show
+            (= :cardless (:status my-player))
+            (when (and is-my-turn? (not game-finished?))
+              [:div.action-area
+               [:div.effect-banner.cardless-warning
+                [:p {:style "margin: 0; font-weight: bold;"}
+                 "⚠️ You are CARDLESS — you must draw a card first!"]]
+               [:div.action-buttons
+                [:form {:method "post" :action (str "/games/" (:short_code game) "/draw") :id "draw-form"
+                        :style "flex: 1;"}
+                 [:button.btn.btn-primary.btn-action {:type "submit"} "Draw Card"]]]])
 
-          ;; Only show play form if NOT cardless
-          (when (not= :cardless (:status my-player))
+            ;; Awaiting answer: draw to answer
+            (and is-my-turn? has-awaiting-answer?)
+            (list
+             [:div.hand
+              (for [card my-hand]
+                [:div {:class (card-class card)}
+                 (card-display card)])]
+             [:div.action-area
+              [:div.action-buttons
+               [:form {:method "post" :action (str "/games/" (:short_code game) "/answer-question")
+                       :style "flex: 1;"}
+                [:button.btn.btn-primary.btn-action {:type "submit"} "Draw to Answer"]]]])
+
+            ;; Suit selection
+            (and is-my-turn? has-select-suit?)
+            (list
+             [:div.hand
+              (for [card my-hand]
+                [:div {:class (card-class card)}
+                 (card-display card)])]
+             (suit-picker (:short_code game)))
+
+            ;; Normal play or penalty blocking
+            :else
             [:form {:method "post" :action (str "/games/" (:short_code game) "/play")
                     :id "play-form"}
              ;; Hidden input to track ordered card IDs
              [:input {:type "hidden" :name "ordered-cards" :id "ordered-cards" :value ""}]
              [:div.hand
-              (for [[idx card] (map-indexed vector my-hand)]
+              (for [card my-hand]
                 [:label
                  [:input {:type "checkbox" :name "cards" :value (cards/card->id card)
                           :style "display: none"
@@ -492,44 +516,31 @@
                  [:div {:class (card-class card)}
                   (card-display card)]])]
 
-             ;; Declare Kadi toggle (only during normal play or penalty blocking, not suit-select/question)
-             (when (and is-my-turn?
-                        (not has-select-suit?)
-                        (not has-awaiting-answer?)
-                        (not game-finished?))
-               [:div.kadi-section
-                [:label.kadi-toggle
-                 [:input {:type "checkbox" :name "declare-kadi" :id "declare-kadi"}]
-                 [:span.toggle-slider]
-                 [:span.kadi-toggle-text "Declare Kadi (required to win)"]
-                 [:span.kadi-toggle-help {:title "Check this box when playing your last card(s) to declare 'Kadi' and attempt to win. You MUST declare to finish the game."}
-                  "ℹ️"]]])
-
-             (when (and is-my-turn?
-                        (not has-select-suit?)
-                        (not has-awaiting-answer?)
-                        (not game-finished?))
-               (cond
-                 ;; Penalty active: show play-to-block inside the play form
-                 has-penalty?
-                 [:div.mt-2
-                  [:button.btn.btn-primary.btn-action {:type "submit"} "Play to Block"]]
-
-                 ;; Normal: just show play button (draw button is separate form below)
-                 :else
-                 [:div.mt-2
-                  [:button.btn.btn-primary.btn-action {:type "submit"} "Play Selected"]]))])
-
-          ;; Separate forms OUTSIDE the play form for special actions
-          ;; Note: Penalty acceptance is available to ALL players (including cardless)
-          (when (and is-my-turn?
-                     (not game-finished?))
-            (cond
-              ;; Suit selection: only for non-cardless players
-              (and has-select-suit? (not= :cardless (:status my-player)))
-              (suit-picker (:short_code game))
-
-              :else nil))])]))))
+             ;; Unified action area
+             (when (and is-my-turn? (not game-finished?))
+               (if has-penalty?
+                 ;; Penalty: block + accept side-by-side
+                 [:div.action-area
+                  [:div.action-buttons
+                   [:button.btn.btn-primary.btn-action-block
+                    {:type "submit" :disabled true :data-penalty "true" :id "play-btn"}
+                    "Select a Card to Block"]
+                   [:button.btn.btn-danger-outline.btn-action-accept
+                    {:type "submit"
+                     :formaction (str "/games/" (:short_code game) "/accept-penalty")}
+                    (str "Accept — Draw " penalty-draw-count)]]
+                  (kadi-toggle-inline)]
+                 ;; Normal: play + draw side-by-side
+                 [:div.action-area
+                  [:div.action-buttons
+                   [:button.btn.btn-primary.btn-action-block
+                    {:type "submit" :id "play-btn"}
+                    "Play Selected"]
+                   [:button.btn.btn-secondary.btn-action-accept
+                    {:type "submit"
+                     :formaction (str "/games/" (:short_code game) "/draw")}
+                    "Draw Card"]]
+                  (kadi-toggle-inline)]))])])]))))
 
 (defn game-play-page
   "Live game page - wraps game-play-content fragment in layout."
