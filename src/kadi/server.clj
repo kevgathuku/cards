@@ -11,13 +11,26 @@
 
 (defonce ^:private server (atom nil))
 
-;; Session secret key - in production, load from environment variable
+(defn derive-session-secret
+  "Derive a 16-byte session secret for Ring cookie-store.
+   Accepts any string >= 16 chars, hashed to exactly 16 bytes via MD5.
+   Returns nil if input is nil or too short."
+  [env-key]
+  (when (and env-key (>= (count env-key) 16))
+    (let [md (java.security.MessageDigest/getInstance "MD5")]
+      (.digest md (.getBytes env-key)))))
+
+;; Session secret key - must be exactly 16 bytes for Ring cookie-store.
+;; In production (ENV=production), SESSION_SECRET must be set.
 (def ^:private session-secret
-  (let [env-key (System/getenv "SESSION_SECRET")]
-    (if (and env-key (>= (count env-key) 16))
-      (.getBytes env-key)
-      ;; Default key for development - 16 bytes
-      (.getBytes "kadi-dev-secret!"))))
+  (let [env-key (System/getenv "SESSION_SECRET")
+        production? (= "production" (System/getenv "ENV"))
+        derived (derive-session-secret env-key)]
+    (cond
+      derived                derived
+      (not production?)      (.getBytes "kadi-dev-secret!")
+      :else                  (throw (ex-info "SESSION_SECRET must be set in production (16+ chars)"
+                                             {:env "production"})))))
 
 (defn app []
   (ring/ring-handler
