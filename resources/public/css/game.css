@@ -1,0 +1,539 @@
+/* =============================================================================
+   Kadi Card Game Styles
+   ============================================================================= */
+
+:root {
+  /* --- Primary: forest green, used for actions, links, active states --- */
+  --primary:          #1c3d2e;
+  --primary-hover:    #153023;
+  --primary-light:    #e8f0ec;
+  --primary-ring:     rgba(28, 61, 46, 0.2);
+
+  /* --- Secondary: gray, used for passive actions, borders, muted text --- */
+  --secondary:        #e5e7eb;
+  --secondary-hover:  #d1d5db;
+  --secondary-text:   #374151;
+  --secondary-muted:  #6b7280;
+
+  /* --- Amber: penalty only — banner + accept button, nothing else --- */
+  --amber:            #f59e0b;
+  --amber-hover:      #d97706;
+  --amber-light:      #fef3c7;
+  --amber-border:     #f59e0b;
+
+  /* --- Danger: alias for amber (penalty) --- */
+  --danger:           var(--amber);
+  --danger-hover:     var(--amber-hover);
+  --danger-dark:      var(--amber);
+  --danger-light:     var(--amber-light);
+
+  /* --- Info: light blue, used for informational banners --- */
+  --info-light:       #eff6ff;
+  --info-border:      #bfdbfe;
+  --info:             #3b82f6;
+  --info-bg:          #dbeafe;
+  --info-text:        #0369a1;
+  --info-bg-light:    #e0f2fe;
+
+  /* --- Neutral: grays for text, borders, backgrounds --- */
+  --neutral-50:       #f3f4f6;
+  --neutral-100:      #e5e7eb;
+  --neutral-300:      #d1d5db;
+  --neutral-500:      #6b7280;
+  --neutral-700:      #374151;
+  --neutral-900:      #1f2937;
+  --neutral-card:     #333;
+
+  /* --- Card suit colors --- */
+  --suit-red:         #dc2626;
+  --suit-black:       #1f2937;
+}
+
+/* --- Reset & Base --- */
+* { box-sizing: border-box; }
+
+body {
+  font-family: system-ui, sans-serif;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+/* --- Flash Messages --- */
+.flash { padding: 0.75rem 1rem; margin-bottom: 1rem; border-radius: 4px; }
+.flash-info { background: var(--info-bg-light); color: var(--info-text); }
+.flash-error { background: var(--danger-light); color: var(--danger); }
+
+/* --- Buttons --- */
+.btn {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 1rem;
+}
+.btn-primary { background: var(--primary); color: white; }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-secondary { background: var(--secondary); color: var(--secondary-text); }
+.btn-secondary:hover { background: var(--secondary-hover); }
+
+.btn-action {
+  width: 100%;
+  padding: 0.75rem 1.5rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #78350f;
+  font-weight: 600;
+  padding: 0.625rem 1.25rem;
+}
+.btn-danger:hover { background: var(--danger-hover); }
+
+.btn-danger-outline {
+  background: transparent;
+  color: var(--danger);
+  border: 2px solid var(--danger);
+  font-weight: 600;
+  padding: 0.625rem 1.25rem;
+}
+.btn-danger-outline:hover {
+  background: var(--danger-light);
+}
+
+/* --- Forms --- */
+input[type=email], input[type=text] {
+  padding: 0.5rem;
+  border: 1px solid var(--neutral-300);
+  border-radius: 4px;
+  font-size: 1rem;
+  width: 100%;
+}
+.form-group { margin-bottom: 1rem; }
+label { display: block; margin-bottom: 0.25rem; font-weight: 500; }
+
+/* --- Card (container) --- */
+.card {
+  border: 1px solid var(--neutral-100);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+.card h2 { margin-top: 0; }
+
+/* --- Navigation --- */
+nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--neutral-100);
+  margin-bottom: 1.5rem;
+}
+nav a { text-decoration: none; color: var(--primary); }
+
+/* --- Game List --- */
+.game-list { list-style: none; padding: 0; }
+.game-list li {
+  padding: 0.75rem;
+  border: 1px solid var(--neutral-100);
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+/* --- Hand & Playing Cards --- */
+.hand { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.playing-card {
+  width: 60px;
+  height: 84px;
+  border: 2px solid var(--neutral-card);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  cursor: pointer;
+  font-size: 1.25rem;
+  transition: transform 0.15s ease, border-color 0.15s, box-shadow 0.15s;
+}
+.playing-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--neutral-500);
+}
+.playing-card.selected,
+input:checked + .playing-card {
+  transform: translateY(-8px);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-ring);
+  background: var(--primary-light);
+}
+.playing-card.hearts, .playing-card.diamonds { color: var(--suit-red); }
+.playing-card.clubs, .playing-card.spades { color: var(--suit-black); }
+
+/* --- Top Card (larger) --- */
+.top-card {
+  width: 100px;
+  height: 140px;
+  font-size: 2rem;
+  border: 3px solid var(--neutral-card);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+}
+.top-card.hearts, .top-card.diamonds { color: var(--suit-red); }
+.top-card.clubs, .top-card.spades { color: var(--suit-black); }
+
+/* --- HTMX Indicators --- */
+.htmx-indicator { display: none; }
+.htmx-request .htmx-indicator { display: inline; }
+.htmx-request.htmx-indicator { display: inline; }
+.loading { opacity: 0.5; }
+
+/* =============================================================================
+   Turn-Based State Styles
+   ============================================================================= */
+
+.game-content.is-waiting .hand {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.waiting-label {
+  text-align: center;
+  color: var(--neutral-500);
+  font-size: 1rem;
+  padding: 0.5rem 0;
+}
+
+/* =============================================================================
+   Scoreboard (Minimal Player Table)
+   ============================================================================= */
+
+.scoreboard {
+  border: 1px solid var(--neutral-100);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.scoreboard__row {
+  display: flex;
+  align-items: center;
+  padding: 0.625rem 1rem;
+  border-bottom: 1px solid var(--neutral-100);
+}
+.scoreboard__row:last-child {
+  border-bottom: none;
+}
+
+.scoreboard__row--active {
+  background: var(--primary);
+  color: white;
+}
+
+.scoreboard__row--kadi .scoreboard__name {
+  font-style: italic;
+}
+.scoreboard__row--active.scoreboard__row--kadi .scoreboard__name {
+  font-style: italic;
+}
+
+.scoreboard__name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  min-width: 5rem;
+  flex-shrink: 0;
+}
+
+.scoreboard__cards {
+  flex: 1;
+  display: flex;
+  justify-content: flex-start;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+
+.scoreboard__mini-card {
+  display: inline-block;
+  width: 10px;
+  height: 14px;
+  background: var(--neutral-300);
+  border-radius: 2px;
+}
+.scoreboard__row--active .scoreboard__mini-card {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.scoreboard__status {
+  font-size: 0.8rem;
+  color: var(--neutral-500);
+  white-space: nowrap;
+  margin-left: 0.75rem;
+}
+.scoreboard__row--active .scoreboard__status {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* =============================================================================
+   Effect Banners
+   ============================================================================= */
+
+.effect-banner {
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+.effect-banner.penalty {
+  background: linear-gradient(135deg, var(--amber-light) 0%, #fde68a 100%);
+  border: 2px solid var(--amber);
+  color: #78350f;
+  font-weight: 600;
+  font-size: 1.05rem;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
+}
+.effect-banner.select-suit { background: var(--primary-light); border: 1px solid var(--primary); }
+.effect-banner.suit-selected { background: var(--info-bg); border: 1px solid var(--info); }
+.effect-banner.awaiting-answer { background: var(--info-light); border: 1px solid var(--info-border); }
+.effect-banner.cardless-warning { background: var(--danger-light); border: 1px solid var(--danger); color: var(--danger-dark); }
+
+/* =============================================================================
+   Declare Kadi Toggle
+   ============================================================================= */
+
+.kadi-section {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: var(--primary-light);
+  border: 1px solid var(--primary);
+  border-radius: 4px;
+}
+
+.kadi-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+}
+
+.kadi-toggle input[type="checkbox"] {
+  display: none;
+}
+
+.kadi-toggle .toggle-slider {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: var(--neutral-300);
+  border-radius: 12px;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.kadi-toggle .toggle-slider::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.kadi-toggle input:checked + .toggle-slider {
+  background: var(--primary);
+}
+
+.kadi-toggle input:checked + .toggle-slider::after {
+  transform: translateX(20px);
+}
+
+.kadi-toggle-text {
+  font-weight: 500;
+}
+
+.kadi-toggle-help {
+  font-size: 0.875rem;
+  color: var(--neutral-500);
+}
+
+/* =============================================================================
+   Unified Action Area
+   ============================================================================= */
+
+.action-area {
+  margin-top: 1rem;
+}
+.action-buttons {
+  display: flex;
+  gap: 0.75rem;
+}
+.btn-action-block {
+  flex: 2;
+  padding: 0.75rem 1.5rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+.btn-action-accept {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+}
+
+/* --- Inline Kadi Toggle (quiet, no background) --- */
+.kadi-toggle-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  margin-top: 0.75rem;
+  padding: 0.25rem 0;
+  color: var(--neutral-500);
+  font-size: 0.875rem;
+}
+
+.kadi-toggle-inline input[type="checkbox"] {
+  display: none;
+}
+
+.toggle-slider-sm {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  background: var(--neutral-300);
+  border-radius: 10px;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.toggle-slider-sm::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+.kadi-toggle-inline input:checked + .toggle-slider-sm {
+  background: var(--primary);
+}
+.kadi-toggle-inline input:checked + .toggle-slider-sm::after {
+  transform: translateX(16px);
+}
+.kadi-toggle-text-sm {
+  font-weight: 500;
+}
+
+/* --- Maintain Kadi Section (draw form) --- */
+.maintain-kadi-section {
+  background: var(--primary-light);
+  border: 1px solid var(--primary);
+  padding: 0.75rem;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+/* =============================================================================
+   Game Finished Banner
+   ============================================================================= */
+
+.game-finished-banner {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+  border: 2px solid var(--primary-hover);
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+.game-finished-banner h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 0.5rem 0;
+}
+.game-finished-banner p {
+  font-size: 1.125rem;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 1rem 0;
+}
+.game-finished-banner .btn {
+  background: white;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* =============================================================================
+   Layout Helpers
+   ============================================================================= */
+
+.flex-row { display: flex; gap: 1rem; align-items: center; }
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.mt-1 { margin-top: 0.5rem; }
+.mt-2 { margin-top: 1rem; }
+.mt-4 { margin-top: 2rem; }
+.mb-2 { margin-bottom: 1rem; }
+.inline { display: inline; }
+
+/* --- Suit Picker --- */
+.suit-picker { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+.suit-picker form { display: inline; }
+
+/* --- Game Code Display --- */
+.game-code {
+  background: var(--neutral-50);
+  padding: 1rem;
+  border-radius: 4px;
+  text-align: center;
+  margin: 1rem 0;
+}
+.game-code code {
+  font-size: 2rem;
+  font-weight: bold;
+  letter-spacing: 0.2em;
+}
+
+/* --- Game State Zone --- */
+.game-state-zone {
+  margin-bottom: 1rem;
+}
+
+.game-code-chip {
+  text-align: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--primary);
+  background: var(--primary-light);
+  display: inline-block;
+  padding: 0.3rem 1rem;
+  border-radius: 999px;
+  margin-bottom: 0.5rem;
+}
+
+.hero-card-area {
+  display: flex;
+  justify-content: center;
+  margin: 1rem 0;
+}
+
+.game-meta {
+  text-align: center;
+  color: var(--neutral-500);
+  font-size: 0.875rem;
+  margin: 0;
+}

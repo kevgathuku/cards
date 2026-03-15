@@ -1,27 +1,46 @@
-```
+```mermaid
 flowchart TD
-    Start[*] --> |init| Lobby
-    Lobby --> |add_player| Lobby
-    Lobby --> |add_player| AwaitingDeck
-    AwaitingDeck --> |add_deck| AwaitingPlayerCards
-    AwaitingPlayerCards --> |deal_player_cards| AwaitingStartCard
-    AwaitingStartCard --> |deal_start_card| Live
-    Live --> |play_valid_hand| Live
-    Live --> |play_ask_card| Ask
-    Ask --> |play_requested_card| Live
-    Ask --> |draw| Pick[awaiting_pick]
-    Ask --> |play_ace| Live
-    Live --> |play_2_or_3| EnforcePick
-    EnforcePick --> |accept| Pick
-    EnforcePick --> |block| Live
-    EnforcePick --> |play_2_or_3| EnforcePick
-    Pick --> |pick_cards| Live
-    Pick --> |block| Live
-    Live --> |play_hand| Kadi
-    Live --> |play_question| Pick
-    Kadi --> |accept_2_or_3| Pick
-    Kadi --> |play_finish_card| End[*]
+    S([*]) -->|game-created| Lobby
+    Lobby -->|join-game| Lobby
+    Lobby -->|"start-game (≥2 players)\ndeals cards + sets starting card"| Live
 
+    subgraph Live ["Status: :live"]
+        Normal["Normal Turn\n(no active effect)"]
+        Penalty["Penalty Active\n(effect: :penalty)"]
+        Suit["Awaiting Suit Select\n(effect: :select-suit)"]
+        Answer["Awaiting Answer\n(effect: :awaiting-answer)"]
+
+        Normal -->|"play 2 or 3\n→ creates :penalty effect"| Penalty
+        Penalty -->|"play matching 2/3\n→ chain / stack penalty"| Penalty
+        Penalty -->|"play Ace\n→ blocks penalty, suit auto-set\nfrom blocked card (no selection needed)"| Normal
+        Penalty -->|"accept-penalty\n→ draw 2 or 3 cards"| Normal
+
+        Normal -->|"play Ace (no active penalty)\n→ Ace player selects suit"| Suit
+        Suit -->|"select-suit"| Normal
+
+        Normal -->|"play Q or 8 (no answer)\n→ next player must draw to answer"| Answer
+        Answer -->|"answer-question\n→ draw 1 card"| Normal
+
+        Normal -->|"play Q or 8 with answer\n(Q/8 + non-Q/8 cards in one play)"| Normal
+        Normal -->|"play K\n→ reverse turn direction"| Normal
+        Normal -->|"play J (one or more)\n→ skip 1+ players"| Normal
+        Normal -->|"play regular card (4-7, 9, 10)"| Normal
+        Normal -->|"draw-card\n→ pass turn"| Normal
+
+        Normal -->|"kadi player plays special card\nas last card → player becomes :cardless\n(must draw-card before playing again)"| Normal
+    end
+
+    Live -->|"kadi player plays non-special card\n(4-7, 9, 10) as last card\n→ win"| Finished([*])
 ```
 
-[![](https://mermaid.ink/img/pako:eNqNk8FuwjAMhl-lynGCy3brYRIanLZJSOw0iiqTuDRqm3RJCkKUd1_SFBo2Vq0nx_78267lE6GSIYlJVsoDzUGZ6GOeiMh-K2Nf64dNNJ0-Ry0X3LTRm9xujz7cmT4GjKV1CUdU_yFmB-CGi90caeHB0DPwzL4Getllv4Bi-jYpCPhchlD2xVLq3ININ5JDbyWu7kBAO1-Xb2fie-xHspaHXIF0DyVnaQ5iDAJd9DozfRlYFwGg8KtBbZD9KnflmIJDGy05LdbQN53W9rW5pwcUR9p5TKVKn9poITKpKDpNzwWOfgmUYm182T-QbSndkoZiv4jxmgFnrcu6BrmRSj_G8kt4Bcbvhrs_zKUIp3FwOOm1zXtIp5LZK9B5v6aFYPY6EkEmpEJVAWf2jE4uLyEmxwoTEluTYQZNaRKSiLNFoTFydRSUxEY1OCFNzcDgnMNOQUXiDEptvci4kerdn2Z3oRNSg_iU8sKcvwEsEkDd?type=png)](https://mermaid.live/edit#pako:eNqNk8FuwjAMhl-lynGCy3brYRIanLZJSOw0iiqTuDRqm3RJCkKUd1_SFBo2Vq0nx_78267lE6GSIYlJVsoDzUGZ6GOeiMh-K2Nf64dNNJ0-Ry0X3LTRm9xujz7cmT4GjKV1CUdU_yFmB-CGi90caeHB0DPwzL4Getllv4Bi-jYpCPhchlD2xVLq3ININ5JDbyWu7kBAO1-Xb2fie-xHspaHXIF0DyVnaQ5iDAJd9DozfRlYFwGg8KtBbZD9KnflmIJDGy05LdbQN53W9rW5pwcUR9p5TKVKn9poITKpKDpNzwWOfgmUYm182T-QbSndkoZiv4jxmgFnrcu6BrmRSj_G8kt4Bcbvhrs_zKUIp3FwOOm1zXtIp5LZK9B5v6aFYPY6EkEmpEJVAWf2jE4uLyEmxwoTEluTYQZNaRKSiLNFoTFydRSUxEY1OCFNzcDgnMNOQUXiDEptvci4kerdn2Z3oRNSg_iU8sKcvwEsEkDd)
+**Notes on game model:**
+
+- **Game statuses**: `:lobby` → `:live` → `:finished` (only 3 top-level states)
+- **Effects** live inside `:live` status — they constrain valid actions, not separate game states
+- **Player statuses** (per-player, not game-level):
+  - `:normal` — regular play
+  - `:kadi` — declared; can win on next valid finish
+  - `:cardless` — played a special card (K/J/Q/8/2/3/A) as their very last card; must draw before playing
+- **Valid combos**: multiple Aces, multiple Jacks, multiple 2s, multiple 3s, multiple Q/8 cards; Kings cannot be combined
+- **Invalid starting cards**: J, 2, 3 (Q, K, A, and regular cards are all valid starting cards)
+- **Win condition**: player must be in `:kadi` status AND empty their hand with a non-special card (4-7, 9, 10)

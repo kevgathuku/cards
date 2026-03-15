@@ -25,41 +25,7 @@
       [:script {:src "https://unpkg.com/htmx.org@2.0.4"
                 :integrity "sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
                 :crossorigin "anonymous"}]
-      ;; Basic styles
-      [:style
-       "* { box-sizing: border-box; }
-        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 1rem; }
-        .flash { padding: 0.75rem 1rem; margin-bottom: 1rem; border-radius: 4px; }
-        .flash-info { background: #e0f2fe; color: #0369a1; }
-        .flash-error { background: #fee2e2; color: #dc2626; }
-        .btn { display: inline-block; padding: 0.5rem 1rem; border: none; border-radius: 4px;
-               cursor: pointer; text-decoration: none; font-size: 1rem; }
-        .btn-primary { background: #2563eb; color: white; }
-        .btn-primary:hover { background: #1d4ed8; }
-        .btn-secondary { background: #e5e7eb; color: #374151; }
-        .btn-secondary:hover { background: #d1d5db; }
-        input[type=email], input[type=text] {
-          padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 4px; font-size: 1rem; width: 100%; }
-        .form-group { margin-bottom: 1rem; }
-        label { display: block; margin-bottom: 0.25rem; font-weight: 500; }
-        .card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; }
-        .card h2 { margin-top: 0; }
-        nav { display: flex; justify-content: space-between; align-items: center;
-              padding: 1rem 0; border-bottom: 1px solid #e5e7eb; margin-bottom: 1.5rem; }
-        nav a { text-decoration: none; color: #2563eb; }
-        .game-list { list-style: none; padding: 0; }
-        .game-list li { padding: 0.75rem; border: 1px solid #e5e7eb; border-radius: 4px; margin-bottom: 0.5rem; }
-        .hand { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-        .playing-card { width: 60px; height: 84px; border: 2px solid #333; border-radius: 4px;
-                        display: flex; align-items: center; justify-content: center;
-                        background: white; cursor: pointer; font-size: 1.25rem; }
-        .playing-card.selected, input:checked + .playing-card { border-color: #2563eb; background: #e0f2fe; }
-        .playing-card.hearts, .playing-card.diamonds { color: #dc2626; }
-        .playing-card.clubs, .playing-card.spades { color: #1f2937; }
-         .htmx-indicator { display: none; }
-         .htmx-request .htmx-indicator { display: inline; }
-         .htmx-request.htmx-indicator { display: inline; }
-         .loading { opacity: 0.5; }"]
+      [:link {:rel "stylesheet" :href "/css/game.css"}]
       ;; Card selection order tracking
       [:script (raw-string
                 "document.addEventListener('DOMContentLoaded', function() {
@@ -73,11 +39,34 @@
              }
            }
            
+           const suitSymbols = {hearts:'♥', diamonds:'♦', clubs:'♣', spades:'♠'};
+
+           function cardLabel(cardId) {
+             const parts = cardId.split('-');
+             const rank = parts[0];
+             const suit = parts[1];
+             return rank + (suitSymbols[suit] || '');
+           }
+
+           function updatePlayButton() {
+             const btn = document.getElementById('play-btn');
+             if (!btn) return;
+             const isPenalty = btn.hasAttribute('data-penalty');
+             if (selectedCards.length === 0) {
+               btn.textContent = isPenalty ? 'Select a Card to Block' : 'Play Selected';
+               btn.disabled = isPenalty;
+             } else {
+               const labels = selectedCards.map(cardLabel).join(', ');
+               btn.textContent = isPenalty ? 'Play ' + labels + ' to Block' : 'Play ' + labels;
+               btn.disabled = false;
+             }
+           }
+
            // Listen for checkbox changes
            document.addEventListener('change', function(e) {
              if (e.target.classList.contains('card-checkbox')) {
                const cardId = e.target.dataset.cardId;
-               
+
                if (e.target.checked) {
                  // Add to selection order if not already there
                  if (!selectedCards.includes(cardId)) {
@@ -90,8 +79,9 @@
                    selectedCards.splice(index, 1);
                  }
                }
-               
+
                updateOrderedCardsInput();
+               updatePlayButton();
              }
            });
            
@@ -104,7 +94,7 @@
          });")]]
      [:body
       [:nav
-       [:div {:style "display: flex; gap: 1rem; align-items: center;"}
+       [:div.flex-row
         [:a {:href "/"} [:strong "Kadi"]]
         (when player
           (list
@@ -113,7 +103,7 @@
        (if player
          [:div
           [:span (str "Hi, " (:name player) " ")]
-          [:form {:method "post" :action "/auth/signout" :style "display:inline"}
+          [:form {:method "post" :action "/auth/signout" :class "inline"}
            [:button.btn.btn-secondary {:type "submit"} "Sign out"]]]
          [:a.btn.btn-primary {:href "/auth/signin"} "Sign in"])]
       (when flash
@@ -190,7 +180,7 @@
           [:div.card
            [:h2 "Welcome to Kadi!"]
            [:p "A multiplayer card game."]
-           [:div {:style "display: flex; gap: 1rem; align-items: center;"}
+           [:div.flex-row
             [:form {:method "post" :action "/games"}
              [:button.btn.btn-primary {:type "submit"} "Create Game"]]
             [:a.btn.btn-secondary {:href "/games"} "My Games"]]]
@@ -246,7 +236,7 @@
              :hx-trigger "every 3s"
              :hx-swap "outerHTML"}
        [:div.card
-        [:div {:style "display: flex; justify-content: space-between; align-items: center;"}
+        [:div.flex-between
          [:h3 "Players in this game"]
          [:button.btn.btn-secondary
           {:hx-get (str "/games/" short-code "/lobby-status")
@@ -277,16 +267,16 @@
   [{:keys [player games finished-games flash]}]
   (layout {:title "Games" :player player :flash flash}
           ;; Active games
-          [:div {:style "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;"}
+          [:div.flex-between.mb-2
            [:h2 {:style "margin: 0;"} "Active Games"]
            [:a.btn.btn-primary {:href "/join"} "Join with Code"]]
           [:div.card
-           [:form {:method "post" :action "/games" :style "margin-bottom: 1rem;"}
+           [:form {:method "post" :action "/games" :class "mb-2"}
             [:button.btn.btn-primary {:type "submit"} "Create New Game"]]
            (if (seq games)
              [:ul.game-list
               (for [game games]
-                [:li {:style "display: flex; justify-content: space-between; align-items: center;"}
+                [:li.flex-between
                  [:span (str "Game " (:short_code game)
                              " (" (count (get-in game [:state :players])) " players)"
                              (when-let [status (get-in game [:state :status])]
@@ -296,7 +286,7 @@
           ;; Finished games
           (when (seq finished-games)
             (list
-             [:div {:style "margin-top: 2rem; margin-bottom: 1rem;"}
+             [:div.mt-4.mb-2
               [:h2 {:style "margin: 0;"} "Past Games"]]
              [:div.card
               [:ul.game-list
@@ -304,7 +294,7 @@
                  (let [winner-id (get-in game [:state :winner])
                        players (get-in game [:state :players])
                        winner-name (some #(when (= (:id %) winner-id) (:name %)) players)]
-                   [:li {:style "display: flex; justify-content: space-between; align-items: center;"}
+                   [:li.flex-between
                     [:span (str "Game " (:short_code game)
                                 " (" (count players) " players)"
                                 (when winner-name (str " - Won by " winner-name)))]
@@ -317,9 +307,8 @@
           [:div.card
            [:h2 "Game Lobby"]
            [:p "Share this code with friends to let them join:"]
-           [:div {:style "background: #f3f4f6; padding: 1rem; border-radius: 4px; text-align: center; margin: 1rem 0;"}
-            [:code {:style "font-size: 2rem; font-weight: bold; letter-spacing: 0.2em;"}
-             (:short_code game)]]]
+           [:div.game-code
+            [:code (:short_code game)]]]
           ;; Use the fragment directly in the page so refresh updates everything
           (raw-string (lobby-status-fragment {:player player :game game}))))
 
@@ -355,13 +344,13 @@
       penalty
       (let [penalty-type (name (:penalty-type penalty))
             count (case (:penalty-type penalty) :two 2 :three 3 0)]
-        [:div {:style "background: #fee2e2; border: 1px solid #dc2626; padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 0.5rem;"}
+        [:div.effect-banner.penalty
          (if is-my-turn?
            (str "⚠️ Penalty active (" count " cards)! Play " penalty-type " to block, or accept.")
            (str "⚠️ Penalty active (" count " cards). Waiting for " current-player-name "."))])
 
       select-suit
-      [:div {:style "background: #fef3c7; border: 1px solid #fbbf24; padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 0.5rem;"}
+      [:div.effect-banner.select-suit
        (if is-my-turn?
          "Ace played! Select a suit below."
          (str "Waiting for " current-player-name " to select a suit."))]
@@ -369,11 +358,11 @@
       suit-selected
       (let [required-suit (:suit suit-selected)
             suit-display (str (suit-symbol required-suit) " " (clojure.string/capitalize (name required-suit)))]
-        [:div {:style "background: #dbeafe; border: 1px solid #3b82f6; padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 0.5rem;"}
+        [:div.effect-banner.suit-selected
          (str "🎴 Required suit: " suit-display)])
 
       awaiting-answer
-      [:div {:style "background: #eff6ff; border: 1px solid #bfdbfe; padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 0.5rem;"}
+      [:div.effect-banner.awaiting-answer
        (if is-my-turn?
          "Question asked! You must draw to answer."
          (str "Question asked! Waiting for " current-player-name " to draw."))])))
@@ -381,14 +370,22 @@
 (defn- suit-picker
   "Render suit selection buttons."
   [short-code]
-  [:div {:style "margin-top: 1rem;"}
+  [:div.mt-2
    [:p {:style "font-weight: 500;"} "Select a suit:"]
-   [:div {:style "display: flex; gap: 0.5rem; margin-top: 0.5rem;"}
+   [:div.suit-picker
     (for [suit [:hearts :diamonds :clubs :spades]]
-      [:form {:method "post" :action (str "/games/" short-code "/select-suit") :style "display: inline;"}
+      [:form {:method "post" :action (str "/games/" short-code "/select-suit")}
        [:input {:type "hidden" :name "suit" :value (name suit)}]
        [:button.btn.btn-secondary {:type "submit"}
         (str (suit-symbol suit) " " (clojure.string/capitalize (name suit)))]])]])
+
+(defn- kadi-toggle-inline
+  "Quiet inline Kadi toggle - no yellow background."
+  []
+  [:label.kadi-toggle-inline
+   [:input {:type "checkbox" :name "declare-kadi" :id "declare-kadi"}]
+   [:span.toggle-slider-sm]
+   [:span.kadi-toggle-text-sm "Declare Kadi"]])
 
 (defn game-play-content
   "Game play content fragment - used for initial render and HTMX polling updates.
@@ -416,99 +413,100 @@
     (str
      (h/html
       [:div {:id "game-content"
+             :class (str "game-content"
+                         (when (and is-my-turn? (not game-finished?)) " is-active-turn")
+                         (when (and (not is-my-turn?) (not game-finished?)) " is-waiting"))
              :hx-get (when should-poll? (str "/games/" (:short_code game) "/state"))
              :hx-trigger (when should-poll? "every 2s")
              :hx-swap "outerHTML"}
        ;; Game finished banner
        (when game-finished?
          (let [winner-player (first (filter #(= (:id %) (:winner state)) players))]
-           [:div {:style "background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: 2px solid #047857; padding: 1.5rem; border-radius: 0.5rem; margin-bottom: 1rem; text-align: center;"}
-            [:p {:style "font-size: 1.5rem; font-weight: 700; color: white; margin: 0 0 0.5rem 0;"}
-             "🎉 Game Finished! 🎉"]
-            [:p {:style "font-size: 1.125rem; color: #d1fae5; margin: 0 0 1rem 0;"}
-             "Winner: " (:name winner-player)]
-            [:a.btn.btn-secondary {:href "/games" :style "background: white; color: #047857; font-weight: 600;"}
-             "Back to Games"]]))
-       [:div.card
-        [:h2 (str "Game: " (:short_code game))]
-        (when direction
-          [:p (str "Direction: " (name direction))])
+           [:div.game-finished-banner
+            [:h2 "🎉 Game Finished! 🎉"]
+            [:p "Winner: " (:name winner-player)]
+            [:a.btn {:href "/games"} "Back to Games"]]))
+       [:div.game-state-zone
+        [:div.game-code-chip (:short_code game)]
         (effect-banner state {:is-my-turn? is-my-turn?
                               :current-player-name (:name current-player)})
-        [:div {:style "display: flex; gap: 2rem; align-items: flex-start;"}
-         [:div
-          [:h3 "Top Card"]
-          (when top-card
-            [:div {:class (card-class top-card)}
-             (card-display top-card)])]
-         [:div
-          [:h3 "Deck"]
-          [:p (str deck-count " cards")]
-          ;; Draw button next to the deck
-          (when (and is-my-turn? my-player (not game-finished?))
-            (cond
-              ;; Penalty active: show accept-penalty button next to deck
-              has-penalty?
-              [:form {:method "post" :action (str "/games/" (:short_code game) "/accept-penalty") :style "margin-top: 0.5rem;"}
-               [:button.btn.btn-secondary {:type "submit"}
-                (str "Accept Penalty (Draw " penalty-draw-count ")")]]
+        (when top-card
+          [:div.hero-card-area
+           [:div {:class (str "top-card " (name (:suit top-card)))}
+            (card-display top-card)]])
+        [:p.game-meta
+         (str deck-count " cards in deck")
+         (when direction
+           (str " • " (clojure.string/capitalize (name direction))))]]
 
-              ;; Awaiting answer: draw to answer
-              (and has-awaiting-answer? (not= :cardless (:status my-player)))
-              [:form {:method "post" :action (str "/games/" (:short_code game) "/answer-question") :style "margin-top: 0.5rem;"}
-               [:button.btn.btn-primary {:type "submit"} "Draw to Answer"]]
-
-              ;; Cardless (no penalty): MUST draw
-              (= :cardless (:status my-player))
-              [:form {:method "post" :action (str "/games/" (:short_code game) "/draw") :id "draw-form" :style "margin-top: 0.5rem;"}
-               [:button.btn.btn-primary {:type "submit"} "Draw Card (Required)"]]
-
-              ;; Normal voluntary draw
-              (and (not has-select-suit?)
-                   (not has-awaiting-answer?))
-              [:form {:method "post" :action (str "/games/" (:short_code game) "/draw") :id "draw-form" :style "margin-top: 0.5rem;"}
-               (when (= :kadi (:status my-player))
-                 [:div {:style "background: #fef3c7; border: 1px solid #fbbf24; padding: 0.75rem; border-radius: 4px; margin-bottom: 0.5rem;"}
-                  [:label {:style "display: flex; align-items: center; gap: 0.5rem; cursor: pointer;"}
-                   [:input {:type "checkbox" :name "maintain-kadi" :id "maintain-kadi" :checked true}]
-                   [:span {:style "font-weight: 500; font-size: 0.875rem;"}
-                    "Stay in Kadi after drawing"]
-                   [:span {:style "font-size: 0.75rem; color: #78350f;" :title "Keep this checked to maintain your Kadi declaration after voluntary draw. Uncheck to exit Kadi status."}
-                    "ℹ️"]]])
-               [:button.btn.btn-secondary {:type "submit"} "Draw Card"]]))]]]
-
-       [:div.card
-        [:h3 "Players"]
-        [:ul.game-list
-         (for [[idx p] (map-indexed vector players)]
-           (let [is-current (= idx current-player-idx)
-                 status-text (cond
-                               (= :kadi (:status p)) " 🎯 KADI"
-                               (= :cardless (:status p)) " ⚠️ CARDLESS (must draw)"
-                               :else "")]
-             [:li {:style (when is-current "font-weight: bold; background: #fef3c7;")}
-              (str (:name p) " - " (count (game/get-hand state (:id p))) " cards"
-                   (when is-current " (current turn)")
-                   status-text)]))]]
+       [:div.scoreboard
+        (for [[idx p] (map-indexed vector players)]
+          (let [is-current (= idx current-player-idx)
+                is-kadi (= :kadi (:status p))
+                is-me (= (:id p) (:id player))
+                hand-count (count (game/get-hand state (:id p)))]
+            [:div {:class (str "scoreboard__row"
+                               (when is-current " scoreboard__row--active")
+                               (when is-kadi " scoreboard__row--kadi"))}
+             [:span.scoreboard__name (:name p)]
+             [:span.scoreboard__cards
+              (for [_ (range hand-count)]
+                [:span.scoreboard__mini-card])]
+             [:span.scoreboard__status
+              (cond
+                (and is-current is-me) "your turn"
+                is-kadi "Kadi"
+                :else (str hand-count " cards"))]]))]
 
        (when my-player
          [:div.card {:id "my-hand"}
-          [:h3 (if is-my-turn? "Your Turn!" "Your Hand")]
+          [:h3 "Your Hand"]
+          (when (and (not is-my-turn?) (not game-finished?))
+            [:p.waiting-label (str "Waiting for " (:name current-player) "...")])
 
-          ;; Cardless warning message
-          (when (and is-my-turn? (= :cardless (:status my-player)))
-            [:div {:style "background: #fee2e2; border: 1px solid #dc2626; padding: 1rem; border-radius: 4px; margin-bottom: 1rem; color: #991b1b;"}
-             [:p {:style "margin: 0; font-weight: bold;"}
-              "⚠️ You are CARDLESS — you must draw a card first!"]])
+          (cond
+            ;; Cardless: must draw, no hand to show
+            (= :cardless (:status my-player))
+            (when (and is-my-turn? (not game-finished?))
+              [:div.action-area
+               [:div.effect-banner.cardless-warning
+                [:p {:style "margin: 0; font-weight: bold;"}
+                 "⚠️ You are CARDLESS — you must draw a card first!"]]
+               [:div.action-buttons
+                [:form {:method "post" :action (str "/games/" (:short_code game) "/draw") :id "draw-form"
+                        :style "flex: 1;"}
+                 [:button.btn.btn-primary.btn-action {:type "submit"} "Draw Card"]]]])
 
-          ;; Only show play form if NOT cardless
-          (when (not= :cardless (:status my-player))
+            ;; Awaiting answer: draw to answer
+            (and is-my-turn? has-awaiting-answer?)
+            (list
+             [:div.hand
+              (for [card my-hand]
+                [:div {:class (card-class card)}
+                 (card-display card)])]
+             [:div.action-area
+              [:div.action-buttons
+               [:form {:method "post" :action (str "/games/" (:short_code game) "/answer-question")
+                       :style "flex: 1;"}
+                [:button.btn.btn-primary.btn-action {:type "submit"} "Draw to Answer"]]]])
+
+            ;; Suit selection
+            (and is-my-turn? has-select-suit?)
+            (list
+             [:div.hand
+              (for [card my-hand]
+                [:div {:class (card-class card)}
+                 (card-display card)])]
+             (suit-picker (:short_code game)))
+
+            ;; Normal play or penalty blocking
+            :else
             [:form {:method "post" :action (str "/games/" (:short_code game) "/play")
                     :id "play-form"}
              ;; Hidden input to track ordered card IDs
              [:input {:type "hidden" :name "ordered-cards" :id "ordered-cards" :value ""}]
              [:div.hand
-              (for [[idx card] (map-indexed vector my-hand)]
+              (for [card my-hand]
                 [:label
                  [:input {:type "checkbox" :name "cards" :value (cards/card->id card)
                           :style "display: none"
@@ -518,44 +516,31 @@
                  [:div {:class (card-class card)}
                   (card-display card)]])]
 
-             ;; Declare Kadi checkbox (only during normal play or penalty blocking, not suit-select/question)
-             (when (and is-my-turn?
-                        (not has-select-suit?)
-                        (not has-awaiting-answer?)
-                        (not game-finished?))
-               [:div {:style "background: #fef3c7; border: 1px solid #fbbf24; padding: 0.75rem; border-radius: 4px; margin-top: 1rem;"}
-                [:label {:style "display: flex; align-items: center; gap: 0.5rem; cursor: pointer;"}
-                 [:input {:type "checkbox" :name "declare-kadi" :id "declare-kadi"}]
-                 [:span {:style "font-weight: 500;"}
-                  "Declare Kadi (required to win)"]
-                 [:span {:style "font-size: 0.875rem; color: #78350f;" :title "Check this box when playing your last card(s) to declare 'Kadi' and attempt to win. You MUST declare to finish the game."}
-                  "ℹ️"]]])
-
-             (when (and is-my-turn?
-                        (not has-select-suit?)
-                        (not has-awaiting-answer?)
-                        (not game-finished?))
-               (cond
-                 ;; Penalty active: show play-to-block inside the play form
-                 has-penalty?
-                 [:div {:style "margin-top: 1rem; display: flex; gap: 0.5rem;"}
-                  [:button.btn.btn-primary {:type "submit"} "Play to Block"]]
-
-                 ;; Normal: just show play button (draw button is separate form below)
-                 :else
-                 [:div {:style "margin-top: 1rem;"}
-                  [:button.btn.btn-primary {:type "submit"} "Play Selected"]]))])
-
-          ;; Separate forms OUTSIDE the play form for special actions
-          ;; Note: Penalty acceptance is available to ALL players (including cardless)
-          (when (and is-my-turn?
-                     (not game-finished?))
-            (cond
-              ;; Suit selection: only for non-cardless players
-              (and has-select-suit? (not= :cardless (:status my-player)))
-              (suit-picker (:short_code game))
-
-              :else nil))])]))))
+             ;; Unified action area
+             (when (and is-my-turn? (not game-finished?))
+               (if has-penalty?
+                 ;; Penalty: block + accept side-by-side
+                 [:div.action-area
+                  [:div.action-buttons
+                   [:button.btn.btn-primary.btn-action-block
+                    {:type "submit" :disabled true :data-penalty "true" :id "play-btn"}
+                    "Select a Card to Block"]
+                   [:button.btn.btn-danger-outline.btn-action-accept
+                    {:type "submit"
+                     :formaction (str "/games/" (:short_code game) "/accept-penalty")}
+                    (str "Accept — Draw " penalty-draw-count)]]
+                  (kadi-toggle-inline)]
+                 ;; Normal: play + draw side-by-side
+                 [:div.action-area
+                  [:div.action-buttons
+                   [:button.btn.btn-primary.btn-action-block
+                    {:type "submit" :id "play-btn"}
+                    "Play Selected"]
+                   [:button.btn.btn-secondary.btn-action-accept
+                    {:type "submit"
+                     :formaction (str "/games/" (:short_code game) "/draw")}
+                    "Draw Card"]]
+                  (kadi-toggle-inline)]))])])]))))
 
 (defn game-play-page
   "Live game page - wraps game-play-content fragment in layout."

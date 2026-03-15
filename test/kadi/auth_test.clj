@@ -192,12 +192,17 @@
       (is (nil? (auth/verify-token! "used-token"))))))
 
 (deftest send-signin-email!-test
-  (testing "prints sign-in link in dev mode"
-    (let [output (with-out-str
-                   (auth/send-signin-email! {:email "dev@test.com" :token "tok123"}))]
-      (is (.contains output "SIGN-IN LINK"))
-      (is (.contains output "Email: dev@test.com"))
-      (is (.contains output "/auth/verify/tok123")))))
+  (testing "logs sign-in link in dev mode"
+    (let [log-messages (atom [])
+          orig-log* clojure.tools.logging/log*]
+      (with-redefs [clojure.tools.logging/log* (fn [logger level throwable message]
+                                                 (swap! log-messages conj message)
+                                                 (orig-log* logger level throwable message))]
+        (auth/send-signin-email! {:email "dev@test.com" :token "tok123"}))
+      (let [output (clojure.string/join "\n" @log-messages)]
+        (is (.contains output "SIGN-IN LINK"))
+        (is (.contains output "Email: dev@test.com"))
+        (is (.contains output "/auth/verify/tok123"))))))
 
 (deftest current-player-test
   (testing "returns player when session has player-id"

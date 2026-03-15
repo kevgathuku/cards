@@ -128,7 +128,7 @@
         is-dev (dev-mode?)]
     (log/info "Sending sign-in email to" email "dev-mode?" is-dev)
     (if is-dev
-      (printf "\n== SIGN-IN LINK (dev) ==\nEmail: %s\nURL:   %s\n\n" email url)
+      (log/info (str "\n\n== SIGN-IN LINK (dev) ==\nEmail: " email "\nURL:   " url "\n"))
       (let [html (str "<p>Click the link below to sign in to Kadi:</p>"
                       "<p><a href=\"" url "\">" url "</a></p>"
                       "<p>This link expires in 30 minutes.</p>")]
