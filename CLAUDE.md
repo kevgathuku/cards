@@ -203,6 +203,7 @@ Tests are pure - no database setup required:
 
 ### Code Changes
 
+- Default to TDD when fixing bugs — write a failing test first, then fix
 - Game logic changes go in `kadi.game` or `kadi.validation`
 - Keep side effects in `kadi.db` and `kadi.handlers`
 - Run tests after changes: `clj -M:test`

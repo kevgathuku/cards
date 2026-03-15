@@ -1,0 +1,12 @@
+services:
+  kadi:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - kadi-data:/app/data
+    environment:
+      - DATABASE_PATH=data/kadi.db
+
+volumes:
+  kadi-data:

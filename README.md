@@ -37,12 +37,15 @@ Visit [`localhost:3000`](http://localhost:3000) in your browser.
 ### Docker
 
 ```bash
-# Build the image
-docker build -t kadi .
+# Using docker compose (recommended — handles volume and env correctly)
+docker compose up --build
 
-# Run the container (with persistent database)
-docker run -p 3000:3000 -v $(pwd)/kadi.db:/app/kadi.db kadi
+# Or manually:
+docker build -t kadi .
+docker run -p 3000:3000 -v kadi-data:/app/data kadi
 ```
+
+The database is stored at `/app/data/kadi.db` inside the container. The named volume `kadi-data` persists across container restarts and rebuilds.
 
 ### REPL Development
 
