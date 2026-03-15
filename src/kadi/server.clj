@@ -7,6 +7,7 @@
             [ring.middleware.session.cookie :refer [cookie-store]]
             [ring.middleware.flash :refer [wrap-flash]]
             [ring.middleware.resource :refer [wrap-resource]]
+            [ring.middleware.content-type :refer [wrap-content-type]]
             [reitit.ring :as ring]
             [kadi.routes :as routes]))
 
@@ -53,6 +54,7 @@
                                wrap-params
                                wrap-flash
                                (wrap-resource "public")
+                               wrap-content-type
                                (wrap-session {:store (cookie-store {:key session-secret})
                                               :cookie-attrs {:http-only true
                                                              :same-site :lax
