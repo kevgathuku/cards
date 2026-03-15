@@ -1,4 +1,4 @@
-FROM cimg/clojure:1.11.2-openjdk-21.0
+FROM clojure:temurin-21-tools-deps
 
 WORKDIR /app
 
