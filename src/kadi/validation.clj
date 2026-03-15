@@ -72,24 +72,27 @@
         blocked-card-rank (:blocked-card-rank suit-effect)
         ;; Check if this is a penalty-blocked scenario
         ;; (Ace blocked a penalty, setting action-suit to blocked card's suit)
-        penalty-blocked? (and action-suit 
-                             (cards/ace? top-card)
-                             blocked-card-rank)]
+        penalty-blocked? (and action-suit
+                              (cards/ace? top-card)
+                              blocked-card-rank)]
     (cond
-      ;; Aces always match
+      ;; Playing an Ace — Aces can be played on any card
       (cards/ace? first-card) true
-      
+
       ;; With action-suit from Ace blocking penalty:
       ;; Allow suit match OR rank match with the BLOCKED card rank (2 blocks 2, 3 blocks 3)
       penalty-blocked?
       (or (= (:suit first-card) action-suit)
           (= (:rank first-card) blocked-card-rank))
-      
+
       ;; With action-suit from normal Ace play:
       ;; ALL cards must match suit (no bypass)
       action-suit
       (= (:suit first-card) action-suit)
-      
+
+      ;; Ace on top with no action-suit (e.g. starting card) — any card can follow an Ace
+      (cards/ace? top-card) true
+
       ;; Otherwise standard matching
       :else (cards/matches? first-card top-card))))
 

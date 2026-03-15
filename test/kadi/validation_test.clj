@@ -134,7 +134,7 @@
                                :hand [(cards/make-card :hearts "5") (cards/make-card :clubs "A")]}
                               {:id 2 :name "Bob" :status :normal
                                :hand [(cards/make-card :diamonds "7")]}]
-                    :current-player-index 0 :direction :clockwise 
+                    :current-player-index 0 :direction :clockwise
                     :zones {:deck [(cards/make-card :spades "10")]
                             :played-stack [(cards/make-card :hearts "9")]
                             :hands {1 [(cards/make-card :hearts "5") (cards/make-card :clubs "A")]
@@ -192,7 +192,7 @@
                                       (cards/make-card :hearts "K")]}
                               {:id 2 :name "Bob" :status :normal
                                :hand [(cards/make-card :diamonds "7")]}]
-                    :current-player-index 0 :direction :clockwise 
+                    :current-player-index 0 :direction :clockwise
                     :zones {:deck [(cards/make-card :spades "10")]
                             :played-stack [(cards/make-card :hearts "9")]
                             :hands {1 [(cards/make-card :hearts "Q") (cards/make-card :hearts "5")
@@ -276,7 +276,7 @@
   (testing "Bug #1: validate-play should work with hands in :zones (no :hand on player)"
     (let [state {:status :live
                  :players [{:id 1 :name "Alice" :status :normal}]
-                 :current-player-index 0 :direction :clockwise 
+                 :current-player-index 0 :direction :clockwise
                  :zones {:deck []
                          :played-stack [(cards/make-card :hearts "9")]
                          :hands {1 [(cards/make-card :hearts "5")]}}
@@ -287,7 +287,7 @@
   (testing "Bug #2: action-suit as string should work (from JSON database)"
     (let [state {:status :live
                  :players [{:id 1 :name "Alice" :status :normal}]
-                 :current-player-index 0 :direction :clockwise 
+                 :current-player-index 0 :direction :clockwise
                  :zones {:deck []
                          :played-stack [(cards/make-card :spades "A")]
                          :hands {1 [(cards/make-card :diamonds "5")]}}
@@ -298,21 +298,21 @@
   (testing "Bug #1 + Bug #2: Combined - 8+2 with string suit and zones hands"
     (let [state {:status :live
                  :players [{:id 1 :name "Alice" :status :normal}]
-                 :current-player-index 0 :direction :clockwise 
+                 :current-player-index 0 :direction :clockwise
                  :zones {:deck []
                          :played-stack [(cards/make-card :spades "A")]
-                         :hands {1 [(cards/make-card :diamonds "8") 
+                         :hands {1 [(cards/make-card :diamonds "8")
                                     (cards/make-card :diamonds "2")]}}
                  :effects [{:type :suit-selected :suit "diamonds"}]}
-          result (validation/validate-play state 1 
-                   [(cards/make-card :diamonds "8") 
-                    (cards/make-card :diamonds "2")])]
+          result (validation/validate-play state 1
+                                           [(cards/make-card :diamonds "8")
+                                            (cards/make-card :diamonds "2")])]
       (is (:valid? result) "8+2 should work with string suit and zones hands")))
 
   (testing "action-suit as keyword still works (backward compat)"
     (let [state {:status :live
                  :players [{:id 1 :name "Alice" :status :normal}]
-                 :current-player-index 0 :direction :clockwise 
+                 :current-player-index 0 :direction :clockwise
                  :zones {:deck []
                          :played-stack [(cards/make-card :spades "A")]
                          :hands {1 [(cards/make-card :diamonds "5")]}}
@@ -325,21 +325,21 @@
     (let [;; Simulates actual game state from DB after JSON deserialization
           state {:status :live
                  :players [{:id 2 :name "mo" :status :normal}
-                          {:id 1 :name "kevin" :status :normal}]
-                 :current-player-index 0 :direction :clockwise 
+                           {:id 1 :name "kevin" :status :normal}]
+                 :current-player-index 0 :direction :clockwise
                  :zones {:deck [(cards/make-card :spades "8")]
                          :played-stack [(cards/make-card :spades "A")]
                          :hands {2 [(cards/make-card :diamonds "J")
                                     (cards/make-card :diamonds "8")
                                     (cards/make-card :diamonds "2")
                                     (cards/make-card :hearts "A")]
-                                1 [(cards/make-card :clubs "J")]}}
+                                 1 [(cards/make-card :clubs "J")]}}
                  :effects [{:type :suit-selected :suit "diamonds"}]}
           ;; Player 2 (mo) tries to play 8-diamonds + 2-diamonds
           result (validation/validate-play state 2
-                   [(cards/make-card :diamonds "8")
-                    (cards/make-card :diamonds "2")])]
-      (is (:valid? result) 
+                                           [(cards/make-card :diamonds "8")
+                                            (cards/make-card :diamonds "2")])]
+      (is (:valid? result)
           "8-diamonds + 2-diamonds should be valid with suit-selected diamonds"))))
 
 ;; =============================================================================
@@ -350,12 +350,12 @@
   (testing "cardless player's play attempt is rejected"
     (let [state {:status :live
                  :players [{:id 1 :name "Alice" :status :cardless}
-                          {:id 2 :name "Bob" :status :normal}]
-                 :current-player-index 0 :direction :clockwise 
+                           {:id 2 :name "Bob" :status :normal}]
+                 :current-player-index 0 :direction :clockwise
                  :zones {:deck [(cards/make-card :spades "10")]
                          :played-stack [(cards/make-card :hearts "9")]
                          :hands {1 [(cards/make-card :hearts "5")]
-                                2 [(cards/make-card :diamonds "7")]}}
+                                 2 [(cards/make-card :diamonds "7")]}}
                  :effects []}
           result (validation/validate-play state 1 [(cards/make-card :hearts "5")])]
       (is (not (:valid? result)) "Cardless player should not be able to play")
@@ -366,12 +366,52 @@
   (testing "player is no longer cardless after drawing"
     (let [state {:status :live
                  :players [{:id 1 :name "Alice" :status :normal}
-                          {:id 2 :name "Bob" :status :normal}]
-                 :current-player-index 0 :direction :clockwise 
+                           {:id 2 :name "Bob" :status :normal}]
+                 :current-player-index 0 :direction :clockwise
                  :zones {:deck [(cards/make-card :spades "10")]
                          :played-stack [(cards/make-card :hearts "9")]
                          :hands {1 [(cards/make-card :hearts "5")]
-                                2 [(cards/make-card :diamonds "7")]}}
+                                 2 [(cards/make-card :diamonds "7")]}}
                  :effects []}
           result (validation/validate-play state 1 [(cards/make-card :hearts "5")])]
       (is (:valid? result) "Normal player can play cards"))))
+
+;; =============================================================================
+;; Ace as Starting Card Tests
+;; =============================================================================
+
+(deftest ace-starting-card-any-card-playable
+  (testing "any card can be played when Ace is the starting card (no action-suit)"
+    (let [state {:status :live
+                 :players [{:id 1 :name "Alice" :status :normal}
+                           {:id 2 :name "Bob" :status :normal}]
+                 :current-player-index 0 :direction :clockwise
+                 :zones {:deck [(cards/make-card :spades "10")]
+                         :played-stack [(cards/make-card :hearts "A")]
+                         :hands {1 [(cards/make-card :clubs "J")
+                                    (cards/make-card :diamonds "7")
+                                    (cards/make-card :spades "4")]
+                                 2 [(cards/make-card :diamonds "5")]}}
+                 :effects []}]
+      (testing "J clubs on A hearts - different suit and rank"
+        (let [result (validation/validate-play state 1 [(cards/make-card :clubs "J")])]
+          (is (:valid? result) "Any card should be playable on a starting Ace")))
+      (testing "7 diamonds on A hearts - different suit and rank"
+        (let [result (validation/validate-play state 1 [(cards/make-card :diamonds "7")])]
+          (is (:valid? result) "Any card should be playable on a starting Ace")))
+      (testing "4 spades on A hearts - different suit and rank"
+        (let [result (validation/validate-play state 1 [(cards/make-card :spades "4")])]
+          (is (:valid? result) "Any card should be playable on a starting Ace")))))
+
+  (testing "ace with action-suit still enforces suit matching"
+    (let [state {:status :live
+                 :players [{:id 1 :name "Alice" :status :normal}
+                           {:id 2 :name "Bob" :status :normal}]
+                 :current-player-index 0 :direction :clockwise
+                 :zones {:deck [(cards/make-card :spades "10")]
+                         :played-stack [(cards/make-card :hearts "A")]
+                         :hands {1 [(cards/make-card :clubs "J")]
+                                 2 [(cards/make-card :diamonds "5")]}}
+                 :effects [{:type :suit-selected :suit :diamonds}]}]
+      (let [result (validation/validate-play state 1 [(cards/make-card :clubs "J")])]
+        (is (not (:valid? result)) "With action-suit set, suit must match")))))
