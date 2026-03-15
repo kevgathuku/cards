@@ -415,7 +415,7 @@
               ;; Penalty active: show accept-penalty button next to deck
               has-penalty?
               [:form.mt-1 {:method "post" :action (str "/games/" (:short_code game) "/accept-penalty")}
-               [:button.btn.btn-secondary {:type "submit"}
+               [:button.btn.btn-danger {:type "submit"}
                 (str "Accept Penalty (Draw " penalty-draw-count ")")]]
 
               ;; Awaiting answer: draw to answer
@@ -442,21 +442,24 @@
                     "ℹ️"]]])
                [:button.btn.btn-secondary {:type "submit"} "Draw Card"]]))]]]
 
-       [:div.card
-        [:h3 "Players"]
-        [:ul.game-list
-         (for [[idx p] (map-indexed vector players)]
-           (let [is-current (= idx current-player-idx)
-                 is-kadi (= :kadi (:status p))
-                 is-cardless (= :cardless (:status p))]
-             [:li {:class (str (when is-current "player-current")
-                               (when is-cardless " player-warning"))}
-              [:span (str (:name p) " - " (count (game/get-hand state (:id p))) " cards"
-                          (when is-current " (current turn)"))]
+       [:div.player-cards
+        (for [[idx p] (map-indexed vector players)]
+          (let [is-current (= idx current-player-idx)
+                is-kadi (= :kadi (:status p))
+                is-me (= (:id p) (:id player))
+                hand-count (count (game/get-hand state (:id p)))
+                initial (-> (:name p) first str clojure.string/upper-case)]
+            [:div {:class (str "player-card"
+                               (when is-current " player-card--active")
+                               (when is-kadi " player-card--kadi"))}
+             [:div.player-card__avatar initial]
+             [:div.player-card__name (:name p)]
+             [:div.player-card__count (str hand-count)]
+             [:div.player-card__pills
               (when is-kadi
-                [:span.player-badge.kadi "KADI"])
-              (when is-cardless
-                [:span.player-badge.cardless "CARDLESS"])]))]]
+                [:span.player-pill.player-pill--kadi "Kadi"])
+              (when (and is-current is-me)
+                [:span.player-pill.player-pill--turn "your turn"])]]))]
 
        (when my-player
          [:div.card {:id "my-hand"}

@@ -2,6 +2,61 @@
    Kadi Card Game Styles
    ============================================================================= */
 
+:root {
+  /* --- Primary: blue, used for actions, links, active states --- */
+  --primary:          #2563eb;
+  --primary-hover:    #1d4ed8;
+  --primary-light:    #e0f2fe;
+  --primary-ring:     rgba(37, 99, 235, 0.2);
+
+  /* --- Secondary: gray, used for passive actions, borders, muted text --- */
+  --secondary:        #e5e7eb;
+  --secondary-hover:  #d1d5db;
+  --secondary-text:   #374151;
+  --secondary-muted:  #6b7280;
+
+  /* --- Tertiary: amber/yellow, used for warnings, kadi declarations --- */
+  --tertiary:         #f59e0b;
+  --tertiary-light:   #fef3c7;
+  --tertiary-border:  #fbbf24;
+  --tertiary-text:    #92400e;
+  --tertiary-dark:    #78350f;
+
+  /* --- Danger: red, used for errors, penalties, destructive actions --- */
+  --danger:           #dc2626;
+  --danger-hover:     #b91c1c;
+  --danger-dark:      #991b1b;
+  --danger-light:     #fee2e2;
+
+  /* --- Success: green, used for wins, current player --- */
+  --success:          #10b981;
+  --success-dark:     #059669;
+  --success-darker:   #047857;
+  --success-text:     #166534;
+  --success-light:    #d1fae5;
+
+  /* --- Info: light blue, used for informational banners --- */
+  --info-light:       #eff6ff;
+  --info-border:      #bfdbfe;
+  --info:             #3b82f6;
+  --info-bg:          #dbeafe;
+  --info-text:        #0369a1;
+  --info-bg-light:    #e0f2fe;
+
+  /* --- Neutral: grays for text, borders, backgrounds --- */
+  --neutral-50:       #f3f4f6;
+  --neutral-100:      #e5e7eb;
+  --neutral-300:      #d1d5db;
+  --neutral-500:      #6b7280;
+  --neutral-700:      #374151;
+  --neutral-900:      #1f2937;
+  --neutral-card:     #333;
+
+  /* --- Card suit colors --- */
+  --suit-red:         #dc2626;
+  --suit-black:       #1f2937;
+}
+
 /* --- Reset & Base --- */
 * { box-sizing: border-box; }
 
@@ -14,8 +69,8 @@ body {
 
 /* --- Flash Messages --- */
 .flash { padding: 0.75rem 1rem; margin-bottom: 1rem; border-radius: 4px; }
-.flash-info { background: #e0f2fe; color: #0369a1; }
-.flash-error { background: #fee2e2; color: #dc2626; }
+.flash-info { background: var(--info-bg-light); color: var(--info-text); }
+.flash-error { background: var(--danger-light); color: var(--danger); }
 
 /* --- Buttons --- */
 .btn {
@@ -27,10 +82,10 @@ body {
   text-decoration: none;
   font-size: 1rem;
 }
-.btn-primary { background: #2563eb; color: white; }
-.btn-primary:hover { background: #1d4ed8; }
-.btn-secondary { background: #e5e7eb; color: #374151; }
-.btn-secondary:hover { background: #d1d5db; }
+.btn-primary { background: var(--primary); color: white; }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-secondary { background: var(--secondary); color: var(--secondary-text); }
+.btn-secondary:hover { background: var(--secondary-hover); }
 
 .btn-action {
   width: 100%;
@@ -39,10 +94,18 @@ body {
   font-weight: 600;
 }
 
+.btn-danger {
+  background: var(--danger);
+  color: white;
+  font-weight: 600;
+  padding: 0.625rem 1.25rem;
+}
+.btn-danger:hover { background: var(--danger-hover); }
+
 /* --- Forms --- */
 input[type=email], input[type=text] {
   padding: 0.5rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--neutral-300);
   border-radius: 4px;
   font-size: 1rem;
   width: 100%;
@@ -52,7 +115,7 @@ label { display: block; margin-bottom: 0.25rem; font-weight: 500; }
 
 /* --- Card (container) --- */
 .card {
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--neutral-100);
   border-radius: 8px;
   padding: 1.5rem;
   margin-bottom: 1rem;
@@ -65,16 +128,16 @@ nav {
   justify-content: space-between;
   align-items: center;
   padding: 1rem 0;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--neutral-100);
   margin-bottom: 1.5rem;
 }
-nav a { text-decoration: none; color: #2563eb; }
+nav a { text-decoration: none; color: var(--primary); }
 
 /* --- Game List --- */
 .game-list { list-style: none; padding: 0; }
 .game-list li {
   padding: 0.75rem;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--neutral-100);
   border-radius: 4px;
   margin-bottom: 0.5rem;
 }
@@ -85,7 +148,7 @@ nav a { text-decoration: none; color: #2563eb; }
 .playing-card {
   width: 60px;
   height: 84px;
-  border: 2px solid #333;
+  border: 2px solid var(--neutral-card);
   border-radius: 4px;
   display: flex;
   align-items: center;
@@ -97,32 +160,32 @@ nav a { text-decoration: none; color: #2563eb; }
 }
 .playing-card:hover {
   transform: translateY(-4px);
-  border-color: #6b7280;
+  border-color: var(--neutral-500);
 }
 .playing-card.selected,
 input:checked + .playing-card {
   transform: translateY(-8px);
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
-  background: #e0f2fe;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-ring);
+  background: var(--primary-light);
 }
-.playing-card.hearts, .playing-card.diamonds { color: #dc2626; }
-.playing-card.clubs, .playing-card.spades { color: #1f2937; }
+.playing-card.hearts, .playing-card.diamonds { color: var(--suit-red); }
+.playing-card.clubs, .playing-card.spades { color: var(--suit-black); }
 
 /* --- Top Card (larger) --- */
 .top-card {
   width: 100px;
   height: 140px;
   font-size: 2rem;
-  border: 3px solid #333;
+  border: 3px solid var(--neutral-card);
   border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: white;
 }
-.top-card.hearts, .top-card.diamonds { color: #dc2626; }
-.top-card.clubs, .top-card.spades { color: #1f2937; }
+.top-card.hearts, .top-card.diamonds { color: var(--suit-red); }
+.top-card.clubs, .top-card.spades { color: var(--suit-black); }
 
 /* --- HTMX Indicators --- */
 .htmx-indicator { display: none; }
@@ -135,7 +198,7 @@ input:checked + .playing-card {
    ============================================================================= */
 
 .game-content.is-active-turn {
-  border-left: 4px solid #2563eb;
+  border-left: 4px solid var(--primary);
   padding-left: 0.5rem;
 }
 
@@ -146,7 +209,7 @@ input:checked + .playing-card {
 
 .waiting-label {
   text-align: center;
-  color: #6b7280;
+  color: var(--neutral-500);
   font-size: 1rem;
   padding: 0.5rem 0;
 }
@@ -154,7 +217,7 @@ input:checked + .playing-card {
 /* --- Your Turn Indicator --- */
 .your-turn {
   font-size: 1.25rem;
-  color: #2563eb;
+  color: var(--primary);
   font-weight: 700;
   animation: pulse 2s infinite;
 }
@@ -165,32 +228,104 @@ input:checked + .playing-card {
 }
 
 /* =============================================================================
-   Player List Styles
+   Player Cards
    ============================================================================= */
 
-.player-current {
-  background: #166534;
+.player-cards {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.player-card {
+  flex: 1;
+  border: 2px solid var(--neutral-100);
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: white;
+}
+
+.player-card--active {
+  background: var(--success-text);
+  border-color: var(--success-darker);
   color: white;
-  border-radius: 4px;
-  font-weight: bold;
 }
 
-.player-warning {
-  background: #fffbeb;
-  border-color: #f59e0b;
+.player-card--kadi {
+  background: var(--tertiary-light);
+  border-color: var(--tertiary);
 }
 
-.player-badge {
+/* Active + Kadi combined: kadi amber bg with active green border */
+.player-card--active.player-card--kadi {
+  background: var(--tertiary-light);
+  border-color: var(--success-darker);
+  color: var(--neutral-900);
+}
+
+.player-card__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 0.375rem;
+  background: var(--neutral-100);
+  color: var(--neutral-700);
+}
+.player-card--active .player-card__avatar {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+.player-card--kadi .player-card__avatar {
+  background: var(--tertiary-border);
+  color: var(--tertiary-text);
+}
+
+.player-card__name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 0.125rem;
+}
+
+.player-card__count {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.player-card__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: 0.375rem;
+  min-height: 1.375rem; /* Reserve space so cards don't shift */
+}
+
+.player-pill {
   display: inline-block;
   font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
+  font-weight: 600;
   padding: 0.125rem 0.5rem;
-  border-radius: 9999px;
-  margin-left: 0.5rem;
+  border-radius: 4px;
 }
-.player-badge.kadi { background: #fef3c7; color: #92400e; }
-.player-badge.cardless { background: #fee2e2; color: #991b1b; }
+
+.player-pill--turn {
+  background: rgba(255, 255, 255, 0.25);
+  color: white;
+}
+.player-card--kadi .player-pill--turn {
+  background: var(--success-text);
+  color: white;
+}
+
+.player-pill--kadi {
+  background: var(--tertiary-border);
+  color: var(--tertiary-text);
+}
 
 /* =============================================================================
    Effect Banners
@@ -201,11 +336,19 @@ input:checked + .playing-card {
   border-radius: 4px;
   margin-bottom: 0.5rem;
 }
-.effect-banner.penalty { background: #fee2e2; border: 1px solid #dc2626; }
-.effect-banner.select-suit { background: #fef3c7; border: 1px solid #fbbf24; }
-.effect-banner.suit-selected { background: #dbeafe; border: 1px solid #3b82f6; }
-.effect-banner.awaiting-answer { background: #eff6ff; border: 1px solid #bfdbfe; }
-.effect-banner.cardless-warning { background: #fee2e2; border: 1px solid #dc2626; color: #991b1b; }
+.effect-banner.penalty {
+  background: linear-gradient(135deg, var(--danger) 0%, var(--danger-hover) 100%);
+  border: 2px solid var(--danger-dark);
+  color: white;
+  font-weight: 600;
+  font-size: 1.05rem;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 2px 8px var(--primary-ring);
+}
+.effect-banner.select-suit { background: var(--tertiary-light); border: 1px solid var(--tertiary-border); }
+.effect-banner.suit-selected { background: var(--info-bg); border: 1px solid var(--info); }
+.effect-banner.awaiting-answer { background: var(--info-light); border: 1px solid var(--info-border); }
+.effect-banner.cardless-warning { background: var(--danger-light); border: 1px solid var(--danger); color: var(--danger-dark); }
 
 /* =============================================================================
    Declare Kadi Toggle
@@ -214,8 +357,8 @@ input:checked + .playing-card {
 .kadi-section {
   margin-top: 1rem;
   padding: 0.75rem;
-  background: #fef3c7;
-  border: 1px solid #fbbf24;
+  background: var(--tertiary-light);
+  border: 1px solid var(--tertiary-border);
   border-radius: 4px;
 }
 
@@ -234,7 +377,7 @@ input:checked + .playing-card {
   position: relative;
   width: 44px;
   height: 24px;
-  background: #d1d5db;
+  background: var(--neutral-300);
   border-radius: 12px;
   transition: background 0.2s;
   flex-shrink: 0;
@@ -253,7 +396,7 @@ input:checked + .playing-card {
 }
 
 .kadi-toggle input:checked + .toggle-slider {
-  background: #f59e0b;
+  background: var(--tertiary);
 }
 
 .kadi-toggle input:checked + .toggle-slider::after {
@@ -266,13 +409,13 @@ input:checked + .playing-card {
 
 .kadi-toggle-help {
   font-size: 0.875rem;
-  color: #78350f;
+  color: var(--tertiary-dark);
 }
 
 /* --- Maintain Kadi Section (draw form) --- */
 .maintain-kadi-section {
-  background: #fef3c7;
-  border: 1px solid #fbbf24;
+  background: var(--tertiary-light);
+  border: 1px solid var(--tertiary-border);
   padding: 0.75rem;
   border-radius: 4px;
   margin-bottom: 0.5rem;
@@ -283,8 +426,8 @@ input:checked + .playing-card {
    ============================================================================= */
 
 .game-finished-banner {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  border: 2px solid #047857;
+  background: linear-gradient(135deg, var(--success) 0%, var(--success-dark) 100%);
+  border: 2px solid var(--success-darker);
   padding: 1.5rem;
   border-radius: 0.5rem;
   margin-bottom: 1rem;
@@ -298,12 +441,12 @@ input:checked + .playing-card {
 }
 .game-finished-banner p {
   font-size: 1.125rem;
-  color: #d1fae5;
+  color: var(--success-light);
   margin: 0 0 1rem 0;
 }
 .game-finished-banner .btn {
   background: white;
-  color: #047857;
+  color: var(--success-darker);
   font-weight: 600;
 }
 
@@ -329,7 +472,7 @@ input:checked + .playing-card {
 
 /* --- Game Code Display --- */
 .game-code {
-  background: #f3f4f6;
+  background: var(--neutral-50);
   padding: 1rem;
   border-radius: 4px;
   text-align: center;
