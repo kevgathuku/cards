@@ -7,6 +7,7 @@ services:
       - kadi-data:/app/data
     environment:
       - DATABASE_PATH=data/kadi.db
+      - SESSION_SECRET=kadi-local-dev-session-key
 
 volumes:
   kadi-data:
