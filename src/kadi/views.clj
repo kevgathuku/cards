@@ -453,6 +453,11 @@
                [:button.btn.btn-secondary {:type "submit"}
                 (str "Accept Penalty (Draw " penalty-draw-count ")")]]
 
+              ;; Awaiting answer: draw to answer
+              (and has-awaiting-answer? (not= :cardless (:status my-player)))
+              [:form {:method "post" :action (str "/games/" (:short_code game) "/answer-question") :style "margin-top: 0.5rem;"}
+               [:button.btn.btn-primary {:type "submit"} "Draw to Answer"]]
+
               ;; Cardless (no penalty): MUST draw
               (= :cardless (:status my-player))
               [:form {:method "post" :action (str "/games/" (:short_code game) "/draw") :id "draw-form" :style "margin-top: 0.5rem;"}
@@ -549,12 +554,6 @@
               ;; Suit selection: only for non-cardless players
               (and has-select-suit? (not= :cardless (:status my-player)))
               (suit-picker (:short_code game))
-
-              ;; Awaiting answer: only for non-cardless players
-              (and has-awaiting-answer? (not= :cardless (:status my-player)))
-              [:form {:method "post" :action (str "/games/" (:short_code game) "/answer-question")
-                      :style "margin-top: 1rem;"}
-               [:button.btn.btn-primary {:type "submit"} "Draw to Answer"]]
 
               :else nil))])]))))
 
